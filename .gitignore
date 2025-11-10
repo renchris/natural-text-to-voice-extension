@@ -1,0 +1,35 @@
+# Swift build artifacts
+native-helper/.build/
+native-helper/*.swiftpm
+.DS_Store
+
+# Python virtual environment
+native-helper/Sources/NaturalTTSHelper/Resources/python-env/
+phase0-validation/venv/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# Temporary test files
+/tmp/
+
+# GGUF model files and build artifacts (phase0-validation)
+phase0-validation/TTS.cpp/build/
+phase0-validation/TTS.cpp/py-gguf/__pycache__/
+*.gguf
+
+# macOS
+*.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
