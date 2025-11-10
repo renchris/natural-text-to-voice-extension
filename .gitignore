@@ -1,0 +1,178 @@
+# Natural Text-to-Voice Extension - Git Ignore
+# Excludes large files, build artifacts, and sensitive data
+
+# ==================== Model Weights & Large Files ====================
+# Downloaded models (3.5GB+)
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.gguf
+*.gguf.json
+
+# HuggingFace cache
+.cache/
+.huggingface/
+
+# ==================== Python ====================
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+.Python
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# ==================== Build Artifacts ====================
+# CMake
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Compiled binaries
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+*.app
+
+# TTS.cpp specific
+TTS.cpp/build/
+TTS.cpp/*.gguf
+TTS.cpp/models/
+
+# ==================== IDE & Editors ====================
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains (PyCharm, CLion, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Vim
+*.swp
+*.swo
+*~
+.*.sw[a-p]
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ==================== OS Files ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+.Trash-*
+
+# ==================== Logs & Temporary Files ====================
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# npm/node (if used for extension build)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== Environment Files ====================
+.env
+.env.local
+.env.*.local
+
+# ==================== Testing ====================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ==================== Documentation Build ====================
+docs/_build/
+site/
+
+# ==================== Miscellaneous ====================
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.hypothesis/
+
+# Translations
+*.mo
+*.pot

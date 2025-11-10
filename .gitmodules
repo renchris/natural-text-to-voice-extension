@@ -1,0 +1,3 @@
+[submodule "TTS.cpp"]
+	path = TTS.cpp
+	url = https://github.com/mmwillet/TTS.cpp.git
