@@ -49,5 +49,5 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/YOUR_USERNAME/natural-text-to-voice-extension/compare/v0.0.0...HEAD
-[0.0.0]: https://github.com/YOUR_USERNAME/natural-text-to-voice-extension/releases/tag/v0.0.0
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v0.0.0...HEAD
+[0.0.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v0.0.0
