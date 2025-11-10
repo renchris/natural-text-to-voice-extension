@@ -1,0 +1,56 @@
+{
+  "short": [
+    "Hello world!",
+    "The quick brown fox jumps over the lazy dog.",
+    "Metal GPU acceleration makes this really fast.",
+    "Welcome to Natural TTS Helper!",
+    "This is a test of the text-to-speech system."
+  ],
+  "medium": [
+    "The Natural TTS Helper uses MLX Kokoro-82M to generate speech on Apple Silicon with Metal GPU acceleration.",
+    "Text-to-speech technology has evolved dramatically, enabling more natural and expressive synthetic voices than ever before.",
+    "Apple's MLX framework brings powerful machine learning capabilities to Mac developers, leveraging the Metal Performance Shaders architecture.",
+    "Real-time factor measures how fast audio generation is compared to playback time. A factor of eight means generating audio eight times faster than real-time."
+  ],
+  "long": [
+    "The development of modern text-to-speech systems has revolutionized how we interact with technology, enabling natural-sounding voices that can convey emotion and nuance with remarkable accuracy and speed. These advances have opened new possibilities for accessibility, content creation, and human-computer interaction.",
+    "Machine learning models have grown increasingly sophisticated, capable of understanding context, inflection, and even emotional tone in text. By training on vast datasets of human speech, these systems can now produce audio that is nearly indistinguishable from natural human voices in many contexts.",
+    "The Metal Performance Shaders framework provides developers with highly optimized graphics and compute functionality, enabling incredible performance on Apple Silicon. Combined with the MLX machine learning framework, developers can now build applications that leverage the full power of the Neural Engine and GPU for real-time inference."
+  ],
+  "creative": {
+    "poetry": [
+      "Two roads diverged in a yellow wood, and sorry I could not travel both. And be one traveler, long I stood, and looked down one as far as I could, to where it bent in the undergrowth.",
+      "Shall I compare thee to a summer's day? Thou art more lovely and more temperate. Rough winds do shake the darling buds of May, and summer's lease hath all too short a date."
+    ],
+    "dialogue": [
+      {
+        "speaker": "af_bella",
+        "text": "Hello! I'm Bella. How can I help you today?"
+      },
+      {
+        "speaker": "am_adam",
+        "text": "Hi Bella! I was wondering if you could tell me about the Natural TTS Helper."
+      },
+      {
+        "speaker": "af_bella",
+        "text": "Of course! The Natural TTS Helper uses Metal GPU acceleration to generate speech incredibly quickly. It achieves over eight times real-time factor!"
+      },
+      {
+        "speaker": "am_adam",
+        "text": "That's impressive! And it all runs locally on my Mac?"
+      },
+      {
+        "speaker": "af_bella",
+        "text": "Exactly! Everything happens on your device, so your data never leaves your computer."
+      }
+    ],
+    "technical": [
+      "The Kokoro-82M model is an eighty-two million parameter transformer-based text-to-speech system optimized for the MLX framework. It uses attention mechanisms to generate mel-spectrograms, which are then converted to waveforms using a neural vocoder.",
+      "Real-time factor, or RTF, is calculated by dividing the audio duration by the generation time. An RTF of 8.3x means that 1.57 seconds of audio is generated in just 0.18 seconds. This performance is achieved through Metal GPU acceleration and efficient model caching."
+    ],
+    "storytelling": [
+      "Once upon a time, in a land where technology and magic were one, there lived a voice synthesizer powered by the essence of Metal itself. It could speak faster than any human, yet with the warmth and nuance of natural speech.",
+      "The old lighthouse keeper had heard many storms in his fifty years by the sea, but none quite like this. The wind howled with a voice that seemed almost human, as if the very air itself was trying to tell a story."
+    ]
+  }
+}

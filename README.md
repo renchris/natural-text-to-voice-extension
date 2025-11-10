@@ -2,22 +2,75 @@
 
 **Local, privacy-first text-to-speech Chrome extension using WebGPU and Metal acceleration**
 
+[![Status](https://img.shields.io/badge/Phase%201-Complete%20%E2%9C%85-success)]()
+[![Performance](https://img.shields.io/badge/RTF-8.3x%20(short)%20%7C%2025x%20(long)-brightgreen)](native-helper/TEST_RESULTS_OPTIMIZED.md)
+[![Phase](https://img.shields.io/badge/Next-Phase%202%20(Chrome%20Extension)-blue)]()
+
 ---
 
 ## Project Overview
 
-A Chrome Manifest V3 extension providing natural text-to-speech with two offline engines:
-- **Kokoro** (WebGPU): In-browser, zero-install, fast startup
-- **Parler-TTS Mini** (Native helper): Higher realism, Metal-accelerated on Apple Silicon
+A Chrome Manifest V3 extension providing natural text-to-speech with **production-ready native Metal acceleration** on Apple Silicon.
+
+**Current Implementation**:
+- **Kokoro-82M** (Native helper): MLX Metal-accelerated, 8.3x-25x real-time factor
+  - Status: ✅ **Production Ready**
+  - Performance: Far exceeds 2.5x target
+  - Reliability: 100% (20/20 requests, zero crashes)
 
 **Privacy guarantee**: All processing happens locally. No data leaves your machine.
 
 ---
 
-## Phase 0: Pipeline Validation (COMPLETED)
+## Project Status
+
+| Phase | Status | Description | Performance |
+|-------|--------|-------------|-------------|
+| **Phase 0** | ✅ Complete | TTS.cpp validation (failed, see below) | N/A |
+| **Phase 1** | ✅ Complete | Native helper with MLX Kokoro-82M | **8.3x-25x RTF** |
+| **Phase 2** | 🔄 In Progress | Chrome extension development | TBD |
+| **Phase 3** | ⏸️ Planned | WebGPU in-browser fallback | TBD |
+
+---
+
+## Phase 1: Native Helper (COMPLETE ✅)
+
+### Objective
+Build a production-ready native macOS helper with Metal-accelerated TTS achieving ≥2.5x real-time factor.
+
+### Implementation
+
+**Architecture**:
+- **Swift HTTP Server** (SwiftNIO) on localhost:random-port
+- **Python MLX Worker** subprocess with Kokoro-82M
+- **Communication**: Length-prefixed JSON (Native Messaging protocol)
+
+**Optimizations Applied**:
+- Phase 1: Global model caching (eliminates 1-2s reload overhead)
+- Phase 2: In-memory BytesIO WAV generation (eliminates file I/O)
+
+### Results
+
+| Metric | Target | Achieved | Status |
+|--------|--------|----------|--------|
+| **RTF (short text)** | ≥2.5x | **8.3x** | ✅ **3.3x better** |
+| **RTF (long text)** | ≥2.5x | **25x** | ✅ **10x better** |
+| **Reliability** | 100% | 100% (20/20) | ✅ **PASS** |
+| **Audio quality** | Valid WAV | Valid WAV, 24kHz | ✅ **PASS** |
+
+**Status**: ✅ **Production Ready** — Ready for Phase 2 Chrome extension development
+
+**See**: [native-helper/README.md](native-helper/README.md) for full documentation
+
+---
+
+## Phase 0: Pipeline Validation (COMPLETED ⚠️)
 
 ### Objective
 Validate the feasibility of TTS.cpp + Parler Mini v1.1 as the native Metal-accelerated backend for high-quality local TTS.
+
+### Outcome
+**BLOCKER**: TTS.cpp GGUF conversion incompatible with Parler v1.1 — **pivoted to MLX Kokoro**
 
 ### What Was Tested
 
@@ -102,18 +155,35 @@ ValueError: Part model.0.parametrizations.weight.original0 is not in DAC_ENCODER
 ## Repository Structure
 
 ```
-phase0-validation/
-├── README.md                  # This file
-├── CHANGELOG.md               # Version history
-├── TTS.cpp/                   # [SUBMODULE] mmwillet/TTS.cpp
-│   ├── build/                 # [IGNORED] Compiled binaries
-│   ├── src/                   # C++ source
-│   ├── py-gguf/               # GGUF conversion scripts
-│   └── CMakeLists.txt
-├── models/                    # [IGNORED] Downloaded model weights
-│   └── parler-mini-v1.1/      # 3.5GB (excluded from git)
-└── venv/                      # [IGNORED] Python environment
+natural-text-to-voice-extension/
+├── README.md                           # This file (project overview)
+├── .gitignore                          # Excludes build artifacts, models
+│
+├── native-helper/                      # Phase 1: Production-ready helper ✅
+│   ├── README.md                       # Full documentation (878 lines)
+│   ├── QUICKSTART.md                   # 5-minute setup guide
+│   ├── TESTING_GUIDE.md                # Comprehensive test workflows
+│   ├── TEST_RESULTS_OPTIMIZED.md       # Phase 1 & 2 validation results
+│   ├── Package.swift                   # Swift Package Manager config
+│   ├── Sources/
+│   │   └── NaturalTTSHelper/
+│   │       ├── main.swift              # Entry point
+│   │       ├── HTTPServer.swift        # SwiftNIO HTTP server
+│   │       ├── PythonWorker.swift      # Subprocess manager
+│   │       ├── Config.swift            # Configuration
+│   │       ├── Models.swift            # Data models
+│   │       └── Resources/
+│   │           ├── tts_worker.py       # Python MLX worker (optimized)
+│   │           └── python-env/         # [IGNORED] Python venv
+│   ├── Scripts/
+│   │   └── setup-python-env.sh         # Python setup script
+│   └── Tests/
+│
+└── chrome-extension/                   # Phase 2: Coming soon
+    └── (TBD)
 ```
+
+**Note**: Phase 0 validation directory (`phase0-validation/`) has been removed. The TTS.cpp + Parler approach was abandoned due to GGUF conversion incompatibility. The project successfully pivoted to MLX Kokoro-82M (Phase 1 complete).
 
 ---
 
@@ -172,12 +242,87 @@ Based on TTS.cpp documentation and research, **expected** performance on Apple S
 
 ---
 
+---
+
+## Phase 2: Chrome Extension (IN PROGRESS 🔄)
+
+### Objective
+Build a Chrome Manifest V3 extension that integrates with the production-ready native helper.
+
+### Planned Features
+
+**Core Functionality**:
+- [ ] Native Messaging client for IPC with helper
+- [ ] Text selection context menu ("Read aloud")
+- [ ] Popup UI for voice selection and settings
+- [ ] Audio playback controls (play, pause, stop)
+- [ ] Keyboard shortcuts for quick access
+
+**Extension Architecture**:
+- **Background Service Worker**: Native Messaging communication
+- **Content Scripts**: Text selection and injection
+- **Popup**: Voice settings and controls
+- **Options Page**: Configuration (port, voice, speed)
+
+**Testing**:
+- [ ] Extension loads and connects to helper
+- [ ] Text selection triggers TTS
+- [ ] Voice selection works
+- [ ] Audio plays correctly
+- [ ] Native Messaging handshake succeeds
+
+**Timeline**: TBD (now that Phase 1 is complete)
+
+---
+
+## Getting Started
+
+### For Local Usage (Native Helper Only)
+
+See [native-helper/QUICKSTART.md](native-helper/QUICKSTART.md) for a 5-minute setup guide.
+
+**Quick start**:
+```bash
+# 1. Install espeak-ng
+brew install espeak-ng
+
+# 2. Setup Python environment
+cd native-helper
+./Scripts/setup-python-env.sh
+
+# 3. Build and run
+swift build -c release
+.build/release/natural-tts-helper
+```
+
+**Performance**: 8.3x RTF (short text), 25x RTF (long text)
+
+### For Chrome Extension Development
+
+Coming soon (Phase 2)
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [native-helper/README.md](native-helper/README.md) | Full native helper documentation |
+| [native-helper/QUICKSTART.md](native-helper/QUICKSTART.md) | 5-minute setup guide |
+| [native-helper/TESTING_GUIDE.md](native-helper/TESTING_GUIDE.md) | Comprehensive testing workflows |
+| [native-helper/TEST_RESULTS_OPTIMIZED.md](native-helper/TEST_RESULTS_OPTIMIZED.md) | Phase 1 & 2 performance validation |
+
+---
+
 ## Next Steps
 
-1. **Decision Point**: Choose Option A, B, C, or D (see Recommendations)
-2. **If Option A/B**: Implement helper prototype (Rust or Swift)
-3. **If Option C**: Monitor TTS.cpp; pivot if no progress in 2-4 weeks
-4. **If Option D**: Begin Kokoro WebGPU integration for MVP
+1. ✅ **Phase 1 Complete**: Native helper production-ready (8.3x-25x RTF)
+2. 🔄 **Phase 2 Begin**: Chrome extension development
+   - Implement Native Messaging client
+   - Create popup UI for voice selection
+   - Add content scripts for text selection
+   - Integrate with helper HTTP API
+3. ⏸️ **Phase 3 Future**: WebGPU in-browser fallback (optional)
 
 ---
 
@@ -204,6 +349,11 @@ When distributing:
 
 ---
 
-**Status**: ⚠️ Phase 0 incomplete - GGUF conversion blocker
-**Last Updated**: 2025-11-09
-**Hardware**: Apple Silicon (M1/M2/M3)
+**Project Status**:
+- ✅ **Phase 1 Complete**: Native helper production-ready (8.3x-25x RTF)
+- 🔄 **Phase 2 In Progress**: Chrome extension development
+- 🎯 **Current Version**: v0.2.0
+
+**Last Updated**: 2025-11-10
+**Hardware**: Apple Silicon (M1/M2/M3/M4)
+**Performance**: 8.3x RTF (short text) | 25x RTF (long text)

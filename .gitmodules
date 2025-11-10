@@ -1,3 +1,0 @@
-[submodule "phase0-validation/TTS.cpp"]
-	path = phase0-validation/TTS.cpp
-	url = https://github.com/synesthesiam/TTS.cpp.git

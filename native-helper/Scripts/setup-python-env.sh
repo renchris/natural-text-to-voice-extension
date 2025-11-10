@@ -1,12 +1,27 @@
 #!/bin/bash
 # Setup Python environment for Natural TTS Helper
 # This script creates a virtual environment with MLX dependencies
+#
+# Usage:
+#   ./setup-python-env.sh          # Interactive mode
+#   ./setup-python-env.sh --force  # Auto-skip if venv exists
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 VENV_DIR="$PROJECT_ROOT/Sources/NaturalTTSHelper/Resources/python-env"
+
+# Parse arguments
+FORCE_MODE=false
+for arg in "$@"; do
+    case $arg in
+        --force|-f)
+            FORCE_MODE=true
+            shift
+            ;;
+    esac
+done
 
 echo "==================================="
 echo "Natural TTS Helper - Python Setup"
@@ -30,14 +45,19 @@ echo "  $VENV_DIR"
 echo
 
 if [ -d "$VENV_DIR" ]; then
-    echo "Warning: Virtual environment already exists"
-    read -p "Remove and recreate? (y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$VENV_DIR"
-    else
-        echo "Using existing environment"
+    if [ "$FORCE_MODE" = true ]; then
+        echo "✓ Virtual environment already exists (--force mode, skipping)"
         exit 0
+    else
+        echo "Warning: Virtual environment already exists"
+        read -p "Remove and recreate? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rm -rf "$VENV_DIR"
+        else
+            echo "Using existing environment"
+            exit 0
+        fi
     fi
 fi
 

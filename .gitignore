@@ -23,6 +23,8 @@ env/
 ENV/
 .venv
 .Python
+python-env/
+.python-env/
 
 # Python bytecode and caches
 __pycache__/
@@ -78,6 +80,12 @@ _deps/
 TTS.cpp/build/
 TTS.cpp/*.gguf
 TTS.cpp/models/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+*.swiftdeps
+*.dia
 
 # ==================== IDE & Editors ====================
 # VSCode
