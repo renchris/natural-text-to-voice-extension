@@ -1,4 +1,47 @@
 /**
- * Content Script Styles (Phase 2.4 - placeholder)
- * TODO: Implement in Phase 2.4
+ * Content Script Styles (Phase 2.4/2.5)
+ * Visual feedback for text selection
  */
+
+/**
+ * Selection feedback overlay
+ * Shows a brief highlight animation when text is selected
+ */
+.natural-tts-selection-feedback {
+  /* Animation */
+  animation: natural-tts-pulse 0.6s ease-out forwards;
+
+  /* Colors */
+  background-color: rgba(59, 130, 246, 0.2); /* Blue-500 with transparency */
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+
+  /* Shadow for depth */
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+
+  /* Ensure it doesn't interfere with page interactions */
+  pointer-events: none;
+
+  /* Position overlay correctly */
+  position: fixed;
+  z-index: 2147483647; /* Maximum z-index to appear above everything */
+}
+
+/**
+ * Pulse animation
+ * Fades in quickly, then fades out gradually
+ */
+@keyframes natural-tts-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
