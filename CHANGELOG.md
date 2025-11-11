@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-beta.2] - 2025-11-10
+
+### Added
+- **Phase 2.3: Chrome Extension Popup UI**
+  - Complete popup interface with voice selection dropdown
+  - Speed control slider (0.5x - 2.0x) with live visual feedback
+  - Helper status indicator with animated states (checking/connected/disconnected)
+  - Message system for success/error/warning notifications
+  - Chrome storage integration for preference persistence
+  - Comprehensive error handling with custom error types
+  - ARIA labels and keyboard navigation support
+  - Modern CSS design with animations and transitions
+  - Temporary text input via browser prompt (Phase 2.4 will add content script)
+- **Placeholder Files for Future Phases**
+  - Background service worker placeholder (Phase 2.5)
+  - Content script placeholders (Phase 2.4)
+  - Options page placeholders (Phase 2.6)
+
+### Technical Details
+- **Popup Implementation**: 1015+ lines of production code (HTML/CSS/TS)
+- **State Management**: PopupState interface with voice, speed, helper status tracking
+- **Audio Playback**: Blob URL-based audio player with proper cleanup
+- **Type Safety**: Full TypeScript integration with API client
+- **Bundle Size**: ~21KB total (9.6KB JS minified, 7.8KB CSS, 3.7KB HTML)
+- **Performance**: Fixed 340px width, optimized for fast popup rendering
+
+### Changed
+- Updated `api-client.ts` headers type to `Record<string, string>` for better type safety
+- Updated `vite.config.ts` to include all extension entry points
+
+### Notes
+- This is a **beta release** - Phase 2 is not yet complete
+- Popup UI is fully functional and ready for testing
+- Text selection from webpages will be added in Phase 2.4 (Content Script)
+- Upcoming: Phase 2.4 (Content Script), Phase 2.5 (Background Worker), Phase 2.6 (Options Page)
+
 ## [1.1.0-beta.1] - 2025-11-10
 
 ### Added
@@ -88,6 +124,7 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.1.0-beta.2...HEAD
+[1.1.0-beta.2]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.2
 [1.1.0-beta.1]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.1
 [0.0.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v0.0.0
