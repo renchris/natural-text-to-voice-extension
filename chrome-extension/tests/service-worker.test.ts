@@ -245,7 +245,7 @@ describe('Error Handling', () => {
   });
 
   test('should handle non-Error objects', () => {
-    const error = 'string error';
+    const error: unknown = 'string error';
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     expect(errorMessage).toBe('Unknown error');
@@ -350,7 +350,7 @@ describe('Chrome API Mocking Requirements', () => {
       create: (config: any) => config,
       removeAll: async () => {},
       onClicked: {
-        addListener: (callback: any) => {},
+        addListener: (_callback: any) => {},
       },
     };
 
@@ -362,13 +362,13 @@ describe('Chrome API Mocking Requirements', () => {
   test('should define required chrome.runtime structure', () => {
     const runtime = {
       onInstalled: {
-        addListener: (callback: any) => {},
+        addListener: (_callback: any) => {},
       },
       onStartup: {
-        addListener: (callback: any) => {},
+        addListener: (_callback: any) => {},
       },
-      sendMessage: async (message: any) => {},
-      getContexts: async (filter: any) => [],
+      sendMessage: async (_message: any) => {},
+      getContexts: async (_filter: any) => [],
     };
 
     expect(runtime.onInstalled.addListener).toBeDefined();
@@ -379,7 +379,7 @@ describe('Chrome API Mocking Requirements', () => {
 
   test('should define required chrome.tabs structure', () => {
     const tabs = {
-      sendMessage: async (tabId: number, message: any) => {},
+      sendMessage: async (_tabId: number, _message: any) => {},
     };
 
     expect(tabs.sendMessage).toBeDefined();
@@ -388,8 +388,8 @@ describe('Chrome API Mocking Requirements', () => {
   test('should define required chrome.storage structure', () => {
     const storage = {
       local: {
-        get: async (keys: string[]) => ({}),
-        set: async (items: any) => {},
+        get: async (_keys: string[]) => ({}),
+        set: async (_items: any) => {},
       },
     };
 
@@ -399,7 +399,7 @@ describe('Chrome API Mocking Requirements', () => {
 
   test('should define required chrome.offscreen structure', () => {
     const offscreen = {
-      createDocument: async (config: any) => {},
+      createDocument: async (_config: any) => {},
     };
 
     expect(offscreen.createDocument).toBeDefined();

@@ -3,7 +3,7 @@
  * Validates text selection capture and visual feedback
  */
 
-import { describe, test, expect, mock, beforeEach } from 'bun:test';
+import { describe, test, expect } from 'bun:test';
 import type {
   GetSelectedTextMessage,
   SelectedTextResponse,
@@ -34,10 +34,8 @@ class MockSelection {
 
 // Mock Range API
 class MockRange {
-  private text: string;
-
-  constructor(text: string) {
-    this.text = text;
+  constructor(_text: string) {
+    // Text parameter accepted for API compatibility but not used internally
   }
 
   getBoundingClientRect(): DOMRect {

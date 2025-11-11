@@ -50,7 +50,7 @@ class MockAudio {
 
 // Mock URL.createObjectURL and URL.revokeObjectURL
 const mockObjectURLs = new Set<string>();
-const mockCreateObjectURL = mock((blob: Blob) => {
+const mockCreateObjectURL = mock((_blob: Blob) => {
   const url = `blob:mock-${Math.random()}`;
   mockObjectURLs.add(url);
   return url;
@@ -283,7 +283,7 @@ describe('Audio Playback Logic', () => {
 
 describe('Error Message Formatting', () => {
   test('should format HelperNotFoundError message', () => {
-    const error = new HelperNotFoundError();
+    const error: Error = new HelperNotFoundError();
     const expectedMessage = 'Native helper not found. Please ensure the helper is running.';
 
     // Simulate error handling in offscreen.ts
@@ -295,7 +295,7 @@ describe('Error Message Formatting', () => {
   });
 
   test('should format NetworkTimeoutError message', () => {
-    const error = new NetworkTimeoutError();
+    const error: Error = new NetworkTimeoutError();
     const expectedMessage = 'Request timed out. The helper may be busy or not responding.';
 
     const errorMessage = error instanceof NetworkTimeoutError
@@ -306,7 +306,7 @@ describe('Error Message Formatting', () => {
   });
 
   test('should format InvalidResponseError message', () => {
-    const error = new InvalidResponseError();
+    const error: Error = new InvalidResponseError();
     const expectedMessage = 'Invalid response from helper. Please try again.';
 
     const errorMessage = error instanceof InvalidResponseError
@@ -324,7 +324,7 @@ describe('Error Message Formatting', () => {
   });
 
   test('should handle unknown error type', () => {
-    const error = 'string error';
+    const error: unknown = 'string error';
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
 
     expect(errorMessage).toBe('An unexpected error occurred');

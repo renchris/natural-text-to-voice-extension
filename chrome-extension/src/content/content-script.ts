@@ -6,7 +6,6 @@
  */
 
 import type {
-  GetSelectedTextMessage,
   SelectedTextResponse,
   ContentScriptMessage,
 } from '../shared/types';
@@ -21,7 +20,7 @@ console.log('[Natural TTS] Content script loaded');
  */
 chrome.runtime.onMessage.addListener((
   message: ContentScriptMessage,
-  sender: chrome.runtime.MessageSender,
+  _sender: chrome.runtime.MessageSender,
   sendResponse: (response: SelectedTextResponse) => void
 ): boolean => {
   // Handle GET_SELECTED_TEXT message

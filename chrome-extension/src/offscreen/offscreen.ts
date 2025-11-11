@@ -33,7 +33,7 @@ console.log('[Natural TTS] Offscreen document loaded');
  */
 chrome.runtime.onMessage.addListener((
   message: OffscreenMessage,
-  sender: chrome.runtime.MessageSender,
+  _sender: chrome.runtime.MessageSender,
   sendResponse: (response: OffscreenSpeakResponse) => void
 ): boolean => {
   // Only handle messages from background worker

@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, mock, spyOn } from 'bun:test';
+import { describe, test, expect, beforeEach, mock } from 'bun:test';
 import {
   ApiClient,
   getApiClient,
@@ -6,7 +6,6 @@ import {
 } from '../src/shared/api-client';
 import {
   HelperNotFoundError,
-  NetworkTimeoutError,
   InvalidResponseError,
 } from '../src/shared/types';
 
@@ -49,7 +48,7 @@ describe('ApiClient', () => {
 
     // Default mockFetch to succeed for health checks during config verification
     // Individual tests will override this as needed
-    mockFetch.mockImplementation(async (url: string, options: any) => {
+    mockFetch.mockImplementation(async (url: string, _options: any) => {
       if (url.includes('/health')) {
         return {
           ok: true,
@@ -100,7 +99,7 @@ describe('ApiClient', () => {
     });
 
     test('should throw InvalidResponseError on 404', async () => {
-      mockFetch.mockImplementation(async (url: string) => {
+      mockFetch.mockImplementation(async (_url: string) => {
         // First call is config verification - succeed
         // Second call (actual checkHealth) - fail with 404
         if (mockFetch.mock.calls.length === 1) {
@@ -120,7 +119,7 @@ describe('ApiClient', () => {
     });
 
     test('should throw InvalidResponseError on 500', async () => {
-      mockFetch.mockImplementation(async (url: string) => {
+      mockFetch.mockImplementation(async (_url: string) => {
         // First call is config verification - succeed
         // Second call (actual checkHealth) - fail with 500
         if (mockFetch.mock.calls.length === 1) {
@@ -141,7 +140,7 @@ describe('ApiClient', () => {
 
     test('should retry on network error', async () => {
       let callCount = 0;
-      mockFetch.mockImplementation(async (url: string) => {
+      mockFetch.mockImplementation(async (_url: string) => {
         callCount++;
         // First call: config verification - succeed
         if (callCount === 1) {
@@ -279,7 +278,7 @@ describe('ApiClient', () => {
     test('should use longer timeout for speak requests', async () => {
       const audioBlob = new Blob(['audio data']);
 
-      mockFetch.mockImplementation(async (url, options: any) => {
+      mockFetch.mockImplementation(async (_url, options: any) => {
         // Verify timeout is set (we can't directly check AbortSignal timeout)
         expect(options.signal).toBeDefined();
         return {
