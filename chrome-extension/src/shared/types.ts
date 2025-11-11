@@ -91,3 +91,55 @@ export class InvalidResponseError extends Error {
     this.name = 'InvalidResponseError';
   }
 }
+
+/**
+ * =============================================================================
+ * Extension Message Types (Phase 2.4/2.5)
+ * =============================================================================
+ * Message passing between popup, content script, background, and offscreen
+ */
+
+/**
+ * Messages sent from Popup to Content Script
+ */
+export interface GetSelectedTextMessage {
+  type: 'GET_SELECTED_TEXT';
+}
+
+/**
+ * Response from Content Script to Popup
+ */
+export interface SelectedTextResponse {
+  text: string;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Messages sent from Background to Offscreen Document
+ */
+export interface SpeakInOffscreenMessage {
+  type: 'SPEAK_IN_OFFSCREEN';
+  text: string;
+  voice: string;
+  speed: number;
+}
+
+/**
+ * Response from Offscreen Document to Background
+ */
+export interface OffscreenSpeakResponse {
+  type: 'SPEAK_COMPLETE' | 'SPEAK_ERROR';
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Union type for all content script messages
+ */
+export type ContentScriptMessage = GetSelectedTextMessage;
+
+/**
+ * Union type for all offscreen document messages
+ */
+export type OffscreenMessage = SpeakInOffscreenMessage | OffscreenSpeakResponse;
