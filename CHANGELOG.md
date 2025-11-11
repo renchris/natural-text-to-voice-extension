@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-11-10
+
+### Added
+- **Phase 2.6: Options/Settings Page**
+  - Complete settings page with comprehensive preferences UI
+  - Centralized settings management system (`settings-defaults.ts`)
+  - Voice selection dropdown with 6 voices (Bella, Nicole, Sarah, Sky, Adam, Michael)
+  - Speed control slider (0.5x - 2.0x) with live value display
+  - Auto-play toggle for future features
+  - Helper auto-retry configuration
+  - Save and reset to defaults functionality
+  - Real-time helper status indicator
+  - Settings synchronization across extension contexts
+  - Chrome storage integration with validation
+  - ARIA labels and accessibility support
+- **Settings Infrastructure**
+  - `ExtensionSettings` interface with type safety
+  - `DEFAULT_SETTINGS` constants with sensible defaults
+  - `SETTINGS_CONSTRAINTS` for validation (speed range, valid voices)
+  - `validateSettings()` function with boundary checking
+  - `loadSettings()` and `saveSettings()` async helpers
+  - Settings change listener for live updates
+
+### Fixed
+- **Context Menu Not Working**: Removed autoPlay check that was blocking explicit user actions (right-click → "Speak selected text")
+- **Multi-Sentence TTS Support**: Fixed Python worker to collect all audio chunks from generator instead of just the first sentence
+  - Generator now iterates through all chunks with `for chunk in result_gen`
+  - Audio chunks concatenated with numpy for complete text rendering
+  - Logs show chunk count for debugging (e.g., "Generated 5 audio chunks")
+- **Unicode Text Pronunciation**: Added NFKD normalization to convert styled Unicode characters to ASCII
+  - Handles mathematical monospace (𝚟𝚒𝚝𝚎 → vite), bold, italic variants
+  - `normalize_text()` function with `unicodedata.normalize('NFKD', text)`
+  - Fallback to ASCII-compatible equivalents for better pronunciation
+  - Logs text transformation for debugging
+
+### Changed
+- Updated popup settings button to open options page via `chrome.runtime.openOptionsPage()`
+- Background service worker now uses centralized `loadSettings()` for preference loading
+- Bumped extension version from 1.2.0 to 1.3.0
+
+### Technical Details
+- **Options Page**: 1040+ lines of production code (HTML/CSS/TS)
+- **Settings Management**: Single source of truth with validation layer
+- **Storage**: chrome.storage.local with change event listeners
+- **Type Safety**: Full TypeScript interfaces for settings
+- **Audio Quality**: Multi-sentence support handles 781+ character paragraphs correctly
+- **Unicode Handling**: NFKD normalization in Python worker before TTS generation
+
+### Notes
+- Phase 2.6 completes the extension settings infrastructure
+- All core TTS features now functional (popup, context menu, multi-sentence, Unicode)
+- Ready for production use with Kokoro-82M MLX model
+
 ## [1.1.0-beta.2] - 2025-11-10
 
 ### Added
@@ -124,7 +177,8 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.3.0
 [1.1.0-beta.2]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.2
 [1.1.0-beta.1]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.1
 [0.0.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v0.0.0
