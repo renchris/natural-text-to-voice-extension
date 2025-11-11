@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-beta.1] - 2025-11-10
+
+### Added
+- **Phase 2.2: Chrome Extension Core API Client**
+  - HTTP client for Native TTS Helper API with `/health`, `/voices`, `/speak` endpoints
+  - Auto-discovery system for helper connection (tries ports 8249-8251)
+  - Configuration management with chrome.storage.local caching
+  - Retry logic with exponential backoff (max 2 retries, 500ms base delay)
+  - Custom error types: `HelperNotFoundError`, `ConfigNotFoundError`, `NetworkTimeoutError`, `InvalidResponseError`
+  - Configurable timeouts: 10s for health/voices, 30s for speak
+  - Singleton pattern for efficient client reuse
+- **Testing Infrastructure**
+  - Bun Test framework with happy-dom (13x faster than Jest)
+  - 16 comprehensive unit tests for API client (100% pass rate)
+  - 6 integration tests against live Native TTS Helper
+  - Mock chrome.storage and fetch APIs for isolated testing
+- **Project Structure**
+  - Hybrid Bun + Vite architecture (Vite for dev HMR, Bun for tests & prod builds)
+  - TypeScript 5.x with strict type checking
+  - Manifest V3 configuration with required permissions
+  - Chrome extension icons (16x16, 48x48, 128x128)
+  - Production build pipeline with Bun bundler
+
+### Documentation
+- Comprehensive Phase 2 implementation plan (all 5 subphases)
+- Bun v1.3.0 test validation results
+- GitHub issue references for Bun Test research
+
+### Technical Details
+- **API Client**: Lazy config loading, parameter validation, proper error propagation
+- **Configuration**: Verifies cached config before use, graceful fallback to defaults
+- **Type Safety**: Full TypeScript coverage with strict interfaces
+- **Test Coverage**: 22 unit test assertions, 19 integration test assertions
+
+### Notes
+- This is a **beta release** - Phase 2 is not yet complete
+- Upcoming: Phase 2.3 (Popup UI), Phase 2.4 (Content Script), Phase 2.5 (Background Worker)
+- Full v1.1.0 release will follow after all Phase 2 components complete
+
 ## [0.0.0] - 2025-11-09
 
 ### Added
@@ -49,5 +88,6 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v0.0.0...HEAD
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.1.0-beta.1...HEAD
+[1.1.0-beta.1]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.1
 [0.0.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v0.0.0
