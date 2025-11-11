@@ -1,0 +1,34 @@
+{
+  "name": "natural-tts-chrome-extension",
+  "version": "1.1.0",
+  "description": "Privacy-first TTS Chrome extension with local Metal-accelerated processing",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && bun run build.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "chrome-extension",
+    "text-to-speech",
+    "tts",
+    "privacy",
+    "mlx",
+    "metal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@testing-library/dom": "^10.0.0",
+    "@types/bun": "^1.3.0",
+    "@types/chrome": "^0.0.268",
+    "happy-dom": "^15.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0",
+    "vite-plugin-web-extension": "^4.1.0"
+  },
+  "dependencies": {}
+}
