@@ -26,7 +26,7 @@ let currentAudio: HTMLAudioElement | null = null;
 /**
  * Initialize offscreen document
  */
-console.log('[Natural TTS] Offscreen document loaded');
+console.log('[Offscreen] Document loaded');
 
 /**
  * Listen for messages from background service worker
@@ -36,6 +36,7 @@ chrome.runtime.onMessage.addListener((
   _sender: chrome.runtime.MessageSender,
   sendResponse: (response: OffscreenSpeakResponse) => void
 ): boolean => {
+
   // Only handle messages from background worker
   if (message.type === 'SPEAK_IN_OFFSCREEN') {
     handleSpeakRequest(message)
@@ -150,14 +151,22 @@ async function playAudio(audioBlob: Blob): Promise<void> {
 
       // Handle playback errors
       audio.onerror = () => {
+        console.error('[Offscreen] Audio playback error:', audio.error);
         URL.revokeObjectURL(audioUrl);
         currentAudio = null;
-        reject(new Error('Failed to play audio'));
+        reject(new Error(`Failed to play audio: ${audio.error?.message || 'Unknown error'}`));
       };
 
       // Start playback
-      audio.play().catch(reject);
+      audio.play()
+        .catch((error) => {
+          console.error('[Offscreen] Failed to start audio playback:', error);
+          URL.revokeObjectURL(audioUrl);
+          currentAudio = null;
+          reject(error);
+        });
     } catch (error) {
+      console.error('[Offscreen] Exception in playAudio:', error);
       reject(error);
     }
   });

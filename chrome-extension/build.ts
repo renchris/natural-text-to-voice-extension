@@ -64,5 +64,19 @@ await Bun.build({
 await $`mkdir -p dist/content`;
 await $`cp src/content/content-script.css dist/content/` || true;
 
+// Build offscreen document
+console.log('🎵 Building offscreen document...');
+await Bun.build({
+  entrypoints: ['./src/offscreen/offscreen.ts'],
+  outdir: './dist/offscreen',
+  target: 'browser',
+  minify: true,
+  sourcemap: 'none',
+});
+
+// Copy offscreen HTML
+await $`mkdir -p dist/offscreen`;
+await $`cp src/offscreen/offscreen.html dist/offscreen/`;
+
 console.log('✅ Build complete!');
 console.log('📦 Check dist/ for Chrome extension files');

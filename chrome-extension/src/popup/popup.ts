@@ -3,7 +3,7 @@
  * Handles voice selection, speed control, and speech generation
  */
 
-import { getApiClient } from '../shared/api-client';
+import { getApiClient, resetApiClient } from '../shared/api-client';
 import { Voice, HealthResponse } from '../shared/types';
 import { HelperNotFoundError, NetworkTimeoutError, InvalidResponseError } from '../shared/types';
 import type { GetSelectedTextMessage, SelectedTextResponse } from '../shared/types';
@@ -37,6 +37,7 @@ const elements = {
   statusIndicator: document.getElementById('statusIndicator') as HTMLDivElement,
   messageContainer: document.getElementById('messageContainer') as HTMLDivElement,
   settingsButton: document.getElementById('settingsButton') as HTMLButtonElement,
+  retryButton: document.getElementById('retryButton') as HTMLButtonElement,
 };
 
 // =================================================================================
@@ -84,9 +85,16 @@ async function init(): Promise<void> {
   // Load voices if helper is connected
   if (state.helperStatus === 'connected') {
     await loadVoices();
+    // Hide retry button when connected
+    elements.retryButton.style.display = 'none';
   } else {
-    showMessage('Native helper not running. Please start the helper.', 'error');
+    showMessage('Native helper not running. Please start the helper and click Retry.', 'error');
     elements.speakButton.disabled = true;
+    // Update voice dropdown to show error state
+    elements.voiceSelect.innerHTML = '<option value="">Helper not connected - Start helper to load voices</option>';
+    elements.voiceSelect.disabled = true;
+    // Show retry button when disconnected
+    elements.retryButton.style.display = 'block';
   }
 
   // Update UI to reflect current state
@@ -101,6 +109,7 @@ function setupEventListeners(): void {
   elements.speedSlider.addEventListener('input', handleSpeedChange);
   elements.speakButton.addEventListener('click', handleSpeak);
   elements.settingsButton.addEventListener('click', handleSettings);
+  elements.retryButton.addEventListener('click', handleRetryConnection);
 
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
@@ -137,7 +146,8 @@ async function checkHelperStatus(): Promise<void> {
       updateStatusIndicator('disconnected', 'Failed to connect to helper');
     }
 
-    throw error; // Re-throw to be handled by caller
+    // Don't re-throw - let initialization continue gracefully
+    console.error('Helper connection failed:', error);
   }
 }
 
@@ -147,6 +157,44 @@ async function checkHelperStatus(): Promise<void> {
 function updateStatusIndicator(status: 'connected' | 'disconnected' | 'checking', tooltip: string): void {
   elements.statusIndicator.className = `status-dot status-${status}`;
   elements.statusIndicator.title = tooltip;
+}
+
+/**
+ * Handle retry connection button click
+ */
+async function handleRetryConnection(): Promise<void> {
+  try {
+    // Show loading state
+    elements.retryButton.disabled = true;
+    elements.retryButton.textContent = 'Connecting...';
+    updateStatusIndicator('checking', 'Checking helper status...');
+
+    // Reset API client to force config re-discovery
+    resetApiClient();
+
+    // Check helper status
+    await checkHelperStatus();
+
+    // If connected, load voices
+    if (state.helperStatus === 'connected') {
+      await loadVoices();
+      showMessage('Successfully connected to helper!', 'success');
+      // Hide retry button, enable speak button, enable voice select
+      elements.retryButton.style.display = 'none';
+      elements.speakButton.disabled = false;
+      elements.voiceSelect.disabled = false;
+    } else {
+      showMessage('Still unable to connect. Ensure the helper is running.', 'error');
+      // Keep retry button visible
+      elements.retryButton.disabled = false;
+      elements.retryButton.innerHTML = '<svg class="button-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35c-1.7-1.7-4.6-1.7-6.3 0L6 3.7l1.4 1.4 1.35-1.35c1-1 2.6-1 3.6 0 1 1 1 2.6 0 3.6l-2 2c-1 1-2.6 1-3.6 0L5.3 8l-1.4 1.4 1.4 1.4c1.7 1.7 4.6 1.7 6.3 0l2-2c1.9-1.7 1.9-4.6.05-6.45zM6.7 8L5.3 6.6c-1.7-1.7-4.6-1.7-6.3 0-1.7 1.7-1.7 4.6 0 6.3 1.7 1.7 4.6 1.7 6.3 0L7 11.6 5.7 10.3l-1.35 1.35c-1 1-2.6 1-3.6 0-1-1-1-2.6 0-3.6l2-2c1-1 2.6-1 3.6 0L8 7.4 6.7 8z"/></svg><span>Retry Connection</span>';
+    }
+  } catch (error) {
+    console.error('Error during retry:', error);
+    showMessage('Failed to retry connection. Check console for details.', 'error');
+    elements.retryButton.disabled = false;
+    elements.retryButton.innerHTML = '<svg class="button-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35c-1.7-1.7-4.6-1.7-6.3 0L6 3.7l1.4 1.4 1.35-1.35c1-1 2.6-1 3.6 0 1 1 1 2.6 0 3.6l-2 2c-1 1-2.6 1-3.6 0L5.3 8l-1.4 1.4 1.4 1.4c1.7 1.7 4.6 1.7 6.3 0l2-2c1.9-1.7 1.9-4.6.05-6.45zM6.7 8L5.3 6.6c-1.7-1.7-4.6-1.7-6.3 0-1.7 1.7-1.7 4.6 0 6.3 1.7 1.7 4.6 1.7 6.3 0L7 11.6 5.7 10.3l-1.35 1.35c-1 1-2.6 1-3.6 0-1-1-1-2.6 0-3.6l2-2c1-1 2.6-1 3.6 0L8 7.4 6.7 8z"/></svg><span>Retry Connection</span>';
+  }
 }
 
 // =================================================================================

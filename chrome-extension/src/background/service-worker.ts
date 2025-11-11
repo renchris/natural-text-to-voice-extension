@@ -16,7 +16,7 @@ import type {
  * Constants
  */
 const CONTEXT_MENU_ID = 'natural-tts-speak-selection';
-const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
+const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
 
 /**
  * Default preferences
@@ -195,7 +195,7 @@ async function ensureOffscreenDocument(): Promise<void> {
       justification: 'Play text-to-speech audio from context menu actions',
     });
 
-    console.log('[Background] Offscreen document created');
+    console.log('[Background] Offscreen document created successfully');
 
   } catch (error) {
     // Document might already exist - this is not necessarily an error
