@@ -10,6 +10,7 @@ export default defineConfig({
       additionalInputs: [
         'src/popup/popup.html',
         'src/options/options.html',
+        'src/offscreen/offscreen.html',
         'src/background/service-worker.ts',
         'src/content/content-script.ts',
       ],
@@ -22,6 +23,7 @@ export default defineConfig({
       input: {
         popup: resolve(__dirname, 'src/popup/popup.html'),
         options: resolve(__dirname, 'src/options/options.html'),
+        offscreen: resolve(__dirname, 'src/offscreen/offscreen.html'),
         'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
         'content-script': resolve(__dirname, 'src/content/content-script.ts'),
       },
