@@ -345,9 +345,8 @@ async function handleSpeak(): Promise<void> {
  * Handle settings button click
  */
 function handleSettings(): void {
-  // Phase 2.6: Open options page
-  // For now, show placeholder
-  showMessage('Settings page coming in Phase 2.6', 'info');
+  console.log('[Popup] Opening options page');
+  chrome.runtime.openOptionsPage();
 }
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Background Service Worker (Phase 2.4/2.5)
+ * Background Service Worker (Phase 2.4/2.5/2.6)
  *
  * Manages context menu, coordinates between components,
  * and handles offscreen document for audio playback.
@@ -11,18 +11,13 @@ import type {
   SpeakInOffscreenMessage,
   OffscreenSpeakResponse,
 } from '../shared/types';
+import { loadSettings } from '../shared/settings-defaults';
 
 /**
  * Constants
  */
 const CONTEXT_MENU_ID = 'natural-tts-speak-selection';
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
-
-/**
- * Default preferences
- */
-const DEFAULT_VOICE = 'af_bella';
-const DEFAULT_SPEED = 1.0;
 
 /**
  * Initialize background service worker
@@ -107,6 +102,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Get user preferences
     const { voice, speed } = await getPreferences();
 
+    // Note: Context menu is an explicit user action, so we always play
+    // (autoPlay setting is reserved for future use)
+
     // Ensure offscreen document exists
     await ensureOffscreenDocument();
 
@@ -152,21 +150,25 @@ async function getSelectedText(tabId: number): Promise<SelectedTextResponse> {
 }
 
 /**
- * Get voice and speed preferences from storage
+ * Get user preferences from storage
+ * Uses centralized settings from Phase 2.6
  */
-async function getPreferences(): Promise<{ voice: string; speed: number }> {
+async function getPreferences(): Promise<{ voice: string; speed: number; autoPlay: boolean }> {
   try {
-    const result = await chrome.storage.local.get(['voice', 'speed']);
-
+    const settings = await loadSettings();
     return {
-      voice: result.voice || DEFAULT_VOICE,
-      speed: result.speed || DEFAULT_SPEED,
+      voice: settings.selectedVoice,
+      speed: settings.selectedSpeed,
+      autoPlay: settings.autoPlay,
     };
   } catch (error) {
     console.error('[Background] Error loading preferences:', error);
+    // Return defaults from loadSettings fallback
+    const settings = await loadSettings();
     return {
-      voice: DEFAULT_VOICE,
-      speed: DEFAULT_SPEED,
+      voice: settings.selectedVoice,
+      speed: settings.selectedSpeed,
+      autoPlay: settings.autoPlay,
     };
   }
 }

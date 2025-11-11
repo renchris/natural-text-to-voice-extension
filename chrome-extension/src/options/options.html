@@ -3,10 +3,149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Natural TTS Options</title>
+  <title>Natural TTS Settings</title>
+  <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <h1>Natural TTS Options</h1>
-  <p>Options page coming in Phase 2.6</p>
+  <div class="options-container">
+    <!-- Header -->
+    <header class="options-header">
+      <h1 class="options-title">Natural TTS Settings</h1>
+      <div class="header-status">
+        <div
+          id="statusIndicator"
+          class="status-dot status-checking"
+          title="Checking helper status..."
+          aria-label="Helper status indicator"
+        ></div>
+        <span id="statusText" class="status-text">Checking helper...</span>
+      </div>
+    </header>
+
+    <!-- Message Container -->
+    <div id="messageContainer" class="message" role="alert" aria-live="polite" style="display: none;"></div>
+
+    <!-- Main Content -->
+    <main class="options-main">
+      <!-- Voice Preferences Section -->
+      <section class="settings-section">
+        <h2 class="section-title">Voice Preferences</h2>
+        <div class="form-group">
+          <label for="voiceSelect" class="form-label">Default Voice:</label>
+          <select
+            id="voiceSelect"
+            class="form-select"
+            aria-label="Select default voice for text-to-speech"
+          >
+            <option value="">Loading voices...</option>
+          </select>
+          <p class="form-help">Choose the voice that will be used by default in the popup and context menu.</p>
+        </div>
+      </section>
+
+      <!-- Speech Settings Section -->
+      <section class="settings-section">
+        <h2 class="section-title">Speech Settings</h2>
+        <div class="form-group">
+          <div class="form-label-row">
+            <label for="speedSlider" class="form-label">Default Speed:</label>
+            <span id="speedValue" class="speed-value" aria-live="polite">1.0x</span>
+          </div>
+          <div class="slider-container">
+            <input
+              type="range"
+              id="speedSlider"
+              class="form-slider"
+              min="0.5"
+              max="2.0"
+              step="0.1"
+              value="1.0"
+              aria-label="Adjust default speech speed"
+              aria-valuemin="0.5"
+              aria-valuemax="2.0"
+              aria-valuenow="1.0"
+              aria-valuetext="1.0 times speed"
+            >
+            <div class="slider-labels">
+              <span class="slider-label">0.5x</span>
+              <span class="slider-label">1.0x</span>
+              <span class="slider-label">1.5x</span>
+              <span class="slider-label">2.0x</span>
+            </div>
+          </div>
+          <p class="form-help">Set the default playback speed for text-to-speech.</p>
+        </div>
+      </section>
+
+      <!-- Playback Behavior Section -->
+      <section class="settings-section">
+        <h2 class="section-title">Playback Behavior</h2>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              id="autoPlayCheckbox"
+              class="form-checkbox"
+              aria-label="Auto-play audio from context menu"
+            >
+            <span>Auto-play audio from context menu</span>
+          </label>
+          <p class="form-help">When enabled, audio will play immediately when you use "Speak selected text" from the right-click menu. When disabled, you'll need to manually start playback.</p>
+        </div>
+      </section>
+
+      <!-- Helper Connection Section -->
+      <section class="settings-section">
+        <h2 class="section-title">Helper Connection</h2>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              id="helperAutoRetryCheckbox"
+              class="form-checkbox"
+              aria-label="Automatically retry helper connection"
+            >
+            <span>Automatically retry connection</span>
+          </label>
+          <p class="form-help">When enabled, the extension will automatically attempt to reconnect to the native helper if the connection is lost.</p>
+        </div>
+      </section>
+
+      <!-- About Section -->
+      <section class="settings-section">
+        <h2 class="section-title">About</h2>
+        <div class="about-content">
+          <p><strong>Natural Text-to-Speech</strong></p>
+          <p class="about-version">Version <span id="versionText">1.2.0</span></p>
+          <p class="about-description">Privacy-first TTS with local Metal-accelerated processing</p>
+          <p class="about-helper">
+            Helper Status:
+            <span id="helperStatusText" class="helper-status">Checking...</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- Action Buttons -->
+      <div class="actions-container">
+        <button
+          id="saveButton"
+          class="primary-button"
+          aria-label="Save settings"
+        >
+          Save Settings
+        </button>
+        <button
+          id="resetButton"
+          class="secondary-button"
+          aria-label="Reset to default settings"
+        >
+          Reset to Defaults
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Import JavaScript module -->
+  <script type="module" src="options.js"></script>
 </body>
 </html>
