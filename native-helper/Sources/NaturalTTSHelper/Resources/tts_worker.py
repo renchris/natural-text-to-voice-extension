@@ -92,6 +92,25 @@ def load_mlx_model():
         return False
 
 
+def normalize_text(text):
+    """Normalize Unicode text for better TTS pronunciation"""
+    import unicodedata
+    import re
+
+    # NFKD normalization: converts formatted/mathematical Unicode to ASCII equivalents
+    # e.g., 𝚟𝚒𝚝𝚎 (mathematical monospace) -> vite (normal ASCII)
+    normalized = unicodedata.normalize('NFKD', text)
+
+    # Remove any remaining non-ASCII combining marks
+    # Keep only printable ASCII and common punctuation
+    ascii_text = normalized.encode('ascii', 'ignore').decode('ascii')
+
+    # Clean up any excessive whitespace
+    ascii_text = re.sub(r'\s+', ' ', ascii_text).strip()
+
+    return ascii_text
+
+
 def generate_audio_mlx(text, voice, speed):
     """Generate audio using MLX with cached model and in-memory processing"""
     try:
@@ -102,7 +121,14 @@ def generate_audio_mlx(text, voice, speed):
 
         t_start = time.time()
 
-        logger.info(f"Generating: {text[:50]}... (voice={voice}, speed={speed})")
+        # Normalize Unicode text for better pronunciation
+        original_text = text
+        text = normalize_text(text)
+
+        if text != original_text:
+            logger.info(f"Text normalized: {original_text[:30]}... -> {text[:30]}...")
+
+        logger.info(f"Generating: {text[:50]}... [{len(text)} chars] (voice={voice}, speed={speed})")
 
         # Get cached model
         t_model_start = time.time()
@@ -116,18 +142,26 @@ def generate_audio_mlx(text, voice, speed):
         with open(os.devnull, 'w') as devnull:
             with redirect_stdout(devnull), redirect_stderr(devnull):
                 # Use model's direct generate method (returns a generator)
+                # The generator yields one result per sentence/chunk
                 result_gen = model.generate(text, voice=voice, speed=speed)
-                # Get the first (and only) result from the generator
-                result = next(result_gen)
+                # Collect all audio chunks from the generator
+                audio_chunks = []
+                for chunk in result_gen:
+                    audio_chunks.append(chunk.audio)
+                logger.info(f"Generated {len(audio_chunks)} audio chunks")
         t_gen_end = time.time()
         logger.info(f"MLX generation: {t_gen_end - t_gen_start:.3f}s")
 
-        # Convert to numpy array (if not already)
+        # Convert to numpy array and concatenate all chunks
         t_convert_start = time.time()
         import numpy as np
-        audio_np = np.asarray(result.audio)
+        if len(audio_chunks) == 1:
+            audio_np = np.asarray(audio_chunks[0])
+        else:
+            # Concatenate all audio chunks
+            audio_np = np.concatenate([np.asarray(chunk) for chunk in audio_chunks])
         t_convert_end = time.time()
-        logger.info(f"Array conversion: {t_convert_end - t_convert_start:.3f}s")
+        logger.info(f"Array conversion and concatenation: {t_convert_end - t_convert_start:.3f}s")
 
         # Write to in-memory BytesIO buffer (no file I/O)
         t_wav_start = time.time()
