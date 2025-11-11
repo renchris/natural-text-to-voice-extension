@@ -6,6 +6,7 @@
 import { getApiClient } from '../shared/api-client';
 import { Voice, HealthResponse } from '../shared/types';
 import { HelperNotFoundError, NetworkTimeoutError, InvalidResponseError } from '../shared/types';
+import type { GetSelectedTextMessage, SelectedTextResponse } from '../shared/types';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -317,20 +318,48 @@ function handleKeyboard(event: KeyboardEvent): void {
 // =================================================================================
 
 /**
- * Get selected text from page
- * Phase 2.3: Use prompt for text input (temporary)
- * Phase 2.4: Will get from content script via chrome.tabs.sendMessage
+ * Get selected text from page via content script
+ * Phase 2.4: Get from content script via chrome.tabs.sendMessage
  */
 async function getSelectedText(): Promise<string> {
-  // TODO Phase 2.4: Get from content script
-  // For now, prompt user for text
+  try {
+    // Get active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  return new Promise((resolve) => {
-    const text = prompt(
-      'Enter text to speak:\n\n(Phase 2.4 will get selected text from webpage automatically)'
+    if (!tab || !tab.id) {
+      console.error('[Popup] No active tab found');
+      showMessage('No active tab found. Please try again.', 'error');
+      return '';
+    }
+
+    // Send message to content script
+    const message: GetSelectedTextMessage = {
+      type: 'GET_SELECTED_TEXT',
+    };
+
+    const response = await chrome.tabs.sendMessage(tab.id, message) as SelectedTextResponse;
+
+    // Handle response
+    if (response.success && response.text) {
+      console.log('[Popup] Got selected text:', {
+        length: response.text.length,
+        preview: response.text.substring(0, 50),
+      });
+      return response.text;
+    } else {
+      console.error('[Popup] Failed to get selected text:', response.error);
+      showMessage(response.error || 'Failed to get selected text', 'warning');
+      return '';
+    }
+
+  } catch (error) {
+    console.error('[Popup] Error communicating with content script:', error);
+    showMessage(
+      'Could not access page content. Please refresh the page and try again.',
+      'error'
     );
-    resolve(text || '');
-  });
+    return '';
+  }
 }
 
 // =================================================================================
