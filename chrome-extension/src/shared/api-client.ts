@@ -74,9 +74,9 @@ export class ApiClient implements NativeTTSClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        const headers: HeadersInit = {
+        const headers: Record<string, string> = {
           'Accept': 'application/json',
-          ...options.headers,
+          ...(options.headers as Record<string, string> || {}),
         };
 
         // Add secret header if available

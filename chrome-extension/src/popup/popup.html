@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Natural TTS</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <h1 class="popup-title">Natural TTS</h1>
+      <div class="header-actions">
+        <button
+          id="settingsButton"
+          class="icon-button"
+          title="Settings"
+          aria-label="Open settings"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 10.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/>
+            <path d="M14.7 8.6l-1.4-.4c-.1-.4-.3-.8-.5-1.1l.8-1.2c.2-.3.2-.7 0-.9l-1-1c-.3-.3-.7-.3-.9 0l-1.2.8c-.4-.2-.7-.4-1.1-.5l-.4-1.4c-.1-.3-.4-.5-.7-.5h-1.4c-.3 0-.6.2-.7.5l-.4 1.4c-.4.1-.8.3-1.1.5l-1.2-.8c-.3-.2-.7-.2-.9 0l-1 1c-.3.3-.3.7 0 .9l.8 1.2c-.2.4-.4.7-.5 1.1l-1.4.4c-.3.1-.5.4-.5.7v1.4c0 .3.2.6.5.7l1.4.4c.1.4.3.8.5 1.1l-.8 1.2c-.2.3-.2.7 0 .9l1 1c.3.3.7.3.9 0l1.2-.8c.4.2.7.4 1.1.5l.4 1.4c.1.3.4.5.7.5h1.4c.3 0 .6-.2.7-.5l.4-1.4c.4-.1.8-.3 1.1-.5l1.2.8c.3.2.7.2.9 0l1-1c.3-.3.3-.7 0-.9l-.8-1.2c.2-.4.4-.7.5-1.1l1.4-.4c.3-.1.5-.4.5-.7V9.3c0-.3-.2-.6-.5-.7z"/>
+          </svg>
+        </button>
+        <div
+          id="statusIndicator"
+          class="status-dot status-checking"
+          title="Checking helper status..."
+          aria-label="Helper status indicator"
+        ></div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="popup-main">
+      <!-- Message Container (for errors/warnings/success) -->
+      <div id="messageContainer" class="message" role="alert" aria-live="polite" style="display: none;"></div>
+
+      <!-- Voice Selector -->
+      <div class="form-group">
+        <label for="voiceSelect" class="form-label">Voice:</label>
+        <select
+          id="voiceSelect"
+          class="form-select"
+          aria-label="Select voice for text-to-speech"
+        >
+          <option value="">Loading voices...</option>
+        </select>
+      </div>
+
+      <!-- Speed Slider -->
+      <div class="form-group">
+        <div class="form-label-row">
+          <label for="speedSlider" class="form-label">Speed:</label>
+          <span id="speedValue" class="speed-value" aria-live="polite">1.0x</span>
+        </div>
+        <div class="slider-container">
+          <input
+            type="range"
+            id="speedSlider"
+            class="form-slider"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value="1.0"
+            aria-label="Adjust speech speed"
+            aria-valuemin="0.5"
+            aria-valuemax="2.0"
+            aria-valuenow="1.0"
+            aria-valuetext="1.0 times speed"
+          >
+          <div class="slider-labels">
+            <span class="slider-label">0.5x</span>
+            <span class="slider-label">1.0x</span>
+            <span class="slider-label">1.5x</span>
+            <span class="slider-label">2.0x</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Primary Action Button -->
+      <button
+        id="speakButton"
+        class="primary-button"
+        aria-label="Generate speech from selected text"
+      >
+        <svg class="button-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M3.5 6.5v3c0 .3.2.5.5.5h2l3 3V3l-3 3H4c-.3 0-.5.2-.5.5zm9.5 1.5c0-1.1-.5-2.1-1.3-2.8v5.6c.8-.7 1.3-1.7 1.3-2.8zm-1.3-4.7v1.6c1.3.9 2.1 2.4 2.1 4.1 0 1.7-.8 3.2-2.1 4.1v1.6c2.1-1 3.5-3.1 3.5-5.7 0-2.6-1.4-4.7-3.5-5.7z"/>
+        </svg>
+        <span id="buttonText">Speak Selected Text</span>
+      </button>
+    </main>
+  </div>
+
+  <!-- Import TypeScript module -->
+  <script type="module" src="popup.ts"></script>
+</body>
+</html>

@@ -7,7 +7,12 @@ export default defineConfig({
     webExtension({
       manifest: './public/manifest.json',
       watchFilePaths: ['public/**/*', 'src/**/*'],
-      additionalInputs: ['src/popup/popup.html', 'src/options/options.html'],
+      additionalInputs: [
+        'src/popup/popup.html',
+        'src/options/options.html',
+        'src/background/service-worker.ts',
+        'src/content/content-script.ts',
+      ],
     }),
   ],
   build: {
@@ -17,6 +22,8 @@ export default defineConfig({
       input: {
         popup: resolve(__dirname, 'src/popup/popup.html'),
         options: resolve(__dirname, 'src/options/options.html'),
+        'service-worker': resolve(__dirname, 'src/background/service-worker.ts'),
+        'content-script': resolve(__dirname, 'src/content/content-script.ts'),
       },
     },
     // Optimize for extension bundle size
