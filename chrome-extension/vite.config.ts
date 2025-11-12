@@ -19,6 +19,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    cssMinify: 'lightningcss',  // Enable CSS minification
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'src/popup/popup.html'),
@@ -33,6 +34,15 @@ export default defineConfig({
     terserOptions: {
       compress: {
         drop_console: true,  // Remove console.logs in production
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.warn'],
+        passes: 2,  // Multiple passes for better compression
+      },
+      mangle: {
+        safari10: true,
+      },
+      format: {
+        comments: false,  // Remove all comments
       },
     },
   },
