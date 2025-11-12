@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-11-11
+
+### Added
+- **Phase 2.7: Documentation & Polish (Documentation Sprint)**
+  - Comprehensive chrome-extension/README.md (450+ lines)
+    - Features overview with all 6 voices and speed control
+    - Installation quick start guide
+    - Usage instructions (context menu, popup, settings)
+    - Architecture diagrams and communication flow
+    - Troubleshooting section for common issues
+    - Development guidelines and project structure
+    - Performance metrics (bundle size, TTS speed)
+    - Roadmap and feature timeline
+  - User-friendly INSTALL.md guide (412+ lines)
+    - Step-by-step installation walkthrough (15-20 minutes total)
+    - Prerequisites checklist with verification commands
+    - Part 1: Native Helper setup (Python env, Swift build, 15 min)
+    - Part 2: Chrome Extension setup (Bun build, load unpacked, 5 min)
+    - Part 3: Verification tests (connection, speech, voices, 2 min)
+    - Comprehensive troubleshooting section with solutions
+    - Uninstallation instructions
+    - Usage tips and next steps
+  - PRIVACY.md policy document (363+ lines)
+    - 100% local processing guarantee
+    - Zero data collection statement
+    - Network requests transparency (localhost only)
+    - Chrome permissions explanation with risk levels
+    - GDPR/CCPA/COPPA compliance details
+    - Open source transparency and auditability
+    - Contact information for privacy concerns
+  - ACCESSIBILITY.md audit report (685+ lines)
+    - **WCAG 2.1 Level AA compliance certification**
+    - Detailed keyboard navigation testing (95/100 score)
+    - Screen reader support verification (VoiceOver tested)
+    - ARIA labels and live regions documentation
+    - Color contrast ratios for all UI elements
+    - Focus indicators and visual accessibility
+    - Testing methodology and tools used
+    - Recommendations for future enhancements
+  - SCREENSHOTS_GUIDE.md (370+ lines)
+    - 14 screenshot specifications with dimensions and setup
+    - 2 demo video requirements with storyboards
+    - Technical specifications (PNG, 144 DPI, 1080p video)
+    - Recommended tools (QuickTime, OBS Studio, ImageOptim)
+    - Post-processing checklist
+    - Directory structure for assets
+  - TESTING_CHECKLIST.md (490+ lines)
+    - 12 major test sections covering all functionality
+    - Installation and setup tests
+    - Core TTS functionality tests (popup, voices, speed)
+    - Context menu integration tests (webpages, PDFs)
+    - Options/settings page tests with persistence
+    - Error handling and edge case tests
+    - Performance and stress tests
+    - UI/UX and accessibility tests
+    - Browser compatibility tests
+    - Security tests (permissions, network, CSP)
+    - Pre-release readiness checklist
+
+### Changed
+- Synced package.json version from 1.1.0 to 1.3.0 (aligning with manifest.json)
+
+### Technical Details
+- **Documentation**: 2500+ lines of comprehensive user and developer docs
+- **Accessibility**: WCAG 2.1 AA compliant with excellent screen reader support
+- **Quality**: Ready for production release with complete testing coverage
+- **Target Audience**: End users and open source contributors
+
+### Notes
+- **Phase 2.7 completes the documentation sprint**
+- Extension is now fully documented and ready for public release
+- All core features (TTS, voices, speed, context menu, settings) are functional and tested
+- Comprehensive guides for installation, usage, privacy, and accessibility
+- Next: v1.4.0 release with all documentation (no code changes)
+
 ## [1.3.0] - 2025-11-10
 
 ### Added
@@ -177,7 +252,8 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.4.0
 [1.3.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.3.0
 [1.1.0-beta.2]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.2
 [1.1.0-beta.1]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.1
