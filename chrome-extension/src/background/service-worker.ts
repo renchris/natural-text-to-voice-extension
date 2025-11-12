@@ -12,6 +12,7 @@ import type {
   OffscreenSpeakResponse,
 } from '../shared/types';
 import { loadSettings } from '../shared/settings-defaults';
+import { cleanupPDFLigatures } from '../shared/text-cleanup';
 
 /**
  * Constants
@@ -72,6 +73,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   console.log('[Background] Context menu clicked:', {
     menuItemId: info.menuItemId,
     tabId: tab?.id,
+    hasSelectionText: !!info.selectionText,
   });
 
   // Only handle our menu item
@@ -79,24 +81,56 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
-  // Ensure we have a valid tab
-  if (!tab?.id) {
-    console.error('[Background] No active tab found');
-    return;
-  }
-
   try {
-    // Get selected text from content script
-    const selectedText = await getSelectedText(tab.id);
+    let selectedText = '';
 
-    if (!selectedText.success || !selectedText.text) {
-      console.error('[Background] Failed to get selected text:', selectedText.error);
-      return;
+    // Determine how to get selected text based on context
+    // For regular webpages (tab.id >= 0): use content script for better validation
+    // For PDFs (tab.id < 0): use context menu's info.selectionText
+    if (tab?.id && tab.id >= 0) {
+      // Regular webpage - use content script
+      const response = await getSelectedText(tab.id);
+
+      if (!response.success || !response.text) {
+        console.error('[Background] Failed to get selected text:', response.error);
+        return;
+      }
+
+      selectedText = response.text;
+      console.log('[Background] Got text from webpage via content script');
+
+    } else {
+      // PDF or restricted page - use context menu's selectionText
+      // This works because context menu is built-in Chrome API
+      // Browser passes selected text directly, bypassing extension isolation
+      selectedText = info.selectionText || '';
+
+      if (!selectedText || selectedText.trim().length === 0) {
+        console.error('[Background] No text selected in PDF');
+        return;
+      }
+
+      console.log('[Background] Got text from PDF via context menu');
+
+      // Clean up PDF ligature extraction errors
+      // PDFs with incorrect ToUnicode CMap mappings often have ligatures
+      // extracted as wrong characters (!, ®, €, etc.)
+      const originalText = selectedText;
+      selectedText = cleanupPDFLigatures(selectedText);
+
+      // Log if cleanup made changes (helps with debugging)
+      if (selectedText !== originalText) {
+        console.log('[Background] Cleaned PDF ligatures:', {
+          changesDetected: true,
+          beforePreview: originalText.substring(0, 50),
+          afterPreview: selectedText.substring(0, 50),
+        });
+      }
     }
 
-    console.log('[Background] Got selected text:', {
-      length: selectedText.text.length,
-      preview: selectedText.text.substring(0, 50),
+    console.log('[Background] Selected text:', {
+      length: selectedText.length,
+      preview: selectedText.substring(0, 50),
     });
 
     // Get user preferences
@@ -111,7 +145,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     // Send text to offscreen document for speech generation
     const response = await sendToOffscreen({
       type: 'SPEAK_IN_OFFSCREEN',
-      text: selectedText.text,
+      text: selectedText,
       voice,
       speed,
     });
