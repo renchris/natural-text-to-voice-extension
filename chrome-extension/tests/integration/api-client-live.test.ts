@@ -9,6 +9,9 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { ApiClient } from '../../src/shared/api-client';
 
+// Save original fetch before unit tests mock it
+const originalFetch = globalThis.fetch;
+
 // Mock chrome.storage API for this integration test
 global.chrome = {
   storage: {
@@ -30,6 +33,9 @@ describe('ApiClient Integration Tests (Live Helper)', () => {
   let client: ApiClient;
 
   beforeAll(async () => {
+    // Restore original fetch for integration tests (unit tests mock it globally)
+    globalThis.fetch = originalFetch;
+
     client = new ApiClient();
 
     // Verify helper is running before starting tests

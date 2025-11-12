@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
 import {
   ApiClient,
   getApiClient,
@@ -8,6 +8,9 @@ import {
   HelperNotFoundError,
   InvalidResponseError,
 } from '../src/shared/types';
+
+// Save original fetch before any mocking (for integration tests)
+const originalFetch = globalThis.fetch;
 
 // Mock chrome.storage API
 global.chrome = {
@@ -20,14 +23,16 @@ global.chrome = {
   },
 } as any;
 
-// Mock fetch globally
+// Create mock fetch (but don't assign to global yet)
 const mockFetch = mock();
-global.fetch = mockFetch as any;
 
 describe('ApiClient', () => {
   let client: ApiClient;
 
   beforeEach(() => {
+    // Set up fetch mock for unit tests
+    global.fetch = mockFetch as any;
+
     // Reset mocks
     mockFetch.mockReset();
     (chrome.storage.local.get as any).mockReset();
@@ -57,6 +62,11 @@ describe('ApiClient', () => {
       }
       throw new Error('Unexpected URL in default mock');
     });
+  });
+
+  afterEach(() => {
+    // Restore original fetch after each test (for integration tests)
+    global.fetch = originalFetch;
   });
 
   describe('checkHealth()', () => {
