@@ -354,6 +354,12 @@ async function handleSpeak(): Promise<void> {
   if (state.isGenerating) {
     return;
   }
+  if (state.currentAudio && !state.currentAudio.paused) {
+    state.currentAudio.pause();
+    state.currentAudio = null;
+    setPlayingState(false);
+    return;
+  }
 
   // Check if helper is connected
   if (state.helperStatus !== 'connected') {
@@ -394,6 +400,7 @@ async function handleSpeak(): Promise<void> {
     }
 
     // Play audio
+    setPlayingState(true);
     await playAudio(audioBlob);
 
     showMessage('Playing audio...', 'success');
@@ -490,12 +497,14 @@ async function playAudio(audioBlob: Blob): Promise<void> {
 
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
+        setPlayingState(false);
         state.currentAudio = null;
         resolve();
       };
 
       audio.onerror = () => {
         URL.revokeObjectURL(audioUrl);
+        setPlayingState(false);
         state.currentAudio = null;
         reject(new Error('Failed to play audio'));
       };
@@ -575,6 +584,16 @@ function setLoadingState(isLoading: boolean): void {
     elements.buttonText.textContent = 'Generating...';
   } else {
     elements.speakButton.classList.remove('is-loading');
+    elements.buttonText.textContent = 'Speak Selected Text';
+  }
+}
+
+function setPlayingState(isPlaying: boolean): void {
+  if (isPlaying) {
+    elements.speakButton.classList.add('is-playing');
+    elements.buttonText.textContent = 'Stop';
+  } else {
+    elements.speakButton.classList.remove('is-playing');
     elements.buttonText.textContent = 'Speak Selected Text';
   }
 }

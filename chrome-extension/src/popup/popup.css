@@ -295,6 +295,12 @@ body {
   flex-shrink: 0;
 }
 
+  .button-stop-icon { display: none; flex-shrink: 0; }
+  .primary-button.is-playing { background: var(--color-success); }
+  .primary-button.is-playing:hover { background: #0c7e47; }
+  .primary-button.is-playing .button-icon { display: none; }
+  .primary-button.is-playing .button-stop-icon { display: inline-block; }
+
 /* Loading State */
 .primary-button.is-loading { opacity: 0.85; cursor: wait; }
 .primary-button.is-loading .button-icon { display: none; }
