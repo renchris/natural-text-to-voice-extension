@@ -39,6 +39,7 @@ const elements = {
   messageContainer: document.getElementById('messageContainer') as HTMLDivElement,
   settingsButton: document.getElementById('settingsButton') as HTMLButtonElement,
   retryButton: document.getElementById('retryButton') as HTMLButtonElement,
+  statusLabel: document.getElementById('statusLabel') as HTMLSpanElement,
 };
 
 // =================================================================================
@@ -199,9 +200,16 @@ async function checkHelperStatus(): Promise<void> {
  * Update status indicator UI
  */
 function updateStatusIndicator(status: 'connected' | 'disconnected' | 'checking' | 'warming', tooltip: string): void {
-  // Warming reuses the 'checking' indicator visually.
-  elements.statusIndicator.className = `status-dot status-${status}`;
+  const labels = {
+    checking: 'Checking',
+    warming: 'Warming',
+    connected: 'Connected',
+    disconnected: 'Offline',
+  } as const;
+  elements.statusIndicator.className = `status-pill status-${status}`;
   elements.statusIndicator.title = tooltip;
+  elements.statusIndicator.setAttribute('aria-label', `Helper status: ${labels[status].toLowerCase()}`);
+  if (elements.statusLabel) elements.statusLabel.textContent = labels[status];
 }
 
 /**

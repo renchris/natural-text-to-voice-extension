@@ -25,10 +25,14 @@
         </button>
         <div
           id="statusIndicator"
-          class="status-dot status-checking"
-          title="Checking helper status..."
-          aria-label="Helper status indicator"
-        ></div>
+          class="status-pill status-checking"
+          role="status"
+          aria-live="polite"
+          aria-label="Helper status: checking"
+        >
+          <span class="status-dot-inner"></span>
+          <span class="status-pill-label" id="statusLabel">Checking</span>
+        </div>
       </div>
     </header>
 
