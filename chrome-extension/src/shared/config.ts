@@ -6,9 +6,15 @@ import { HelperConfig, ConfigNotFoundError } from './types';
 const STORAGE_KEY = 'native_tts_helper_config';
 
 /**
- * Default port to try if no config is stored
+ * Default port the helper pins to (Config.swift preferredPort).
  */
 const DEFAULT_PORT = 8249;
+
+/**
+ * Ports probed during discovery — matches the helper's fallback range
+ * (Config.swift preferredPort + portRangeCount).
+ */
+const DISCOVERY_PORTS: number[] = Array.from({ length: 12 }, (_, i) => DEFAULT_PORT + i);
 
 /**
  * Get the config file path (macOS only for now)
@@ -77,10 +83,10 @@ export async function clearConfig(): Promise<void> {
  * Discover helper configuration by trying to connect
  * This attempts to find a running helper and retrieve its configuration
  *
- * @param portsToTry - Array of ports to try (default: [8249, 8250, 8251])
+ * @param portsToTry - Array of ports to try (default: 8249..8260)
  * @returns Discovered configuration or throws ConfigNotFoundError
  */
-export async function discoverConfig(portsToTry: number[] = [8249, 8250, 8251]): Promise<Partial<HelperConfig>> {
+export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Promise<Partial<HelperConfig>> {
   for (const port of portsToTry) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health`, {

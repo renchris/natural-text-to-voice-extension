@@ -119,7 +119,11 @@ actor HTTPServer {
             requestsServed: requestCount
         )
 
-        return jsonResponse(response, status: isReady ? .ok : .serviceUnavailable, origin: origin)
+        // Always return 200 so the extension can read .status and
+        // distinguish "warming" from "not running". Treating warmup as 503
+        // makes the extension's makeRequest throw InvalidResponseError
+        // before it can inspect the body — losing the warming signal.
+        return jsonResponse(response, status: .ok, origin: origin)
     }
 
     private func handleSpeak(body: ByteBuffer?, origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {

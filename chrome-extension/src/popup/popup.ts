@@ -16,9 +16,10 @@ interface PopupState {
   voices: Voice[];
   selectedVoice: string;
   selectedSpeed: number;
-  helperStatus: 'connected' | 'disconnected' | 'checking';
+  helperStatus: 'connected' | 'disconnected' | 'warming' | 'checking';
   isGenerating: boolean;
   currentAudio: HTMLAudioElement | null;
+  warmupPollTimer: ReturnType<typeof setTimeout> | null;
 }
 
 type MessageType = 'success' | 'error' | 'warning' | 'info';
@@ -51,6 +52,7 @@ const state: PopupState = {
   helperStatus: 'checking',
   isGenerating: false,
   currentAudio: null,
+  warmupPollTimer: null,
 };
 
 // =================================================================================
@@ -87,6 +89,13 @@ async function init(): Promise<void> {
     await loadVoices();
     // Hide retry button when connected
     elements.retryButton.style.display = 'none';
+  } else if (state.helperStatus === 'warming') {
+    showMessage('Loading TTS model… this can take 30 seconds on first run.', 'info');
+    elements.speakButton.disabled = true;
+    elements.voiceSelect.innerHTML = '<option value="">Loading TTS model…</option>';
+    elements.voiceSelect.disabled = true;
+    elements.retryButton.style.display = 'none';
+    schedulePollWhileWarming();
   } else {
     showMessage('Native helper not running. Please start the helper and click Retry.', 'error');
     elements.speakButton.disabled = true;
@@ -99,6 +108,30 @@ async function init(): Promise<void> {
 
   // Update UI to reflect current state
   updateUI();
+}
+
+/**
+ * Poll /health every 2s while the helper reports warming. Stops when the
+ * model is ready (transitions UI to connected) or the helper goes away.
+ */
+function schedulePollWhileWarming(): void {
+  if (state.warmupPollTimer) return;
+  state.warmupPollTimer = setTimeout(async () => {
+    state.warmupPollTimer = null;
+    await checkHelperStatus();
+    if (state.helperStatus === 'connected') {
+      await loadVoices();
+      elements.speakButton.disabled = false;
+      elements.voiceSelect.disabled = false;
+      elements.retryButton.style.display = 'none';
+      showMessage('Helper ready.', 'success');
+    } else if (state.helperStatus === 'warming') {
+      schedulePollWhileWarming();
+    } else {
+      showMessage('Native helper not running. Please start the helper and click Retry.', 'error');
+      elements.retryButton.style.display = 'block';
+    }
+  }, 2000);
 }
 
 /**
@@ -132,8 +165,11 @@ async function checkHelperStatus(): Promise<void> {
       state.helperStatus = 'connected';
       updateStatusIndicator('connected', `Helper is running (${health.model})`);
     } else {
-      state.helperStatus = 'disconnected';
-      updateStatusIndicator('disconnected', 'Helper model not loaded');
+      // Helper is reachable but the MLX model hasn't finished loading
+      // (status === 'warming' OR model_loaded === false). This is distinct
+      // from "not running" — surface it as warming so the UI can poll.
+      state.helperStatus = 'warming';
+      updateStatusIndicator('checking', 'Loading TTS model…');
     }
   } catch (error) {
     state.helperStatus = 'disconnected';
@@ -155,6 +191,7 @@ async function checkHelperStatus(): Promise<void> {
  * Update status indicator UI
  */
 function updateStatusIndicator(status: 'connected' | 'disconnected' | 'checking', tooltip: string): void {
+  // Warming reuses the 'checking' indicator visually.
   elements.statusIndicator.className = `status-dot status-${status}`;
   elements.statusIndicator.title = tooltip;
 }
@@ -516,13 +553,13 @@ function updateUI(): void {
   elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
   elements.speedSlider.value = state.selectedSpeed.toString();
 
-  // Update button state based on helper status
-  if (state.helperStatus !== 'connected') {
-    elements.speakButton.disabled = true;
-    elements.voiceSelect.disabled = true;
-  } else {
+  // Speak only enabled when fully connected (warming/disconnected both disable)
+  if (state.helperStatus === 'connected') {
     elements.speakButton.disabled = false;
     elements.voiceSelect.disabled = false;
+  } else {
+    elements.speakButton.disabled = true;
+    elements.voiceSelect.disabled = true;
   }
 }
 
