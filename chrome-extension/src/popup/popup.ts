@@ -519,6 +519,13 @@ function handleSpeakError(error: unknown): void {
 function showMessage(message: string, type: MessageType = 'info'): void {
   elements.messageContainer.textContent = message;
   elements.messageContainer.className = `message message-${type}`;
+  if (type === 'error' || type === 'warning') {
+    elements.messageContainer.setAttribute('role', 'alert');
+    elements.messageContainer.setAttribute('aria-live', 'assertive');
+  } else {
+    elements.messageContainer.setAttribute('role', 'status');
+    elements.messageContainer.setAttribute('aria-live', 'polite');
+  }
   elements.messageContainer.style.display = 'block';
 
   // Auto-hide success messages after 3 seconds
