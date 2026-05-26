@@ -150,6 +150,12 @@ body {
   border: 1px solid rgba(249, 171, 0, 0.2);
 }
 
+.message.message-info {
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(26, 115, 232, 0.2);
+}
+
 /* Form Groups */
 .form-group {
   display: flex;
