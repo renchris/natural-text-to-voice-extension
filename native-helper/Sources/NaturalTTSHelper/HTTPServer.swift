@@ -78,27 +78,36 @@ actor HTTPServer {
         requestCount += 1
         logger.debug("[\(requestCount)] \(head.method) \(head.uri)")
 
-        // Check authorization (optional for MVP)
-        // if !checkAuth(head) {
-        //     return unauthorized()
-        // }
+        let origin = head.headers.first(name: "Origin")
+
+        // Gate mutating + voice-listing endpoints against browser CSRF.
+        // /health stays open — extensions probe it during discovery, and a
+        // missing-ACAO response is harmless to disclose. Non-browser callers
+        // (no Origin header) are allowed through; Phase 2 X-Secret will gate
+        // those.
+        if head.uri == "/speak" || head.uri == "/voices" {
+            if let origin = origin, !isExtensionOrigin(origin) {
+                logger.warning("Rejected non-extension origin on \(head.uri): \(origin)")
+                return forbidden(origin: nil)
+            }
+        }
 
         switch (head.method, head.uri) {
         case (.GET, "/health"):
-            return await handleHealth()
+            return await handleHealth(origin: origin)
 
         case (.POST, "/speak"):
-            return await handleSpeak(body: body)
+            return await handleSpeak(body: body, origin: origin)
 
         case (.GET, "/voices"):
-            return await handleVoices()
+            return await handleVoices(origin: origin)
 
         default:
-            return notFound()
+            return notFound(origin: origin)
         }
     }
 
-    private func handleHealth() async -> (HTTPResponseHead, ByteBuffer?) {
+    private func handleHealth(origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
         let isReady = await worker.isReady
         let uptime = Date().timeIntervalSince(startTime)
 
@@ -110,12 +119,12 @@ actor HTTPServer {
             requestsServed: requestCount
         )
 
-        return jsonResponse(response, status: isReady ? .ok : .serviceUnavailable)
+        return jsonResponse(response, status: isReady ? .ok : .serviceUnavailable, origin: origin)
     }
 
-    private func handleSpeak(body: ByteBuffer?) async -> (HTTPResponseHead, ByteBuffer?) {
+    private func handleSpeak(body: ByteBuffer?, origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
         guard let body = body else {
-            return badRequest("Missing request body")
+            return badRequest("Missing request body", origin: origin)
         }
 
         // Parse JSON request
@@ -123,20 +132,20 @@ actor HTTPServer {
         if let bytes = body.getBytes(at: 0, length: body.readableBytes) {
             data = Data(bytes)
         } else {
-            return badRequest("Invalid request body")
+            return badRequest("Invalid request body", origin: origin)
         }
 
         guard let request = try? JSONDecoder().decode(SpeakRequest.self, from: data) else {
-            return badRequest("Invalid JSON")
+            return badRequest("Invalid JSON", origin: origin)
         }
 
         // Validate text
         guard !request.text.isEmpty else {
-            return badRequest("Text cannot be empty")
+            return badRequest("Text cannot be empty", origin: origin)
         }
 
         guard request.text.count <= 5000 else {
-            return badRequest("Text too long (max 5000 characters)")
+            return badRequest("Text too long (max 5000 characters)", origin: origin)
         }
 
         // Generate audio
@@ -158,7 +167,9 @@ actor HTTPServer {
             head.headers.add(name: "X-Audio-Duration", value: String(audio.duration))
             head.headers.add(name: "X-Generation-Time", value: String(genTime))
             head.headers.add(name: "X-Real-Time-Factor", value: String(rtf))
-            head.headers.add(name: "Access-Control-Allow-Origin", value: "*")
+            for (name, value) in corsHeaders(for: origin) {
+                head.headers.add(name: name, value: value)
+            }
 
             var buffer = ByteBufferAllocator().buffer(capacity: audio.data.count)
             buffer.writeBytes(audio.data)
@@ -172,7 +183,7 @@ actor HTTPServer {
                 message: error.description,
                 retryAfterSeconds: error.code == "warmup_timeout" ? 5 : nil
             )
-            return jsonResponse(errorResponse, status: .internalServerError)
+            return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
 
         } catch {
             logger.error("Unexpected error: \(error)")
@@ -181,11 +192,11 @@ actor HTTPServer {
                 message: error.localizedDescription,
                 retryAfterSeconds: nil
             )
-            return jsonResponse(errorResponse, status: .internalServerError)
+            return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
         }
     }
 
-    private func handleVoices() async -> (HTTPResponseHead, ByteBuffer?) {
+    private func handleVoices(origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
         let voices = [
             Voice(id: "af_bella", name: "Bella (US)", language: "en-US"),
             Voice(id: "af_sarah", name: "Sarah (UK)", language: "en-GB"),
@@ -196,19 +207,37 @@ actor HTTPServer {
         ]
 
         let response = VoicesResponse(voices: voices)
-        return jsonResponse(response, status: .ok)
+        return jsonResponse(response, status: .ok, origin: origin)
+    }
+
+    // MARK: - CORS / Origin
+
+    private func isExtensionOrigin(_ origin: String) -> Bool {
+        return origin.hasPrefix("chrome-extension://") ||
+               origin.hasPrefix("moz-extension://") ||
+               origin.hasPrefix("safari-web-extension://")
+    }
+
+    private func corsHeaders(for origin: String?) -> [(String, String)] {
+        guard let origin = origin, isExtensionOrigin(origin) else { return [] }
+        return [
+            ("Access-Control-Allow-Origin", origin),
+            ("Vary", "Origin"),
+        ]
     }
 
     // MARK: - Response Helpers
 
-    private func jsonResponse<T: Encodable>(_ data: T, status: HTTPResponseStatus) -> (HTTPResponseHead, ByteBuffer?) {
+    private func jsonResponse<T: Encodable>(_ data: T, status: HTTPResponseStatus, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         guard let jsonData = try? JSONEncoder().encode(data) else {
             return internalError()
         }
 
         var head = HTTPResponseHead(version: .http1_1, status: status)
         head.headers.add(name: "Content-Type", value: "application/json")
-        head.headers.add(name: "Access-Control-Allow-Origin", value: "*")
+        for (name, value) in corsHeaders(for: origin) {
+            head.headers.add(name: name, value: value)
+        }
 
         var buffer = ByteBufferAllocator().buffer(capacity: jsonData.count)
         buffer.writeBytes(jsonData)
@@ -216,14 +245,19 @@ actor HTTPServer {
         return (head, buffer)
     }
 
-    private func badRequest(_ message: String) -> (HTTPResponseHead, ByteBuffer?) {
+    private func badRequest(_ message: String, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         let error = ErrorResponse(error: "bad_request", message: message, retryAfterSeconds: nil)
-        return jsonResponse(error, status: .badRequest)
+        return jsonResponse(error, status: .badRequest, origin: origin)
     }
 
-    private func notFound() -> (HTTPResponseHead, ByteBuffer?) {
+    private func notFound(origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         let error = ErrorResponse(error: "not_found", message: "Endpoint not found", retryAfterSeconds: nil)
-        return jsonResponse(error, status: .notFound)
+        return jsonResponse(error, status: .notFound, origin: origin)
+    }
+
+    private func forbidden(origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
+        let error = ErrorResponse(error: "forbidden", message: "Origin not allowed", retryAfterSeconds: nil)
+        return jsonResponse(error, status: .forbidden, origin: origin)
     }
 
     private func unauthorized() -> (HTTPResponseHead, ByteBuffer?) {
