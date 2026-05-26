@@ -212,7 +212,6 @@ async function getPreferences(): Promise<{ voice: string; speed: number; autoPla
  */
 async function ensureOffscreenDocument(): Promise<void> {
   try {
-    // Check if offscreen document already exists
     const existingContexts = await chrome.runtime.getContexts({
       contextTypes: ['OFFSCREEN_DOCUMENT' as chrome.runtime.ContextType],
     });
@@ -222,7 +221,6 @@ async function ensureOffscreenDocument(): Promise<void> {
       return;
     }
 
-    // Create offscreen document
     console.log('[Background] Creating offscreen document');
     await chrome.offscreen.createDocument({
       url: OFFSCREEN_DOCUMENT_PATH,
@@ -230,32 +228,45 @@ async function ensureOffscreenDocument(): Promise<void> {
       justification: 'Play text-to-speech audio from context menu actions',
     });
 
+    // createDocument resolves when the URL has been navigated to, but
+    // offscreen.js's onMessage listener registers AFTER its module finishes
+    // loading. Without this wait, the first sendMessage races the script
+    // load and gets dropped silently. 300ms is conservative; the script is
+    // ~6KB and parses in well under that on real hardware.
+    await new Promise(r => setTimeout(r, 300));
+
     console.log('[Background] Offscreen document created successfully');
 
   } catch (error) {
-    // Document might already exist - this is not necessarily an error
     console.log('[Background] Offscreen document exists or created');
   }
 }
 
 /**
- * Send message to offscreen document
+ * Send message to offscreen document, retrying once on connection failure
+ * (defends against the offscreen-listener registration race).
  */
 async function sendToOffscreen(
   message: SpeakInOffscreenMessage
 ): Promise<OffscreenSpeakResponse> {
-  try {
-    const response = await chrome.runtime.sendMessage(message) as OffscreenSpeakResponse;
-    return response;
-
-  } catch (error) {
-    console.error('[Background] Error sending message to offscreen:', error);
-    return {
-      type: 'SPEAK_ERROR',
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to communicate with offscreen document',
-    };
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await chrome.runtime.sendMessage(message) as OffscreenSpeakResponse | undefined;
+      if (response) return response;
+      // No response — the listener wasn't ready. Retry after a short delay.
+      console.warn(`[Background] sendMessage returned no response (attempt ${attempt})`);
+    } catch (error) {
+      console.warn(`[Background] sendMessage threw (attempt ${attempt}):`, error);
+    }
+    if (attempt === 1) {
+      await new Promise(r => setTimeout(r, 500));
+    }
   }
+  return {
+    type: 'SPEAK_ERROR',
+    success: false,
+    error: 'Offscreen document unreachable after retry — check service worker console',
+  };
 }
 
 /**
