@@ -10,6 +10,10 @@ await $`mkdir -p dist`;
 console.log('📋 Copying manifest and static assets...');
 await $`cp -r public/* dist/`;
 
+// Copy shared CSS (variables.css is referenced via @import from popup/options CSS)
+await $`mkdir -p dist/shared`;
+await $`cp src/shared/variables.css dist/shared/`;
+
 // Build popup
 console.log('🔨 Building popup...');
 await Bun.build({
