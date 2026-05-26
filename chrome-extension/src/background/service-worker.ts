@@ -25,6 +25,28 @@ const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
  */
 console.log('[Natural TTS] Background service worker loaded');
 
+async function prewarmHelper(): Promise<void> {
+  try {
+    const { getConfig } = await import('../shared/config');
+    const config = await getConfig();
+    if (!config?.port) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 35_000);
+    try {
+      await fetch(`http://127.0.0.1:${config.port}/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: ' ', voice: 'af_bella', speed: 1.0 }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    // helper down or prewarm failed — not an error
+  }
+}
+
 /**
  * Set up context menu on extension install
  */
@@ -33,6 +55,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
   // Create context menu item
   await setupContextMenu();
+  void prewarmHelper();
 });
 
 /**
@@ -43,6 +66,7 @@ chrome.runtime.onStartup.addListener(async () => {
 
   // Recreate context menu
   await setupContextMenu();
+  void prewarmHelper();
 });
 
 /**
