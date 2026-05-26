@@ -557,3 +557,11 @@ body {
     width: 100%;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.status-checking { animation: none; }
+  .message { animation: none; }
+  .primary-button:active, .secondary-button:active { transform: none; }
+  .form-slider::-webkit-slider-thumb:hover { transform: none; }
+  .form-slider::-moz-range-thumb:hover { transform: none; }
+}

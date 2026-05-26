@@ -378,3 +378,11 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-secondary);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot.status-checking { animation: none; }
+  .message { animation: none; }
+  .primary-button.is-loading .button-spinner { animation: none; }
+  .icon-button:active { transform: none; }
+  .primary-button:active { transform: none; }
+}
