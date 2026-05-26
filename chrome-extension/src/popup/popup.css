@@ -352,3 +352,19 @@ body {
   .icon-button:active { transform: none; }
   .primary-button:active { transform: none; }
 }
+
+  .popup-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--color-border);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+  }
+  .footer-shortcut {
+    font-family: ui-monospace, monospace;
+    background: var(--color-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+  }

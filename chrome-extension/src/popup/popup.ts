@@ -109,6 +109,8 @@ async function init(): Promise<void> {
 
   // Update UI to reflect current state
   updateUI();
+  const footerVersion = document.getElementById('footerVersion');
+  if (footerVersion) footerVersion.textContent = `v${chrome.runtime.getManifest().version}`;
 }
 
 /**
