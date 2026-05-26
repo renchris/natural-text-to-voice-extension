@@ -275,20 +275,30 @@ function populateVoiceDropdown(): void {
     elements.voiceSelect.disabled = true;
     return;
   }
-
-  elements.voiceSelect.innerHTML = state.voices
-    .map(voice => `<option value="${voice.id}">${voice.name}</option>`)
+  const groups: Record<string, { label: string; voices: Voice[] }> = {
+    af: { label: 'American Female', voices: [] },
+    am: { label: 'American Male', voices: [] },
+    bf: { label: 'British Female', voices: [] },
+    bm: { label: 'British Male', voices: [] },
+  };
+  const ungrouped: Voice[] = [];
+  for (const voice of state.voices) {
+    const prefix = voice.id.slice(0, 2);
+    if (prefix in groups) groups[prefix].voices.push(voice);
+    else ungrouped.push(voice);
+  }
+  const groupHtml = Object.values(groups)
+    .filter(g => g.voices.length > 0)
+    .map(g => `<optgroup label="${g.label}">${g.voices.map(v => `<option value="${v.id}" aria-label="${g.label}: ${v.name}">${v.name}</option>`).join('')}</optgroup>`)
     .join('');
-
-  // Set selected voice if it exists in the list
+  const ungroupedHtml = ungrouped.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
+  elements.voiceSelect.innerHTML = groupHtml + ungroupedHtml;
   if (state.voices.some(v => v.id === state.selectedVoice)) {
     elements.voiceSelect.value = state.selectedVoice;
   } else {
-    // Default to first voice if saved voice doesn't exist
     state.selectedVoice = state.voices[0].id;
     elements.voiceSelect.value = state.selectedVoice;
   }
-
   elements.voiceSelect.disabled = false;
 }
 

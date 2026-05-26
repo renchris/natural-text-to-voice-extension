@@ -40,13 +40,18 @@
       <!-- Voice Selector -->
       <div class="form-group">
         <label for="voiceSelect" class="form-label">Voice:</label>
-        <select
-          id="voiceSelect"
-          class="form-select"
-          aria-label="Select voice for text-to-speech"
-        >
-          <option value="">Loading voices...</option>
-        </select>
+        <div class="select-wrapper">
+          <select
+            id="voiceSelect"
+            class="form-select"
+            aria-label="Select voice for text-to-speech"
+          >
+            <option value="">Loading voices...</option>
+          </select>
+          <svg class="select-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
       </div>
 
       <!-- Speed Slider -->
