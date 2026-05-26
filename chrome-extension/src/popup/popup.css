@@ -211,90 +211,55 @@ body {
   }
   .form-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Speed Value Display */
-.speed-value {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-primary);
-  min-width: 40px;
-  text-align: right;
-}
-
-/* Slider Container */
-.slider-container {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-/* Range Slider */
-.form-slider {
-  -webkit-appearance: none;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-bg-secondary);
-  outline: none;
-  cursor: pointer;
-}
-
-.form-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-  cursor: pointer;
-  transition: transform var(--transition-fast),
-              box-shadow var(--transition-fast);
-}
-
-.form-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.1);
-}
-
-.form-slider::-webkit-slider-thumb:active {
-  transform: scale(1.1);
-}
-
-.form-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--color-primary);
-  cursor: pointer;
-  transition: transform var(--transition-fast),
-              box-shadow var(--transition-fast);
-}
-
-.form-slider::-moz-range-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.1);
-}
-
-.form-slider:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.form-slider:disabled::-webkit-slider-thumb {
-  cursor: not-allowed;
-}
-
-/* Slider Labels */
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 8px;
-}
-
-.slider-label {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
+/* Speed Value */
+  .speed-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-primary);
+    min-width: 40px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Slider */
+  .slider-container { display: flex; flex-direction: column; gap: var(--space-1); }
+  .slider-row { display: flex; align-items: center; gap: var(--space-2); }
+  .speed-step {
+    flex-shrink: 0; width: 24px; height: 24px; padding: 0;
+    border: 1px solid var(--color-border-control);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border-radius: var(--radius-sm);
+    font-size: 14px; line-height: 1; cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  }
+  .speed-step:hover { background: var(--color-bg-hover); border-color: var(--color-text-secondary); }
+  .speed-step:active { opacity: 0.85; }
+  .form-slider {
+    -webkit-appearance: none; flex: 1;
+    height: 4px; border-radius: 2px;
+    background: linear-gradient(to right, var(--color-primary) 0%, var(--color-primary) var(--fill, 33.3%), var(--color-bg-secondary) var(--fill, 33.3%), var(--color-bg-secondary) 100%);
+    outline: none; cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+  .form-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    cursor: pointer;
+    transition: box-shadow var(--transition-fast);
+  }
+  .form-slider::-webkit-slider-thumb:hover { box-shadow: 0 0 0 6px rgba(61, 78, 215, 0.15); }
+  .form-slider::-moz-range-thumb {
+    width: 16px; height: 16px; border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    cursor: pointer;
+  }
+  .form-slider:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* Slider Labels — padding aligned with stepper buttons (24px + 8px gap) */
+  .slider-labels { display: flex; justify-content: space-between; padding: 0 32px; }
+  .slider-label { font-size: 11px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
 
 /* Primary Button */
 .primary-button {

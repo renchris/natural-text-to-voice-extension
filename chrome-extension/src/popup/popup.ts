@@ -140,6 +140,14 @@ function schedulePollWhileWarming(): void {
 function setupEventListeners(): void {
   elements.voiceSelect.addEventListener('change', handleVoiceChange);
   elements.speedSlider.addEventListener('input', handleSpeedChange);
+  document.querySelectorAll<HTMLButtonElement>('.speed-step').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const delta = parseFloat(btn.dataset.delta || '0');
+      const next = Math.min(2.0, Math.max(0.5, state.selectedSpeed + delta));
+      elements.speedSlider.value = next.toFixed(1);
+      elements.speedSlider.dispatchEvent(new Event('input'));
+    });
+  });
   elements.speakButton.addEventListener('click', handleSpeak);
   elements.settingsButton.addEventListener('click', handleSettings);
   elements.retryButton.addEventListener('click', handleRetryConnection);
@@ -321,14 +329,12 @@ async function handleVoiceChange(event: Event): Promise<void> {
 async function handleSpeedChange(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement;
   const speed = parseFloat(target.value);
-
   state.selectedSpeed = speed;
   elements.speedValue.textContent = `${speed.toFixed(1)}x`;
-
-  // Update ARIA value
+  const pct = ((speed - 0.5) / 1.5) * 100;
+  target.style.setProperty('--fill', `${pct}%`);
   target.setAttribute('aria-valuenow', speed.toString());
   target.setAttribute('aria-valuetext', `${speed.toFixed(1)} times speed`);
-
   await savePreferences();
 }
 
@@ -572,6 +578,8 @@ function updateUI(): void {
   // Update speed display
   elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
   elements.speedSlider.value = state.selectedSpeed.toString();
+  const initPct = ((state.selectedSpeed - 0.5) / 1.5) * 100;
+  elements.speedSlider.style.setProperty('--fill', `${initPct}%`);
 
   // Speak only enabled when fully connected (warming/disconnected both disable)
   if (state.helperStatus === 'connected') {
@@ -601,6 +609,8 @@ async function loadPreferences(): Promise<void> {
     if (result.selectedSpeed !== undefined) {
       state.selectedSpeed = result.selectedSpeed;
       elements.speedSlider.value = state.selectedSpeed.toString();
+      const loadPct = ((state.selectedSpeed - 0.5) / 1.5) * 100;
+      elements.speedSlider.style.setProperty('--fill', `${loadPct}%`);
       elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
     }
   } catch (error) {
