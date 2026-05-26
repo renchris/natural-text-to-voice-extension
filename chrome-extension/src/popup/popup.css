@@ -247,9 +247,24 @@ body {
     cursor: pointer;
   }
   .form-slider:disabled { opacity: 0.5; cursor: not-allowed; }
-  /* Slider Labels — padding aligned with stepper buttons (24px + 8px gap) */
-  .slider-labels { display: flex; justify-content: space-between; padding: 0 32px; }
-  .slider-label { font-size: 11px; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+  /* Slider Labels — absolute-positioned at true value stops.
+     Slider track sits between 32px stepper insets (24px button + 8px gap).
+     At value=1.0 the thumb is at (1.0−0.5)/(2.0−0.5) = 33.3% of the track,
+     NOT the visual midpoint — so the middle label can't use space-between. */
+  .slider-labels { position: relative; height: 14px; margin-top: 2px; }
+  .slider-label {
+    position: absolute;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .slider-label:nth-child(1) { left: 32px; }
+  .slider-label:nth-child(2) {
+    left: calc(32px + (100% - 64px) * 0.3333);
+    transform: translateX(-50%);
+  }
+  .slider-label:nth-child(3) { right: 32px; }
 
 /* Primary Button */
 .primary-button {

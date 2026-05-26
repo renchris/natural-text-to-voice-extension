@@ -443,8 +443,11 @@ function handleKeyboard(event: KeyboardEvent): void {
  */
 async function getSelectedText(): Promise<string> {
   try {
-    // Get active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // Use lastFocusedWindow so this works when the popup is detached (DevTools
+    // open, separate window). currentWindow would resolve to the popup's own
+    // window in that case and return no usable tab. lastFocusedWindow tracks
+    // the most recently focused normal Chrome window — the page behind.
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
 
     if (!tab || !tab.id) {
       console.error('[Popup] No active tab found');
