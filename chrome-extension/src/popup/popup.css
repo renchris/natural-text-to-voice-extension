@@ -336,23 +336,19 @@ body {
 }
 
 /* Loading State */
-.primary-button.is-loading {
-  opacity: 0.7;
-  cursor: wait;
+.primary-button.is-loading { opacity: 0.85; cursor: wait; }
+.primary-button.is-loading .button-icon { display: none; }
+.primary-button.is-loading .button-spinner { display: inline-block; }
+.button-spinner {
+  display: none;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
-
-.primary-button.is-loading .button-icon {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Focus Styles (Keyboard Navigation) */
 *:focus-visible {
