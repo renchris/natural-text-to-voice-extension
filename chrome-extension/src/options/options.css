@@ -122,19 +122,19 @@ body {
 
 .message.message-success {
   background: rgba(15, 157, 88, 0.1);
-  color: var(--color-success);
+  color: var(--color-success-text);
   border: 1px solid rgba(15, 157, 88, 0.2);
 }
 
 .message.message-error {
   background: rgba(217, 48, 37, 0.1);
-  color: var(--color-error);
+  color: var(--color-error-text);
   border: 1px solid rgba(217, 48, 37, 0.2);
 }
 
 .message.message-warning {
   background: rgba(249, 171, 0, 0.1);
-  color: #c26600;
+  color: var(--color-warning-text);
   border: 1px solid rgba(249, 171, 0, 0.2);
 }
 
