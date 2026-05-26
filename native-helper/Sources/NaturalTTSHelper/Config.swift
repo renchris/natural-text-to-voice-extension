@@ -1,7 +1,7 @@
 import Foundation
 
 struct Config: Codable {
-    let port: Int
+    var port: Int
     let secret: String
     let pythonPath: String
     let workerScriptPath: String
@@ -13,6 +13,9 @@ struct Config: Codable {
         case workerScriptPath = "worker_script_path"
         case defaultVoice = "default_voice"
     }
+
+    static let preferredPort = 8249
+    static let portRangeCount = 12
 
     static let configDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/NaturalTTS")
@@ -32,29 +35,47 @@ struct Config: Codable {
     }
 
     static func createDefault() -> Config {
-        // Generate random port
-        let port = Int.random(in: 8000..<9000)
-
-        // Generate secret token
-        let secret = UUID().uuidString
-
-        // Find Python path (system Python or bundled)
-        let pythonPath = findPythonPath()
-
-        // Find worker script path
-        let workerScriptPath = findWorkerScriptPath()
-
         return Config(
-            port: port,
-            secret: secret,
-            pythonPath: pythonPath,
-            workerScriptPath: workerScriptPath,
+            port: preferredPort,
+            secret: UUID().uuidString,
+            pythonPath: findPythonPath(),
+            workerScriptPath: findWorkerScriptPath(),
             defaultVoice: "af_bella"
         )
     }
 
+    /// Returns true if the given TCP port on 127.0.0.1 can be bound right now.
+    /// Subject to TOCTOU; callers should still handle bind failure.
+    static func isPortAvailable(_ port: Int) -> Bool {
+        let sock = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        guard sock >= 0 else { return false }
+        defer { Darwin.close(sock) }
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = UInt16(port).bigEndian
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let bindResult = withUnsafePointer(to: &addr) { addrPtr in
+            addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                Darwin.bind(sock, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        return bindResult == 0
+    }
+
+    /// Scans `count` consecutive ports starting at `startingAt`, returns the first available.
+    static func findAvailablePort(startingAt: Int = preferredPort, count: Int = portRangeCount) -> Int? {
+        for offset in 0..<count {
+            let port = startingAt + offset
+            if isPortAvailable(port) {
+                return port
+            }
+        }
+        return nil
+    }
+
     func save() throws {
-        // Create config directory if needed
         if !FileManager.default.fileExists(atPath: Config.configDirectory.path) {
             try FileManager.default.createDirectory(
                 at: Config.configDirectory,
@@ -62,11 +83,12 @@ struct Config: Codable {
             )
         }
 
-        // Write config
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let data = try encoder.encode(self)
-        try data.write(to: Config.configFilePath)
+        // .atomic = write to sibling temp file + fsync + rename. Prevents
+        // partial reads by the extension if the helper dies mid-write.
+        try data.write(to: Config.configFilePath, options: .atomic)
     }
 
     private static func findPythonPath() -> String {

@@ -18,7 +18,21 @@ struct NaturalTTSHelper {
         do {
             // 1. Load or create config
             logger.info("Loading configuration...")
-            let config = try Config.load()
+            var config = try Config.load()
+
+            // 1a. Ensure configured port is bindable; fall back through 8249..8260
+            if !Config.isPortAvailable(config.port) {
+                logger.warning("Configured port \(config.port) is in use, scanning fallback range...")
+                guard let availablePort = Config.findAvailablePort() else {
+                    let last = Config.preferredPort + Config.portRangeCount - 1
+                    logger.error("All ports \(Config.preferredPort)..\(last) are in use. Free one and retry.")
+                    exit(1)
+                }
+                config.port = availablePort
+                try config.save()
+                logger.info("Falling back to port \(config.port)")
+            }
+
             logger.info("Port: \(config.port)")
             logger.info("Python: \(config.pythonPath)")
             logger.info("Worker script: \(config.workerScriptPath)")
