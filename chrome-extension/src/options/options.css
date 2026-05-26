@@ -334,6 +334,7 @@ body {
   -webkit-appearance: none;
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  accent-color: var(--color-primary);
 }
 
 .form-checkbox:hover {
@@ -455,7 +456,7 @@ body {
 }
 
 .primary-button:active {
-  transform: scale(0.98);
+  opacity: 0.85;
 }
 
 .primary-button:disabled {
@@ -495,7 +496,7 @@ body {
 }
 
 .secondary-button:active {
-  transform: scale(0.98);
+  opacity: 0.85;
 }
 
 .secondary-button:disabled {

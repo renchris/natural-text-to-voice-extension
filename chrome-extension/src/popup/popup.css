@@ -70,7 +70,7 @@ body {
 }
 
 .icon-button:active {
-  transform: scale(0.95);
+  opacity: 0.85;
 }
 
   /* Status Pill */
@@ -277,7 +277,7 @@ body {
 }
 
 .primary-button:active {
-  transform: scale(0.98);
+  opacity: 0.85;
 }
 
 .primary-button:disabled {
