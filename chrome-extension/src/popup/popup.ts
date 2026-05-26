@@ -147,7 +147,9 @@ function setupEventListeners(): void {
     btn.addEventListener('click', () => {
       const delta = parseFloat(btn.dataset.delta || '0');
       const next = Math.min(2.0, Math.max(0.5, state.selectedSpeed + delta));
-      elements.speedSlider.value = next.toFixed(1);
+      // Convert speed to slider POSITION (0..1) so the log-scaled slider sets
+      // the thumb at the right place. handleSpeedChange will re-snap.
+      elements.speedSlider.value = speedToPosition(next).toString();
       elements.speedSlider.dispatchEvent(new Event('input'));
     });
   });
@@ -334,15 +336,37 @@ async function handleVoiceChange(event: Event): Promise<void> {
 }
 
 /**
+ * Speed slider uses a LOGARITHMIC scale so 1.0x sits at the visual midpoint.
+ *   speed = 2^(2·pos − 1)         pos = 0 → 0.5x, pos = 0.5 → 1.0x, pos = 1 → 2.0x
+ *   pos   = (log2(speed) + 1) / 2
+ * 0.5x and 2.0x are each one octave from 1.0x, so they're equidistant on the
+ * track — which matches the user's "half-speed / normal / double-speed" mental
+ * model. A linear 0.5–2.0 scale puts 1.0x at 33.3% which feels wrong.
+ */
+function positionToSpeed(pos: number): number {
+  return Math.pow(2, 2 * pos - 1);
+}
+function speedToPosition(speed: number): number {
+  return (Math.log2(speed) + 1) / 2;
+}
+
+/**
  * Handle speed slider change
  */
 async function handleSpeedChange(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement;
-  const speed = parseFloat(target.value);
+  const rawPos = parseFloat(target.value);
+  const rawSpeed = positionToSpeed(rawPos);
+  // Snap to 0.1x increments for predictable display and storage.
+  const speed = Math.round(rawSpeed * 10) / 10;
   state.selectedSpeed = speed;
+  // Snap thumb position to the exact place that matches the rounded speed.
+  const snappedPos = speedToPosition(speed);
+  if (Math.abs(rawPos - snappedPos) > 0.001) {
+    target.value = snappedPos.toString();
+  }
   elements.speedValue.textContent = `${speed.toFixed(1)}x`;
-  const pct = ((speed - 0.5) / 1.5) * 100;
-  target.style.setProperty('--fill', `${pct}%`);
+  target.style.setProperty('--fill', `${snappedPos * 100}%`);
   target.setAttribute('aria-valuenow', speed.toString());
   target.setAttribute('aria-valuetext', `${speed.toFixed(1)} times speed`);
   await savePreferences();
@@ -443,11 +467,25 @@ function handleKeyboard(event: KeyboardEvent): void {
  */
 async function getSelectedText(): Promise<string> {
   try {
-    // Use lastFocusedWindow so this works when the popup is detached (DevTools
-    // open, separate window). currentWindow would resolve to the popup's own
-    // window in that case and return no usable tab. lastFocusedWindow tracks
-    // the most recently focused normal Chrome window — the page behind.
-    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    // Robust tab resolution for both normal popup AND detached popup
+    // (DevTools-attached). lastFocusedWindow can resolve to the popup's own
+    // window if the popup itself was focused last (e.g., user dragged it,
+    // multi-monitor focus), so we explicitly request normal windows via
+    // chrome.windows.getLastFocused first and fall back to tabs.query.
+    let tab: chrome.tabs.Tab | undefined;
+    try {
+      const win = await chrome.windows.getLastFocused({
+        windowTypes: ['normal'],
+        populate: true,
+      });
+      tab = win.tabs?.find(t => t.active);
+    } catch {
+      // Fall through to tabs.query
+    }
+    if (!tab || !tab.id) {
+      const queried = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      tab = queried[0];
+    }
 
     if (!tab || !tab.id) {
       console.error('[Popup] No active tab found');
@@ -607,11 +645,12 @@ function setPlayingState(isPlaying: boolean): void {
  * Update entire UI based on current state
  */
 function updateUI(): void {
-  // Update speed display
+  // Speed slider — convert state.selectedSpeed (semantic speed 0.5–2.0) to its
+  // log-scaled position (0–1) for the slider value + fill bar.
   elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
-  elements.speedSlider.value = state.selectedSpeed.toString();
-  const initPct = ((state.selectedSpeed - 0.5) / 1.5) * 100;
-  elements.speedSlider.style.setProperty('--fill', `${initPct}%`);
+  const pos = speedToPosition(state.selectedSpeed);
+  elements.speedSlider.value = pos.toString();
+  elements.speedSlider.style.setProperty('--fill', `${pos * 100}%`);
 
   // Speak only enabled when fully connected (warming/disconnected both disable)
   if (state.helperStatus === 'connected') {
@@ -640,9 +679,9 @@ async function loadPreferences(): Promise<void> {
 
     if (result.selectedSpeed !== undefined) {
       state.selectedSpeed = result.selectedSpeed;
-      elements.speedSlider.value = state.selectedSpeed.toString();
-      const loadPct = ((state.selectedSpeed - 0.5) / 1.5) * 100;
-      elements.speedSlider.style.setProperty('--fill', `${loadPct}%`);
+      const pos = speedToPosition(state.selectedSpeed);
+      elements.speedSlider.value = pos.toString();
+      elements.speedSlider.style.setProperty('--fill', `${pos * 100}%`);
       elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
     }
   } catch (error) {
