@@ -203,7 +203,8 @@ async function handleRetryConnection(): Promise<void> {
   try {
     // Show loading state
     elements.retryButton.disabled = true;
-    elements.retryButton.textContent = 'Connecting...';
+    const span206 = elements.retryButton.querySelector('span');
+    if (span206) span206.textContent = 'Connecting...';
     updateStatusIndicator('checking', 'Checking helper status...');
 
     // Reset API client to force config re-discovery
@@ -223,14 +224,16 @@ async function handleRetryConnection(): Promise<void> {
     } else {
       showMessage('Still unable to connect. Ensure the helper is running.', 'error');
       // Keep retry button visible
+      const span = elements.retryButton.querySelector('span');
+      if (span) span.textContent = 'Retry Connection';
       elements.retryButton.disabled = false;
-      elements.retryButton.innerHTML = '<svg class="button-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35c-1.7-1.7-4.6-1.7-6.3 0L6 3.7l1.4 1.4 1.35-1.35c1-1 2.6-1 3.6 0 1 1 1 2.6 0 3.6l-2 2c-1 1-2.6 1-3.6 0L5.3 8l-1.4 1.4 1.4 1.4c1.7 1.7 4.6 1.7 6.3 0l2-2c1.9-1.7 1.9-4.6.05-6.45zM6.7 8L5.3 6.6c-1.7-1.7-4.6-1.7-6.3 0-1.7 1.7-1.7 4.6 0 6.3 1.7 1.7 4.6 1.7 6.3 0L7 11.6 5.7 10.3l-1.35 1.35c-1 1-2.6 1-3.6 0-1-1-1-2.6 0-3.6l2-2c1-1 2.6-1 3.6 0L8 7.4 6.7 8z"/></svg><span>Retry Connection</span>';
     }
   } catch (error) {
     console.error('Error during retry:', error);
     showMessage('Failed to retry connection. Check console for details.', 'error');
+    const span = elements.retryButton.querySelector('span');
+    if (span) span.textContent = 'Retry Connection';
     elements.retryButton.disabled = false;
-    elements.retryButton.innerHTML = '<svg class="button-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35c-1.7-1.7-4.6-1.7-6.3 0L6 3.7l1.4 1.4 1.35-1.35c1-1 2.6-1 3.6 0 1 1 1 2.6 0 3.6l-2 2c-1 1-2.6 1-3.6 0L5.3 8l-1.4 1.4 1.4 1.4c1.7 1.7 4.6 1.7 6.3 0l2-2c1.9-1.7 1.9-4.6.05-6.45zM6.7 8L5.3 6.6c-1.7-1.7-4.6-1.7-6.3 0-1.7 1.7-1.7 4.6 0 6.3 1.7 1.7 4.6 1.7 6.3 0L7 11.6 5.7 10.3l-1.35 1.35c-1 1-2.6 1-3.6 0-1-1-1-2.6 0-3.6l2-2c1-1 2.6-1 3.6 0L8 7.4 6.7 8z"/></svg><span>Retry Connection</span>';
   }
 }
 
