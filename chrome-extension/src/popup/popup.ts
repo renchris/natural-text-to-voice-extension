@@ -169,7 +169,7 @@ async function checkHelperStatus(): Promise<void> {
       // (status === 'warming' OR model_loaded === false). This is distinct
       // from "not running" — surface it as warming so the UI can poll.
       state.helperStatus = 'warming';
-      updateStatusIndicator('checking', 'Loading TTS model…');
+      updateStatusIndicator('warming', 'Loading TTS model…');
     }
   } catch (error) {
     state.helperStatus = 'disconnected';
@@ -190,7 +190,7 @@ async function checkHelperStatus(): Promise<void> {
 /**
  * Update status indicator UI
  */
-function updateStatusIndicator(status: 'connected' | 'disconnected' | 'checking', tooltip: string): void {
+function updateStatusIndicator(status: 'connected' | 'disconnected' | 'checking' | 'warming', tooltip: string): void {
   // Warming reuses the 'checking' indicator visually.
   elements.statusIndicator.className = `status-dot status-${status}`;
   elements.statusIndicator.title = tooltip;

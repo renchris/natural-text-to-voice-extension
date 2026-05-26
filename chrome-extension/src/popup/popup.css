@@ -95,6 +95,11 @@ body {
   background: var(--color-error);
 }
 
+.status-dot.status-warming {
+  background: var(--color-warning);
+  animation: pulse 2s ease-in-out infinite;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
