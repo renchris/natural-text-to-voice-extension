@@ -221,7 +221,13 @@ struct Config: Codable {
     static func isPortAvailable(_ port: Int) -> Bool {
         let sock = Darwin.socket(AF_INET, SOCK_STREAM, 0)
         guard sock >= 0 else { return false }
-        defer { Darwin.close(sock) }
+
+        // Match the NIO listener, which sets SO_REUSEADDR: without it a port
+        // whose previous listener left TIME_WAIT sockets reads as busy for
+        // ~30 s, and a quick restart silently moved the helper to 8250.
+        // A port with a live listener still fails to bind.
+        var one: Int32 = 1
+        _ = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, socklen_t(MemoryLayout<Int32>.size))
 
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
@@ -233,7 +239,44 @@ struct Config: Codable {
                 Darwin.bind(sock, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
             }
         }
-        return bindResult == 0
+        // Close before the connect check: a still-bound probe socket is the
+        // most specific match for 127.0.0.1:port and would refuse the connect.
+        Darwin.close(sock)
+        guard bindResult == 0 else { return false }
+
+        // SO_REUSEADDR also lets a 127.0.0.1 bind succeed beside a WILDCARD
+        // (*:port) listener on macOS, which the NIO listener (also
+        // SO_REUSEADDR) would then shadow on loopback. Only a TIME_WAIT
+        // leftover should pass, so also make sure nothing accepts a connection.
+        return !hasLoopbackListener(port)
+    }
+
+    /// True when a connect to 127.0.0.1:port is accepted within 250 ms.
+    private static func hasLoopbackListener(_ port: Int) -> Bool {
+        let sock = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        guard sock >= 0 else { return false }
+        defer { Darwin.close(sock) }
+        _ = fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK)
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = UInt16(port).bigEndian
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let result = withUnsafePointer(to: &addr) { addrPtr in
+            addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPtr in
+                Darwin.connect(sock, sockaddrPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        if result == 0 { return true }
+        guard errno == EINPROGRESS else { return false } // ECONNREFUSED: nobody listening
+
+        var pfd = pollfd(fd: sock, events: Int16(POLLOUT), revents: 0)
+        guard poll(&pfd, 1, 250) == 1 else { return false }
+        var soError: Int32 = 0
+        var length = socklen_t(MemoryLayout<Int32>.size)
+        getsockopt(sock, SOL_SOCKET, SO_ERROR, &soError, &length)
+        return soError == 0
     }
 
     /// Scans `count` consecutive ports starting at `startingAt`, returns the first available.

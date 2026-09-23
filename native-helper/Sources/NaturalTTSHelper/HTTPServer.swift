@@ -108,7 +108,7 @@ actor HTTPServer {
     }
 
     private func handleHealth(origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
-        let isReady = await worker.isReady
+        let isReady = worker.isReady
         let uptime = Date().timeIntervalSince(startTime)
 
         let response = HealthResponse(

@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import os
 
 actor PythonWorker {
     private let logger = Logger(label: "com.naturaltts.helper.worker")
@@ -11,6 +12,13 @@ actor PythonWorker {
     private var stderr: Pipe?
 
     private var isWarm = false
+
+    /// Readiness mirror readable WITHOUT entering the actor. generate() holds
+    /// the actor through a blocking read of the worker's stdout, so an
+    /// actor-isolated isReady made /health wait for the whole synthesis
+    /// (measured 6.6 s behind a /speak). Set in markWarm(), cleared in
+    /// handleTermination() and shutdown().
+    nonisolated let readiness = OSAllocatedUnfairLock(initialState: false)
     private var restartCount = 0
     private let maxRestarts = 3
 
@@ -138,8 +146,8 @@ actor PythonWorker {
         )
     }
 
-    var isReady: Bool {
-        isWarm && process?.isRunning == true
+    nonisolated var isReady: Bool {
+        readiness.withLock { $0 }
     }
 
     func shutdown() async {
@@ -169,12 +177,14 @@ actor PythonWorker {
         self.stdout = nil
         self.stderr = nil
         self.isWarm = false
+        readiness.withLock { $0 = false }
     }
 
     // MARK: - Private Methods
 
     private func markWarm() {
         isWarm = true
+        readiness.withLock { $0 = true }
         logger.info("Python worker marked as warm")
     }
 
@@ -193,6 +203,7 @@ actor PythonWorker {
     private func handleTermination(exitCode: Int32) {
         logger.error("Python worker terminated unexpectedly (exit code: \(exitCode))")
         isWarm = false
+        readiness.withLock { $0 = false }
         // Could implement auto-restart here if needed
     }
 
