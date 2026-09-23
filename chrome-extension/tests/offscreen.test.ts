@@ -60,6 +60,18 @@ const mockRevokeObjectURL = mock((url: string) => {
 });
 
 describe('Offscreen Document Message Handling', () => {
+  // The real (happy-dom) globals, restored after each test. Deleting them instead
+  // left every later test file in the same bun process without URL or Audio.
+  const saved = {
+    chrome: (global as any).chrome,
+    Audio: (global as any).Audio,
+    URL: (global as any).URL,
+  };
+  const restore = (key: keyof typeof saved): void => {
+    if (saved[key] === undefined) delete (global as any)[key];
+    else (global as any)[key] = saved[key];
+  };
+
   beforeEach(() => {
     // Reset mocks
     mockSendResponse.mockClear();
@@ -79,9 +91,9 @@ describe('Offscreen Document Message Handling', () => {
 
   afterEach(() => {
     // Clean up
-    delete (global as any).chrome;
-    delete (global as any).Audio;
-    delete (global as any).URL;
+    restore('chrome');
+    restore('Audio');
+    restore('URL');
     delete (global as any).__mockApiClient;
     mockObjectURLs.clear();
   });
