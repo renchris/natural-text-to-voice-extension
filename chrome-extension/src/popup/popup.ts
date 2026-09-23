@@ -9,6 +9,8 @@ import { HelperNotFoundError, NetworkTimeoutError, InvalidResponseError } from '
 import { readSelection } from '../shared/selection';
 import type { OffscreenMessage } from '../shared/types';
 import { renderShortcutChip } from './shortcut-chip';
+import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
+import { buildVoiceOptionNodes } from '../shared/voice-options';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -52,7 +54,7 @@ const elements = {
 
 const state: PopupState = {
   voices: [],
-  selectedVoice: 'af_bella', // Default voice
+  selectedVoice: DEFAULT_VOICE,
   selectedSpeed: 1.0,
   helperStatus: 'checking',
   isGenerating: false,
@@ -295,7 +297,7 @@ async function loadVoices(): Promise<void> {
     showMessage('Failed to load voices. Using default.', 'warning');
 
     // Fallback to default voice
-    setPlaceholderOption('Bella (US) - en-US', 'af_bella');
+    setPlaceholderOption(voiceLabel(DEFAULT_VOICE), DEFAULT_VOICE);
   }
 }
 
@@ -310,57 +312,22 @@ function setPlaceholderOption(label: string, value = ''): void {
   elements.voiceSelect.replaceChildren(option);
 }
 
-function createVoiceOption(voice: Voice, groupLabel?: string): HTMLOptionElement {
-  const option = document.createElement('option');
-  option.value = voice.id;
-  option.textContent = voice.name;
-  if (groupLabel) {
-    option.setAttribute('aria-label', `${groupLabel}: ${voice.name}`);
-  }
-  return option;
-}
-
 /**
- * Populate voice dropdown with available voices
+ * Populate the voice dropdown with the catalogue voices the helper reports,
+ * grouped by accent and gender (native optgroups), labelled from the
+ * catalogue. Older helpers report fewer voices; only those are offered.
  */
 function populateVoiceDropdown(): void {
-  if (state.voices.length === 0) {
+  const offered = state.voices.map(v => v.id);
+  const nodes = buildVoiceOptionNodes(offered);
+  if (nodes.length === 0) {
     setPlaceholderOption('No voices available');
     elements.voiceSelect.disabled = true;
     return;
   }
-  const groups: Record<string, { label: string; voices: Voice[] }> = {
-    af: { label: 'American Female', voices: [] },
-    am: { label: 'American Male', voices: [] },
-    bf: { label: 'British Female', voices: [] },
-    bm: { label: 'British Male', voices: [] },
-  };
-  const ungrouped: Voice[] = [];
-  for (const voice of state.voices) {
-    const prefix = voice.id.slice(0, 2);
-    if (prefix in groups) groups[prefix].voices.push(voice);
-    else ungrouped.push(voice);
-  }
-  const nodes: Array<HTMLOptGroupElement | HTMLOptionElement> = [];
-  for (const group of Object.values(groups)) {
-    if (group.voices.length === 0) continue;
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = group.label;
-    for (const voice of group.voices) {
-      optgroup.appendChild(createVoiceOption(voice, group.label));
-    }
-    nodes.push(optgroup);
-  }
-  for (const voice of ungrouped) {
-    nodes.push(createVoiceOption(voice));
-  }
   elements.voiceSelect.replaceChildren(...nodes);
-  if (state.voices.some(v => v.id === state.selectedVoice)) {
-    elements.voiceSelect.value = state.selectedVoice;
-  } else {
-    state.selectedVoice = state.voices[0].id;
-    elements.voiceSelect.value = state.selectedVoice;
-  }
+  state.selectedVoice = resolveVoice(state.selectedVoice, offered);
+  elements.voiceSelect.value = state.selectedVoice;
   elements.voiceSelect.disabled = false;
 }
 
@@ -714,9 +681,8 @@ async function loadPreferences(): Promise<void> {
       'selectedSpeed',
     ]);
 
-    if (typeof result.selectedVoice === 'string' && result.selectedVoice) {
-      state.selectedVoice = result.selectedVoice;
-    }
+    // Only catalogue voices are valid; anything else falls back to the default.
+    state.selectedVoice = resolveVoice(result.selectedVoice);
 
     if (typeof result.selectedSpeed === 'number' && Number.isFinite(result.selectedSpeed)) {
       state.selectedSpeed = result.selectedSpeed;

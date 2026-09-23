@@ -4,6 +4,8 @@
  * Centralized default values and validation for extension settings
  */
 
+import { DEFAULT_VOICE, VOICE_CATALOGUE, VOICE_IDS, isCatalogueVoice, voiceLongLabel } from './voices';
+
 export interface ExtensionSettings {
   // Voice preferences
   selectedVoice: string;
@@ -14,7 +16,7 @@ export interface ExtensionSettings {
  * Default settings values
  */
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  selectedVoice: 'af_bella',
+  selectedVoice: DEFAULT_VOICE,
   selectedSpeed: 1.0,
 };
 
@@ -27,27 +29,16 @@ export const SETTINGS_CONSTRAINTS = {
     max: 2.0,
     step: 0.1,
   },
-  voices: [
-    'af_bella',
-    'af_nicole',
-    'af_sarah',
-    'af_sky',
-    'am_adam',
-    'am_michael',
-  ] as const,
+  /** Every catalogue voice (src/shared/voices.ts) is accepted */
+  voices: VOICE_IDS,
 };
 
 /**
- * Voice display names
+ * Voice display names, derived from the catalogue ("Bella (Female, US)")
  */
-export const VOICE_NAMES: Record<string, string> = {
-  'af_bella': 'Bella (Female, US)',
-  'af_nicole': 'Nicole (Female, US)',
-  'af_sarah': 'Sarah (Female, US)',
-  'af_sky': 'Sky (Female, US)',
-  'am_adam': 'Adam (Male, US)',
-  'am_michael': 'Michael (Male, US)',
-};
+export const VOICE_NAMES: Record<string, string> = Object.fromEntries(
+  VOICE_CATALOGUE.map(v => [v.id, voiceLongLabel(v.id)])
+);
 
 /**
  * Validate settings object
@@ -56,7 +47,7 @@ export function validateSettings(settings: Partial<ExtensionSettings>): Extensio
   const validated: ExtensionSettings = { ...DEFAULT_SETTINGS };
 
   // Validate voice
-  if (settings.selectedVoice && SETTINGS_CONSTRAINTS.voices.includes(settings.selectedVoice as any)) {
+  if (isCatalogueVoice(settings.selectedVoice)) {
     validated.selectedVoice = settings.selectedVoice;
   }
 

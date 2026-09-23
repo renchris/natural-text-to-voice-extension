@@ -153,7 +153,8 @@ use the context menu there.
 - Or right-click extension icon → "Options"
 
 **Available Settings:**
-- **Voice Selection**: Choose from 6 voices
+- **Voice Selection**: the 28 English Kokoro voices, grouped American/British,
+  female/male (an older helper offers only the voices it has)
 - **Playback Speed**: 0.5x - 2.0x range
 
 **Settings sync** automatically across all extension contexts.

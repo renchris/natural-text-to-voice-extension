@@ -35,7 +35,7 @@ export interface Voice {
  */
 export interface SpeakRequest {
   text: string;
-  voice?: string;  // Default: "af_bella"
+  voice?: string;  // Default: DEFAULT_VOICE (src/shared/voices.ts)
   speed?: number;  // Default: 1.0, range: 0.5-2.0
 }
 

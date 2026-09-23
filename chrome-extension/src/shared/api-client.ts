@@ -9,6 +9,7 @@ import {
   InvalidResponseError,
 } from './types';
 import { getConfig } from './config';
+import { DEFAULT_VOICE } from './voices';
 
 /**
  * Timeout for POST /speak, scaled by text length: 30 s plus 15 ms per
@@ -200,7 +201,7 @@ export class ApiClient implements NativeTTSClient {
     // Apply defaults
     const payload = {
       text: request.text,
-      voice: request.voice || config.default_voice || 'af_bella',
+      voice: request.voice || config.default_voice || DEFAULT_VOICE,
       speed: request.speed !== undefined ? request.speed : 1.0,
     };
 

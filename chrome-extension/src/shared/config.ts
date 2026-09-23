@@ -1,4 +1,5 @@
 import { HelperConfig, ConfigNotFoundError } from './types';
+import { DEFAULT_VOICE } from './voices';
 
 /**
  * Storage key for helper configuration in chrome.storage.local
@@ -44,14 +45,14 @@ export async function getStoredConfig(): Promise<Partial<HelperConfig>> {
     return {
       port: DEFAULT_PORT,
       secret: '', // Will be discovered via health check or user input
-      default_voice: 'af_bella'
+      default_voice: DEFAULT_VOICE
     };
   } catch (error) {
     console.warn('Failed to read config from storage:', error);
     return {
       port: DEFAULT_PORT,
       secret: '',
-      default_voice: 'af_bella'
+      default_voice: DEFAULT_VOICE
     };
   }
 }
@@ -102,7 +103,7 @@ export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Pr
         const config: Partial<HelperConfig> = {
           port,
           secret: '', // Secret is not exposed via health endpoint
-          default_voice: 'af_bella'
+          default_voice: DEFAULT_VOICE
         };
 
         // Save the discovered config. A context without chrome.storage (the

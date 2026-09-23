@@ -39,18 +39,13 @@ This guide provides detailed instructions for capturing screenshots and creating
 
 **Setup**:
 1. Click on voice dropdown to open it
-2. Ensure all 6 voices are visible
+2. Ensure the four voice groups are visible
 
 **Capture**: Screenshot while dropdown is open
 
 **Key Elements Visible**:
-- [ ] All 6 voices listed:
-  - Bella (US) - en-US
-  - Nicole - en-US
-  - Sarah - en-US
-  - Sky - en-US
-  - Adam - en-US
-  - Michael - en-US
+- [ ] Voices grouped under American Female, American Male, British Female
+  and British Male (28 in all with a v1.5 helper)
 
 #### Screenshot 3: Popup - Speed Slider Adjustment
 **Filename**: `popup-speed-slider.png`
@@ -119,7 +114,7 @@ This guide provides detailed instructions for capturing screenshots and creating
 
 **Key Elements Visible**:
 - [ ] "Voice Preferences" heading
-- [ ] Voice dropdown with all 6 voices
+- [ ] Voice dropdown with the four voice groups
 - [ ] Help text below dropdown
 
 #### Screenshot 7: Options - Speed Settings
@@ -331,7 +326,7 @@ toggles were removed in v1.5 because neither had any effect. Skip this shot.
 
 7. **Closing (5 sec)**
    - Fade to black
-   - Show text: "100% Local • 6 Voices • Privacy-First"
+   - Show text: "100% Local • 28 Voices • Privacy-First"
    - GitHub URL
 
 **Recording Tips**:

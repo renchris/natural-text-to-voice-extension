@@ -10,6 +10,13 @@
 import { describe, test, expect, mock, beforeAll, beforeEach, afterAll } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { Window } from 'happy-dom';
+
+// A document of its own: page modules bind to the global document at import
+// and listen for DOMContentLoaded on it, so a shared one would let another
+// page suite's DOMContentLoaded run this page's init (and vice versa).
+const pageWindow = new Window();
+const savedDom = { window: (globalThis as any).window, document: (globalThis as any).document };
 
 // ---- helper mock: /health and /voices answer at once, /speak waits for the test
 type Deferred = { resolve: () => void; promise: Promise<void> };
@@ -123,6 +130,8 @@ async function until(condition: () => boolean, label: string): Promise<void> {
 const tick = () => new Promise(r => setTimeout(r, 5));
 
 beforeAll(async () => {
+  (globalThis as any).window = pageWindow;
+  (globalThis as any).document = pageWindow.document;
   installGlobals();
   const html = readFileSync(join(import.meta.dir, '../src/popup/popup.html'), 'utf8');
   const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
@@ -139,13 +148,15 @@ beforeEach(() => {
 });
 
 afterAll(() => {
+  pageWindow.document.body.innerHTML = '';
+  (globalThis as any).window = savedDom.window;
+  (globalThis as any).document = savedDom.document;
   (globalThis as any).chrome = saved.chrome;
   globalThis.fetch = saved.fetch;
   (globalThis as any).Audio = saved.Audio;
   (globalThis as any).URL = saved.URL;
   if (saved.chrome === undefined) delete (globalThis as any).chrome;
   if (saved.Audio === undefined) delete (globalThis as any).Audio;
-  document.body.innerHTML = '';
 });
 
 describe('popup speak button (IN-10)', () => {
@@ -245,14 +256,31 @@ describe('popup voice list (IN-10)', () => {
     expect(select.querySelector('img')).toBeNull();
   });
 
-  test('a hostile label from the helper is rendered as literal text', async () => {
-    voicesPayload = { voices: [{ id: 'af_bella', name: '<img src=x onerror="alert(1)">Bella', language: 'en-US' }] };
+  test('voices are grouped by accent and gender with catalogue labels (IN-11)', () => {
+    const select = el<HTMLSelectElement>('voiceSelect');
+    const groups = [...select.querySelectorAll('optgroup')].map(g => [g.label, [...g.querySelectorAll('option')].map(o => o.textContent)]);
+    expect(groups).toEqual([
+      ['American Female', ['Bella']],
+      ['American Male', ['Michael']],
+      ['British Female', ['Emma']],
+    ]);
+  });
+
+  test('labels come from the catalogue, so a helper label is never rendered, hostile or wrong', async () => {
+    voicesPayload = {
+      voices: [
+        { id: 'af_bella', name: '<img src=x onerror="alert(1)">Bella', language: 'en-US' },
+        { id: 'af_sarah', name: 'Sarah (UK)', language: 'en-GB' },
+        { id: 'zz_nope', name: 'Not a Kokoro voice', language: 'en-US' },
+      ],
+    };
     // The retry path reloads voices through the same code.
     el<HTMLButtonElement>('retryButton').click();
-    await until(() => el<HTMLSelectElement>('voiceSelect').options[0]?.textContent?.includes('<img'), 'reloaded');
+    await until(() => el<HTMLSelectElement>('voiceSelect').options.length === 2, 'reloaded');
     const select = el<HTMLSelectElement>('voiceSelect');
     expect(select.querySelector('img')).toBeNull();
-    expect(select.options[0].textContent).toBe('<img src=x onerror="alert(1)">Bella');
+    expect([...select.options].map(o => `${o.value}=${o.textContent}`)).toEqual(['af_bella=Bella', 'af_sarah=Sarah']);
+    expect(select.textContent).not.toContain('UK');
   });
 
   test('every request went to the mocked 127.0.0.1:18249', () => {

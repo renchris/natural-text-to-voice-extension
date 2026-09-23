@@ -40,7 +40,7 @@ This checklist ensures all functionality works correctly before tagging and rele
 - [ ] Extension loads without errors
 - [ ] Default settings are applied (Bella voice, 1.0x speed)
 - [ ] Status indicator shows "checking" then "connected"
-- [ ] Voice dropdown populates with 6 voices
+- [ ] Voice dropdown populates with 28 voices in 4 groups (American Female/Male, British Female/Male)
 - [ ] No console errors in background service worker
 
 **Expected Behavior**: Extension initializes successfully with defaults
@@ -112,14 +112,14 @@ This checklist ensures all functionality works correctly before tagging and rele
 ### 2.2 Voice Selection ✅ / ❌
 
 #### Test Each Voice:
-Test all 6 voices individually:
+Test at least one voice from each group (the full list of 28 is in
+`src/shared/voices.ts`):
 
-- [ ] **Bella (US)** - Female voice
-- [ ] **Nicole** - Female voice
-- [ ] **Sarah** - Female voice
-- [ ] **Sky** - Female voice
-- [ ] **Adam** - Male voice
-- [ ] **Michael** - Male voice
+- [ ] **Bella** - American Female (default)
+- [ ] **Michael** - American Male
+- [ ] **Emma** - British Female
+- [ ] **George** - British Male
+- [ ] **Sarah** appears under American Female (not "UK")
 
 **For each voice**:
 1. Select voice from dropdown

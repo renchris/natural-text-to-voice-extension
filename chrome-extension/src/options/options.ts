@@ -5,11 +5,12 @@
  */
 
 import { getApiClient } from '../shared/api-client';
+import { VOICE_IDS, resolveVoice } from '../shared/voices';
+import { buildVoiceOptionNodes } from '../shared/voice-options';
 import {
   loadSettings,
   saveSettings,
   DEFAULT_SETTINGS,
-  VOICE_NAMES,
   type ExtensionSettings,
 } from '../shared/settings-defaults';
 
@@ -113,40 +114,27 @@ async function loadAndDisplaySettings(): Promise<void> {
 }
 
 /**
- * Populate voice dropdown with available voices
+ * Populate the voice dropdown: the catalogue voices the helper offers,
+ * grouped by accent and gender, with catalogue labels. If the helper cannot
+ * be reached, offer the whole catalogue.
  */
 async function populateVoiceDropdown(): Promise<void> {
+  let offered: string[] = [...VOICE_IDS];
   try {
-    const apiClient = getApiClient();
-    const voices = await apiClient.getVoices();
-
-    if (voices.length === 0) {
-      throw new Error('No voices available');
+    const voices = await getApiClient().getVoices();
+    const ids = voices.map(v => v.id).filter(id => VOICE_IDS.includes(id));
+    if (ids.length === 0) {
+      throw new Error('No catalogue voices available');
     }
-
-    // Clear existing options
-    elements.voiceSelect.replaceChildren();
-
-    // Add voice options
-    voices.forEach((voice) => {
-      const option = document.createElement('option');
-      option.value = voice.id;
-      option.textContent = VOICE_NAMES[voice.id] || voice.name;
-      elements.voiceSelect.appendChild(option);
-    });
-
-    elements.voiceSelect.disabled = false;
+    offered = ids;
   } catch (error) {
-    console.error('[Options] Error loading voices:', error);
-    // Fallback to showing all known voices
-    elements.voiceSelect.replaceChildren();
-    Object.entries(VOICE_NAMES).forEach(([id, name]) => {
-      const option = document.createElement('option');
-      option.value = id;
-      option.textContent = name;
-      elements.voiceSelect.appendChild(option);
-    });
+    console.error('[Options] Error loading voices, offering the full catalogue:', error);
   }
+
+  elements.voiceSelect.replaceChildren(...buildVoiceOptionNodes(offered));
+  elements.voiceSelect.disabled = false;
+  // A stored voice this helper does not offer falls back to one it does.
+  currentSettings.selectedVoice = resolveVoice(currentSettings.selectedVoice, offered);
 }
 
 /**
