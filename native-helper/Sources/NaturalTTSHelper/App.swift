@@ -28,7 +28,7 @@ struct NaturalTTSHelper {
             exit(2)
         }
 
-        logger.info("Natural TTS Helper starting...")
+        logger.info("Natural TTS Helper \(HelperInfo.version) (API \(HelperInfo.apiVersion)) starting...")
         logger.info("Metal GPU-accelerated TTS with MLX Kokoro-82M")
 
         do {

@@ -12,18 +12,30 @@ struct SpeakRequest: Codable {
     }
 }
 
+/// Identity reported by /health.
+enum HelperInfo {
+    static let version = "1.5.0"
+    /// Bumped when the HTTP contract changes. 2 = the 28-voice catalogue with
+    /// accent/gender/grade, 400 unknown_voice, and the Host-header check.
+    /// A helper without the field is API 1.
+    static let apiVersion = 2
+}
+
 struct HealthResponse: Codable {
     let status: String
     let model: String
     let modelLoaded: Bool
     let uptimeSeconds: Double
     let requestsServed: Int
+    let version: String
+    let apiVersion: Int
 
     enum CodingKeys: String, CodingKey {
-        case status, model
+        case status, model, version
         case modelLoaded = "model_loaded"
         case uptimeSeconds = "uptime_seconds"
         case requestsServed = "requests_served"
+        case apiVersion // camelCase on the wire, as the extension reads it
     }
 }
 

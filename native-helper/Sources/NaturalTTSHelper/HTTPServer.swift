@@ -116,7 +116,9 @@ actor HTTPServer {
             model: "kokoro-82m",
             modelLoaded: isReady,
             uptimeSeconds: uptime,
-            requestsServed: requestCount
+            requestsServed: requestCount,
+            version: HelperInfo.version,
+            apiVersion: HelperInfo.apiVersion
         )
 
         // Always return 200 so the extension can read .status and
