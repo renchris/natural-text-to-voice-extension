@@ -304,21 +304,23 @@ bun run verify:permissions
 
 ### Testing
 ```bash
-# Run all tests (unit + integration)
+# Unit tests (the live-helper integration suite is skipped)
 bun test
 
-# Integration tests require native helper running
-cd ../native-helper && .build/release/natural-tts-helper
+# Integration tests against a running helper: name its port to opt in
+NTTS_LIVE_HELPER_PORT=8249 bun test tests/integration
+
+# Headed end-to-end suite: builds dist/, loads it into Chrome for Testing,
+# and routes every helper request to tests/e2e/mock-helper.mjs (~1 minute)
+bun run test:e2e
 ```
 
 **Test coverage**:
-- ✅ 128 tests passing
-- ✅ 322 assertions
-- ✅ API client (unit + integration)
-- ✅ Content script
-- ✅ Service worker
-- ✅ Offscreen document
+- ✅ API client (unit, plus opt-in integration)
+- ✅ Service worker, offscreen document, popup and options pages
+- ✅ Selection reading and the context-menu fallback
 - ✅ Message type safety
+- ✅ End to end: context-menu speech, a 40 s synthesis, stop, and the helper-down badge
 
 ### Code Style
 - Use TypeScript strict mode
