@@ -307,11 +307,6 @@ actor HTTPServer {
         return jsonResponse(error, status: .forbidden, origin: origin)
     }
 
-    private func unauthorized() -> (HTTPResponseHead, ByteBuffer?) {
-        let error = ErrorResponse(error: "unauthorized", message: "Invalid or missing auth token", retryAfterSeconds: nil)
-        return jsonResponse(error, status: .unauthorized)
-    }
-
     private func internalError() -> (HTTPResponseHead, ByteBuffer?) {
         var head = HTTPResponseHead(version: .http1_1, status: .internalServerError)
         head.headers.add(name: "Content-Type", value: "text/plain")

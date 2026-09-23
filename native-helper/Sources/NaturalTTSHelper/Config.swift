@@ -131,15 +131,16 @@ struct ResolvedConfig {
     let sourceDescription: String
 }
 
+/// config.json. Pre-1.5 files also carry a "secret" (a UUID nothing ever
+/// checked); decoding ignores it and the next save drops it.
 struct Config: Codable {
     var port: Int
-    let secret: String
     var pythonPath: String
     var workerScriptPath: String
     let defaultVoice: String
 
     enum CodingKeys: String, CodingKey {
-        case port, secret
+        case port
         case pythonPath = "python_path"
         case workerScriptPath = "worker_script_path"
         case defaultVoice = "default_voice"
@@ -182,7 +183,6 @@ struct Config: Codable {
         } else {
             config = Config(
                 port: preferredPort,
-                secret: UUID().uuidString,
                 pythonPath: "",
                 workerScriptPath: "",
                 defaultVoice: "af_bella"
