@@ -127,11 +127,11 @@ See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
 4. **Audio plays** immediately
 
 ### Method 2: Popup Interface
-1. **Click** extension icon in Chrome toolbar
-2. **Type or paste** text into input area (or select text on page first)
+1. **Select text** on the page
+2. **Click** extension icon in Chrome toolbar
 3. **Choose** voice from dropdown (optional)
 4. **Adjust** speed slider (optional)
-5. **Click** "Speak" button
+5. **Click** "Speak Selected Text". While it plays, the same button is **Stop**
 
 ### Method 3: Keyboard Shortcuts
 Two commands ship with **no keys bound**, so they never collide with macOS
@@ -155,8 +155,6 @@ use the context menu there.
 **Available Settings:**
 - **Voice Selection**: Choose from 6 voices
 - **Playback Speed**: 0.5x - 2.0x range
-- **Auto-play**: Automatically play when text is selected (future feature)
-- **Helper Auto-retry**: Reconnect to helper if disconnected
 
 **Settings sync** automatically across all extension contexts.
 

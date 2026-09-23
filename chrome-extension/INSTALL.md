@@ -191,9 +191,9 @@ If you see a red dot:
 
 **Method A: Use the Popup**
 
-1. Click the extension icon
-2. Type some text in the input area (e.g., "Hello world")
-3. Click the "Speak" button
+1. Select some text on a webpage (e.g., a sentence in a news article)
+2. Click the extension icon
+3. Click the "Speak Selected Text" button
 4. 🔊 **Audio should play!**
 
 **Method B: Use Context Menu**

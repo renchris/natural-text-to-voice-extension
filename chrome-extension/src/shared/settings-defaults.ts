@@ -8,12 +8,6 @@ export interface ExtensionSettings {
   // Voice preferences
   selectedVoice: string;
   selectedSpeed: number;
-
-  // Playback behavior
-  autoPlay: boolean;
-
-  // Helper connection
-  helperAutoRetry: boolean;
 }
 
 /**
@@ -22,8 +16,6 @@ export interface ExtensionSettings {
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   selectedVoice: 'af_bella',
   selectedSpeed: 1.0,
-  autoPlay: false,
-  helperAutoRetry: true,
 };
 
 /**
@@ -74,15 +66,6 @@ export function validateSettings(settings: Partial<ExtensionSettings>): Extensio
     if (!isNaN(speed) && speed >= SETTINGS_CONSTRAINTS.speed.min && speed <= SETTINGS_CONSTRAINTS.speed.max) {
       validated.selectedSpeed = speed;
     }
-  }
-
-  // Validate boolean settings
-  if (typeof settings.autoPlay === 'boolean') {
-    validated.autoPlay = settings.autoPlay;
-  }
-
-  if (typeof settings.helperAutoRetry === 'boolean') {
-    validated.helperAutoRetry = settings.helperAutoRetry;
   }
 
   return validated;

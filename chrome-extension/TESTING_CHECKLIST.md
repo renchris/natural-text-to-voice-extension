@@ -243,39 +243,15 @@ Test special characters and formatting:
 
 ---
 
-### 3.4 Checkbox Settings ✅ / ❌
-
-#### Test 3.4a: Auto-play Checkbox
-1. [ ] Open options page
-2. [ ] Check "Auto-play audio from context menu"
-3. [ ] Save settings
-4. [ ] Use context menu to speak text
-5. [ ] Verify audio plays immediately (no manual start)
-
-**Expected**: Auto-play works as configured
-
-#### Test 3.4b: Helper Auto-retry Checkbox
-1. [ ] Open options page
-2. [ ] Check "Automatically retry connection"
-3. [ ] Save settings
-4. [ ] Stop helper
-5. [ ] Open popup → Verify automatic retry attempts
-
-**Expected**: Extension attempts reconnection automatically
-
----
-
 ### 3.5 Reset to Defaults ✅ / ❌
 1. [ ] Change voice to "Sarah"
 2. [ ] Change speed to 1.8x
-3. [ ] Check both checkboxes
-4. [ ] Click "Reset to Defaults"
-5. [ ] Confirm reset dialog
-6. [ ] Verify:
+3. [ ] Click "Reset to Defaults"
+4. [ ] Confirm reset dialog
+5. [ ] Verify:
    - [ ] Voice returns to "Bella"
    - [ ] Speed returns to 1.0x
-   - [ ] Checkboxes reset to defaults
-7. [ ] Verify success message shown
+6. [ ] Verify success message shown
 
 **Expected**: All settings reset to default values
 
@@ -376,7 +352,6 @@ Popup:
 
 Options:
 - [ ] Tab through all form elements
-- [ ] Space toggles checkboxes
 - [ ] Enter activates buttons
 
 **Expected**: Full keyboard accessibility

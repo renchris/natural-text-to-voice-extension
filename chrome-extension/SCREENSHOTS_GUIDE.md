@@ -102,8 +102,6 @@ This guide provides detailed instructions for capturing screenshots and creating
 - [ ] Green status indicator + "Checking helper..."
 - [ ] Voice Preferences section
 - [ ] Speech Settings section (speed slider)
-- [ ] Playback Behavior section (auto-play checkbox)
-- [ ] Helper Connection section (auto-retry checkbox)
 - [ ] About section (version number)
 - [ ] Save Settings button
 - [ ] Reset to Defaults button
@@ -139,21 +137,9 @@ This guide provides detailed instructions for capturing screenshots and creating
 - [ ] Speed value "1.2x" displayed
 - [ ] Help text explaining speed setting
 
-#### Screenshot 8: Options - Checkboxes
-**Filename**: `options-checkboxes.png`
-**Dimensions**: 800x400px (cropped)
-**Description**: Playback and connection settings
-
-**Setup**:
-1. Check "Auto-play audio" checkbox
-2. Check "Automatically retry connection" checkbox
-
-**Capture**: Crop to show both checkbox sections
-
-**Key Elements Visible**:
-- [ ] Both checkboxes checked
-- [ ] Help text for each option
-- [ ] Section headings visible
+#### Screenshot 8: (retired)
+The options page no longer has checkboxes: the auto-play and auto-retry
+toggles were removed in v1.5 because neither had any effect. Skip this shot.
 
 #### Screenshot 9: Options - About Section
 **Filename**: `options-about.png`
@@ -456,7 +442,6 @@ chrome-extension/
 │   │   ├── options-full-page.png
 │   │   ├── options-voice-section.png
 │   │   ├── options-speed-section.png
-│   │   ├── options-checkboxes.png
 │   │   ├── options-about.png
 │   │   ├── context-menu-in-action.png
 │   │   ├── context-menu-pdf.png
@@ -559,7 +544,6 @@ imageoptim docs/screenshots/*.png
 - [ ] Screenshot 5: Options - Full Page
 - [ ] Screenshot 6: Options - Voice Section
 - [ ] Screenshot 7: Options - Speed Section
-- [ ] Screenshot 8: Options - Checkboxes
 - [ ] Screenshot 9: Options - About Section
 - [ ] Screenshot 10: Context Menu - Text Selected
 - [ ] Screenshot 11: Context Menu - PDF Support

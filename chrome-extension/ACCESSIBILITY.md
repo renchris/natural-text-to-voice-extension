@@ -37,8 +37,10 @@ The Natural Text-to-Speech Chrome Extension demonstrates **excellent accessibili
   - Settings button: `src/popup/popup.html:15-25`
   - Retry button: `src/popup/popup.html:95-105`
 
-- **Keyboard Shortcuts**: `src/popup/popup.ts:353-361`
-  - Enter key on Speak button triggers speech generation
+- **Keyboard Shortcuts**:
+  - Enter or Space on the focused Speak button activates it once (native
+    `<button>` behaviour; the popup adds no keydown handler of its own)
+  - While audio plays the same button is an enabled **Stop**
   - Native browser keyboard support for all form controls
   - Escape key closes popup (browser default)
 
@@ -51,8 +53,6 @@ The Natural Text-to-Speech Chrome Extension demonstrates **excellent accessibili
 - **Tab Navigation**: All settings accessible via keyboard
   - Voice selector: `src/options/options.html:35-42`
   - Speed slider: `src/options/options.html:55-68`
-  - Auto-play checkbox: `src/options/options.html:85-92`
-  - Helper auto-retry checkbox: `src/options/options.html:102-110`
   - Save button: `src/options/options.html:131-136`
   - Reset button: `src/options/options.html:138-143`
 
@@ -88,8 +88,6 @@ All interactive elements have descriptive ARIA labels:
 - Status indicator: `aria-label="Helper status indicator"` (line 19)
 - Voice select: `aria-label="Select default voice for text-to-speech"` (line 38)
 - Speed slider: `aria-label="Adjust default speech speed"` (line 63)
-- Auto-play checkbox: `aria-label="Auto-play audio from context menu"` (line 89)
-- Helper retry checkbox: `aria-label="Automatically retry helper connection"` (line 106)
 - Save button: `aria-label="Save settings"` (line 133)
 - Reset button: `aria-label="Reset to default settings"` (line 140)
 
@@ -185,14 +183,11 @@ Clear focus indicators on all interactive elements:
 All form controls have proper labels:
 - Voice selects: `<label for="voiceSelect">` explicitly associated
 - Sliders: `<label for="speedSlider">` explicitly associated
-- Checkboxes: Wrapped in `<label class="checkbox-label">` for click targets
 
 #### Helper Text
 Descriptive help text provided for complex controls:
 - Voice select: "Choose the voice that will be used by default..."
 - Speed slider: Visual labels (0.5x, 1.0x, 1.5x, 2.0x)
-- Auto-play: "When enabled, audio will play immediately..."
-- Helper retry: "When enabled, the extension will automatically attempt..."
 
 #### Error Messages
 Accessible error handling:

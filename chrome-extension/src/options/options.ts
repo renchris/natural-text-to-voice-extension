@@ -21,8 +21,6 @@ const elements = {
   voiceSelect: document.getElementById('voiceSelect') as HTMLSelectElement,
   speedSlider: document.getElementById('speedSlider') as HTMLInputElement,
   speedValue: document.getElementById('speedValue') as HTMLSpanElement,
-  autoPlayCheckbox: document.getElementById('autoPlayCheckbox') as HTMLInputElement,
-  helperAutoRetryCheckbox: document.getElementById('helperAutoRetryCheckbox') as HTMLInputElement,
 
   // Action buttons
   saveButton: document.getElementById('saveButton') as HTMLButtonElement,
@@ -107,10 +105,6 @@ async function loadAndDisplaySettings(): Promise<void> {
     elements.speedSlider.value = currentSettings.selectedSpeed.toString();
     updateSpeedDisplay(currentSettings.selectedSpeed);
 
-    // Set checkboxes
-    elements.autoPlayCheckbox.checked = currentSettings.autoPlay;
-    elements.helperAutoRetryCheckbox.checked = currentSettings.helperAutoRetry;
-
     console.log('[Options] Settings loaded:', currentSettings);
   } catch (error) {
     console.error('[Options] Error loading settings:', error);
@@ -131,7 +125,7 @@ async function populateVoiceDropdown(): Promise<void> {
     }
 
     // Clear existing options
-    elements.voiceSelect.innerHTML = '';
+    elements.voiceSelect.replaceChildren();
 
     // Add voice options
     voices.forEach((voice) => {
@@ -145,7 +139,7 @@ async function populateVoiceDropdown(): Promise<void> {
   } catch (error) {
     console.error('[Options] Error loading voices:', error);
     // Fallback to showing all known voices
-    elements.voiceSelect.innerHTML = '';
+    elements.voiceSelect.replaceChildren();
     Object.entries(VOICE_NAMES).forEach(([id, name]) => {
       const option = document.createElement('option');
       option.value = id;
@@ -185,8 +179,6 @@ async function handleSave(): Promise<void> {
     const newSettings: ExtensionSettings = {
       selectedVoice: elements.voiceSelect.value,
       selectedSpeed: parseFloat(elements.speedSlider.value),
-      autoPlay: elements.autoPlayCheckbox.checked,
-      helperAutoRetry: elements.helperAutoRetryCheckbox.checked,
     };
 
     // Save to storage

@@ -26,6 +26,8 @@ interface PopupState {
 
 type MessageType = 'success' | 'error' | 'warning' | 'info';
 
+const PLAYING_MESSAGE = 'Playing audio…';
+
 // =================================================================================
 // DOM ELEMENTS
 // =================================================================================
@@ -95,7 +97,7 @@ async function init(): Promise<void> {
   } else if (state.helperStatus === 'warming') {
     showMessage('Loading TTS model… this can take 30 seconds on first run.', 'info');
     elements.speakButton.disabled = true;
-    elements.voiceSelect.innerHTML = '<option value="">Loading TTS model…</option>';
+    setPlaceholderOption('Loading TTS model…');
     elements.voiceSelect.disabled = true;
     elements.retryButton.style.display = 'none';
     schedulePollWhileWarming();
@@ -103,7 +105,7 @@ async function init(): Promise<void> {
     showMessage('Native helper not running. Please start the helper and click Retry.', 'error');
     elements.speakButton.disabled = true;
     // Update voice dropdown to show error state
-    elements.voiceSelect.innerHTML = '<option value="">Helper not connected - Start helper to load voices</option>';
+    setPlaceholderOption('Helper not connected - Start helper to load voices');
     elements.voiceSelect.disabled = true;
     // Show retry button when disconnected
     elements.retryButton.style.display = 'block';
@@ -160,9 +162,8 @@ function setupEventListeners(): void {
   elements.speakButton.addEventListener('click', handleSpeak);
   elements.settingsButton.addEventListener('click', handleSettings);
   elements.retryButton.addEventListener('click', handleRetryConnection);
-
-  // Keyboard shortcuts
-  document.addEventListener('keydown', handleKeyboard);
+  // No keydown handler: a focused native <button> already turns Enter and
+  // Space into a click, and a second handler made Enter speak twice.
 
   // The stop-speaking command broadcasts STOP_IN_OFFSCREEN to every extension
   // page; stop the popup's own playback too. Never responds, so the offscreen
@@ -294,10 +295,29 @@ async function loadVoices(): Promise<void> {
     showMessage('Failed to load voices. Using default.', 'warning');
 
     // Fallback to default voice
-    elements.voiceSelect.innerHTML = `
-      <option value="af_bella">Bella (US) - en-US</option>
-    `;
+    setPlaceholderOption('Bella (US) - en-US', 'af_bella');
   }
+}
+
+/**
+ * Replace the voice list with a single option. Built with textContent, never
+ * innerHTML: labels can come from the helper.
+ */
+function setPlaceholderOption(label: string, value = ''): void {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  elements.voiceSelect.replaceChildren(option);
+}
+
+function createVoiceOption(voice: Voice, groupLabel?: string): HTMLOptionElement {
+  const option = document.createElement('option');
+  option.value = voice.id;
+  option.textContent = voice.name;
+  if (groupLabel) {
+    option.setAttribute('aria-label', `${groupLabel}: ${voice.name}`);
+  }
+  return option;
 }
 
 /**
@@ -305,7 +325,7 @@ async function loadVoices(): Promise<void> {
  */
 function populateVoiceDropdown(): void {
   if (state.voices.length === 0) {
-    elements.voiceSelect.innerHTML = '<option value="">No voices available</option>';
+    setPlaceholderOption('No voices available');
     elements.voiceSelect.disabled = true;
     return;
   }
@@ -321,12 +341,20 @@ function populateVoiceDropdown(): void {
     if (prefix in groups) groups[prefix].voices.push(voice);
     else ungrouped.push(voice);
   }
-  const groupHtml = Object.values(groups)
-    .filter(g => g.voices.length > 0)
-    .map(g => `<optgroup label="${g.label}">${g.voices.map(v => `<option value="${v.id}" aria-label="${g.label}: ${v.name}">${v.name}</option>`).join('')}</optgroup>`)
-    .join('');
-  const ungroupedHtml = ungrouped.map(v => `<option value="${v.id}">${v.name}</option>`).join('');
-  elements.voiceSelect.innerHTML = groupHtml + ungroupedHtml;
+  const nodes: Array<HTMLOptGroupElement | HTMLOptionElement> = [];
+  for (const group of Object.values(groups)) {
+    if (group.voices.length === 0) continue;
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = group.label;
+    for (const voice of group.voices) {
+      optgroup.appendChild(createVoiceOption(voice, group.label));
+    }
+    nodes.push(optgroup);
+  }
+  for (const voice of ungrouped) {
+    nodes.push(createVoiceOption(voice));
+  }
+  elements.voiceSelect.replaceChildren(...nodes);
   if (state.voices.some(v => v.id === state.selectedVoice)) {
     elements.voiceSelect.value = state.selectedVoice;
   } else {
@@ -390,12 +418,15 @@ async function handleSpeedChange(event: Event): Promise<void> {
  * Handle speak button click - main feature
  */
 async function handleSpeak(): Promise<void> {
-  // Prevent multiple simultaneous generations
-  if (state.isGenerating) {
+  // While audio plays the button is "Stop".
+  if (state.currentAudio) {
+    stopPopupAudio();
     return;
   }
-  if (state.currentAudio && !state.currentAudio.paused) {
-    stopPopupAudio();
+
+  // One request at a time. The guard is set synchronously below, before the
+  // first await, so a second click (or Enter) cannot slip in.
+  if (state.isGenerating) {
     return;
   }
 
@@ -405,12 +436,14 @@ async function handleSpeak(): Promise<void> {
     return;
   }
 
+  setLoadingState(true);
+
   try {
     // Get text to speak
     const text = await getSelectedText();
 
     if (!text || text.trim().length === 0) {
-      showMessage('Please select text on the webpage or enter text to speak.', 'warning');
+      showMessage('Select some text on the page first.', 'warning');
       return;
     }
 
@@ -420,9 +453,6 @@ async function handleSpeak(): Promise<void> {
       return;
     }
 
-    // Set loading state
-    setLoadingState(true);
-
     // Generate speech
     const client = getApiClient();
     const audioBlob = await client.speak({
@@ -431,22 +461,21 @@ async function handleSpeak(): Promise<void> {
       speed: state.selectedSpeed,
     });
 
-    // Stop any currently playing audio
-    if (state.currentAudio) {
-      state.currentAudio.pause();
-      state.currentAudio = null;
-    }
-
-    // Play audio
+    // The audio is here: leave the loading state and make the button a
+    // working Stop for as long as it plays.
+    setLoadingState(false);
     setPlayingState(true);
-    await playAudio(audioBlob);
+    showMessage(PLAYING_MESSAGE, 'info');
 
-    showMessage('Playing audio...', 'success');
+    // Resolves once playback has started; onended resets the state.
+    await playAudio(audioBlob);
 
   } catch (error) {
     handleSpeakError(error);
   } finally {
-    setLoadingState(false);
+    if (state.isGenerating) {
+      setLoadingState(false);
+    }
   }
 }
 
@@ -456,17 +485,6 @@ async function handleSpeak(): Promise<void> {
 function handleSettings(): void {
   console.log('[Popup] Opening options page');
   chrome.runtime.openOptionsPage();
-}
-
-/**
- * Handle keyboard shortcuts
- */
-function handleKeyboard(event: KeyboardEvent): void {
-  // Escape: Close popup (Chrome handles this automatically)
-  // Enter: Trigger speak if button is focused
-  if (event.key === 'Enter' && document.activeElement === elements.speakButton) {
-    handleSpeak();
-  }
 }
 
 // =================================================================================
@@ -523,35 +541,36 @@ async function getSelectedText(): Promise<string> {
 // =================================================================================
 
 /**
- * Play audio from blob
+ * Play audio from blob. Resolves as soon as playback has started (so the
+ * caller is not held for the length of the speech); ending, failing or being
+ * stopped resets the popup through finishPlayback().
  */
 async function playAudio(audioBlob: Blob): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+  const audioUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(audioUrl);
+  state.currentAudio = audio;
 
-      state.currentAudio = audio;
-
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        setPlayingState(false);
-        state.currentAudio = null;
-        resolve();
-      };
-
-      audio.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
-        setPlayingState(false);
-        state.currentAudio = null;
-        reject(new Error('Failed to play audio'));
-      };
-
-      audio.play().catch(reject);
-    } catch (error) {
-      reject(error);
+  const finishPlayback = (): void => {
+    URL.revokeObjectURL(audioUrl);
+    if (state.currentAudio === audio) {
+      state.currentAudio = null;
+      setPlayingState(false);
+      hideMessageIf(PLAYING_MESSAGE);
     }
-  });
+  };
+
+  audio.onended = finishPlayback;
+  audio.onerror = () => {
+    finishPlayback();
+    showMessage('Failed to play audio', 'error');
+  };
+
+  try {
+    await audio.play();
+  } catch (error) {
+    finishPlayback();
+    throw error;
+  }
 }
 
 /**
@@ -622,6 +641,15 @@ function showMessage(message: string, type: MessageType = 'info'): void {
     setTimeout(() => {
       elements.messageContainer.style.display = 'none';
     }, 3000);
+  }
+}
+
+/**
+ * Hide the message area if it still shows `message` (and nothing newer).
+ */
+function hideMessageIf(message: string): void {
+  if (elements.messageContainer.textContent === message) {
+    elements.messageContainer.style.display = 'none';
   }
 }
 

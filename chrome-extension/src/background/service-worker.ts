@@ -222,24 +222,13 @@ async function stopSpeaking(): Promise<void> {
  * Get user preferences from storage
  * Uses centralized settings from Phase 2.6
  */
-async function getPreferences(): Promise<{ voice: string; speed: number; autoPlay: boolean }> {
-  try {
-    const settings = await loadSettings();
-    return {
-      voice: settings.selectedVoice,
-      speed: settings.selectedSpeed,
-      autoPlay: settings.autoPlay,
-    };
-  } catch (error) {
-    console.error('[Background] Error loading preferences:', error);
-    // Return defaults from loadSettings fallback
-    const settings = await loadSettings();
-    return {
-      voice: settings.selectedVoice,
-      speed: settings.selectedSpeed,
-      autoPlay: settings.autoPlay,
-    };
-  }
+async function getPreferences(): Promise<{ voice: string; speed: number }> {
+  // loadSettings never rejects: it falls back to the defaults itself.
+  const settings = await loadSettings();
+  return {
+    voice: settings.selectedVoice,
+    speed: settings.selectedSpeed,
+  };
 }
 
 /**
