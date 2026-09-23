@@ -261,9 +261,6 @@ chrome-extension/
 
 ### Build Commands
 ```bash
-# Development mode (with HMR)
-bun run dev
-
 # Production build
 bun run build
 
@@ -279,8 +276,8 @@ bun run type-check
 
 ### Technology Stack
 - **Runtime**: Bun 1.3.0
-- **Bundler**: Vite 5.3.0
-- **Language**: TypeScript 5.5.0
+- **Bundler**: `Bun.build` (see `build.ts`)
+- **Language**: TypeScript 6.0.3
 - **Testing**: Bun Test with happy-dom
 - **Manifest**: Chrome Manifest V3
 - **UI**: Vanilla HTML/CSS/TypeScript (no framework)
@@ -367,8 +364,8 @@ See [PRIVACY.md](./PRIVACY.md) for full privacy policy.
 
 ### Bundle Size
 - Total: **61.47 KB** (uncompressed), ~22 KB (gzipped)
-- Optimized with Vite + Terser
-- CSS minified with lightningcss
+- JavaScript bundled and minified by `Bun.build` (`minify: true`)
+- CSS copied as-is (not minified)
 - Shared CSS variables to eliminate duplication
 
 ### TTS Performance (Native Helper)
@@ -439,7 +436,6 @@ MIT License - See [parent repository LICENSE](../LICENSE) for details.
 - **MLX Framework**: Apple's ML framework for Metal acceleration
 - **SwiftNIO**: High-performance networking in Swift
 - **Bun**: Fast JavaScript runtime and bundler
-- **Vite**: Lightning-fast build tool
 
 ---
 

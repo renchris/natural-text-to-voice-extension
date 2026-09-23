@@ -158,7 +158,7 @@ The extension is **fully open source** under the MIT License:
 
 ### Technologies Used
 
-- **Frontend**: TypeScript, Vite, Bun
+- **Frontend**: TypeScript, Bun
 - **Backend**: Swift (SwiftNIO), Python (MLX framework)
 - **ML Model**: Kokoro-82M (local inference, no cloud)
 

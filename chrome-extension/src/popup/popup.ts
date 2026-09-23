@@ -671,13 +671,16 @@ function updateUI(): void {
  */
 async function loadPreferences(): Promise<void> {
   try {
-    const result = await chrome.storage.local.get(['selectedVoice', 'selectedSpeed']);
+    const result = await chrome.storage.local.get<{ selectedVoice?: string; selectedSpeed?: number }>([
+      'selectedVoice',
+      'selectedSpeed',
+    ]);
 
-    if (result.selectedVoice) {
+    if (typeof result.selectedVoice === 'string' && result.selectedVoice) {
       state.selectedVoice = result.selectedVoice;
     }
 
-    if (result.selectedSpeed !== undefined) {
+    if (typeof result.selectedSpeed === 'number' && Number.isFinite(result.selectedSpeed)) {
       state.selectedSpeed = result.selectedSpeed;
       const pos = speedToPosition(state.selectedSpeed);
       elements.speedSlider.value = pos.toString();

@@ -33,10 +33,10 @@ export function getConfigPath(): string {
  */
 export async function getStoredConfig(): Promise<Partial<HelperConfig>> {
   try {
-    const result = await chrome.storage.local.get(STORAGE_KEY);
+    const result = await chrome.storage.local.get<Record<string, Partial<HelperConfig> | undefined>>(STORAGE_KEY);
     const config = result[STORAGE_KEY];
 
-    if (config && config.port) {
+    if (config && typeof config.port === 'number' && config.port > 0) {
       return config;
     }
 

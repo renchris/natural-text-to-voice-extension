@@ -19,19 +19,13 @@
 
     "types": ["chrome", "bun"],
 
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-
     "outDir": "dist",
     "noEmit": true
   },
   "include": [
     "src/**/*",
     "tests/**/*",
-    "build.ts",
-    "vite.config.ts"
+    "build.ts"
   ],
   "exclude": [
     "node_modules",
