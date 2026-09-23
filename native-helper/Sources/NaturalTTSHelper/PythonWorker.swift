@@ -19,6 +19,9 @@ actor PythonWorker {
     /// (measured 6.6 s behind a /speak). Set in markWarm(), cleared in
     /// handleTermination() and shutdown().
     nonisolated let readiness = OSAllocatedUnfairLock(initialState: false)
+
+    /// Scrubs request text out of anything the helper logs on the worker's behalf.
+    nonisolated let redactor = TextRedactor()
     private var restartCount = 0
     private let maxRestarts = 3
 
@@ -47,22 +50,23 @@ actor PythonWorker {
         environment["ESPEAK_DATA_PATH"] = "/opt/homebrew/opt/espeak-ng/share/espeak-ng-data"
         process.environment = environment
 
-        // Monitor stderr for logs and warmup completion
+        // Forward worker stderr line by line, through the redactor so request
+        // text never reaches the helper's log, and watch for warmup completion.
         let logger = self.logger
+        let redactor = self.redactor
+        let lines = LineSplitter()
         stderrPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
 
-            if let line = String(data: data, encoding: .utf8) {
+            for line in lines.feed(data) {
                 let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    logger.debug("[Python] \(trimmed)")
+                guard !trimmed.isEmpty else { continue }
+                logger.info("[worker] \(redactor.redact(trimmed))")
 
-                    // Check for warmup completion
-                    if trimmed.contains("Model loaded, ready for requests") {
-                        Task {
-                            await self?.markWarm()
-                        }
+                if trimmed.contains("Model loaded, ready for requests") {
+                    Task {
+                        await self?.markWarm()
                     }
                 }
             }
@@ -109,7 +113,9 @@ actor PythonWorker {
     func generate(text: String, voice: String, speed: Float) async throws -> AudioData {
         try await ensureRunning()
 
-        logger.debug("Generating audio: \(text.prefix(50))... (voice: \(voice), speed: \(speed))")
+        // Never log the text itself, only its size.
+        logger.debug("Generating audio: \(text.count) characters (voice: \(voice), speed: \(speed))")
+        redactor.remember(text)
 
         // Create request
         let request = GenerateRequest(text: text, voice: voice, speed: speed)
@@ -122,7 +128,7 @@ actor PythonWorker {
 
         // Check for error
         if let error = response.error {
-            logger.error("Generation failed: \(error)")
+            logger.error("Generation failed: \(redactor.redact(error))")
             throw WorkerError.generationFailed(error)
         }
 
@@ -248,7 +254,7 @@ actor PythonWorker {
             // Log first few bytes for debugging
             if let peek = try? stdout.fileHandleForReading.read(upToCount: 16) {
                 logger.error("Next bytes (hex): \(peek.map { String(format: "%02x", $0) }.joined())")
-                logger.error("Next bytes (ascii): \(String(data: peek, encoding: .ascii) ?? "non-ascii")")
+                logger.error("Next bytes (ascii): \(redactor.redact(String(data: peek, encoding: .ascii) ?? "non-ascii"))")
             }
             throw WorkerError.invalidResponse
         }
@@ -264,5 +270,93 @@ actor PythonWorker {
         // Decode JSON
         let decoder = JSONDecoder()
         return try decoder.decode(T.self, from: messageData)
+    }
+}
+
+// MARK: - Log privacy
+
+/// Keeps the text being read aloud out of the helper's log. The helper never
+/// logs request text itself; this also covers what it forwards from the worker
+/// (stderr lines, error strings), whatever worker version is installed: any
+/// 16-character run shared with one of the two most recent request texts
+/// (raw, or NFKD-folded to ASCII the way the worker normalizes) withholds the
+/// line, and the old worker's text-echoing formats are cut at their marker.
+final class TextRedactor: Sendable {
+    private static let window = 16
+    private static let keep = 2
+
+    private struct Entry {
+        let text: String
+        let folded: String
+        let windows: Set<String>
+    }
+
+    private let recent = OSAllocatedUnfairLock<[Entry]>(initialState: [])
+
+    func remember(_ text: String) {
+        let folded = Self.fold(text)
+        let windows = Self.windows(of: text).union(Self.windows(of: folded))
+        let entry = Entry(text: text, folded: folded, windows: windows)
+        recent.withLock { entries in
+            entries.append(entry)
+            if entries.count > Self.keep { entries.removeFirst(entries.count - Self.keep) }
+        }
+    }
+
+    func redact(_ line: String) -> String {
+        for marker in ["Text normalized: ", "Generating: ", "Next bytes (ascii): "] {
+            guard let range = line.range(of: marker) else { continue }
+            let rest = line[range.upperBound...]
+            // The current worker logs sizes only ("Text normalized: 12 -> 10 chars").
+            if rest.range(of: #"^\d+ -> \d+ chars$"#, options: .regularExpression) != nil { continue }
+            return line[..<range.upperBound] + "[text withheld]"
+        }
+
+        let lineWindows = Self.windows(of: line)
+        let leaks = recent.withLock { entries in
+            entries.contains { entry in
+                if entry.text.count < Self.window {
+                    // Short texts: a whole-text match, ignoring 1-3 character texts.
+                    return (entry.text.count >= 4 && line.contains(entry.text))
+                        || (entry.folded.count >= 4 && line.contains(entry.folded))
+                }
+                return !entry.windows.isDisjoint(with: lineWindows)
+            }
+        }
+        return leaks ? "[line withheld: contains request text]" : line
+    }
+
+    private static func fold(_ text: String) -> String {
+        String(String.UnicodeScalarView(text.decomposedStringWithCompatibilityMapping.unicodeScalars.filter(\.isASCII)))
+    }
+
+    private static func windows(of text: String) -> Set<String> {
+        let characters = Array(text)
+        guard characters.count >= window else { return [] }
+        var result = Set<String>()
+        result.reserveCapacity(characters.count - window + 1)
+        for start in 0...(characters.count - window) {
+            result.insert(String(characters[start..<(start + window)]))
+        }
+        return result
+    }
+}
+
+/// Reassembles newline-terminated lines from pipe chunks. readabilityHandler
+/// runs serially for one handle, but the buffer is locked anyway.
+final class LineSplitter: Sendable {
+    private let pending = OSAllocatedUnfairLock<Data>(initialState: Data())
+
+    func feed(_ data: Data) -> [String] {
+        pending.withLock { buffer in
+            buffer.append(data)
+            var lines: [String] = []
+            while let newline = buffer.firstIndex(of: UInt8(ascii: "\n")) {
+                let lineData = buffer[buffer.startIndex..<newline]
+                lines.append(String(decoding: lineData, as: UTF8.self))
+                buffer.removeSubrange(buffer.startIndex...newline)
+            }
+            return lines
+        }
     }
 }
