@@ -272,6 +272,10 @@ bun test:watch
 
 # Type checking only
 bun run type-check
+
+# Chrome's install-time permission warnings for dist/ (needs Chrome for Testing:
+# bunx playwright-core install chromium)
+bun run verify:permissions
 ```
 
 ### Technology Stack
