@@ -10,6 +10,9 @@ import {
 } from './types';
 import { getConfig } from './config';
 import { DEFAULT_VOICE } from './voices';
+import { errorFromResponse } from './helper-errors';
+
+export { HelperError, userMessageForError } from './helper-errors';
 
 /**
  * Timeout for POST /speak, scaled by text length: 30 s plus 15 ms per
@@ -108,13 +111,9 @@ export class ApiClient implements NativeTTSClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          if (response.status === 404) {
-            throw new InvalidResponseError(`Endpoint not found: ${endpoint}`);
-          } else if (response.status >= 500) {
-            throw new InvalidResponseError(`Server error: ${response.status} ${response.statusText}`);
-          } else {
-            throw new InvalidResponseError(`HTTP error: ${response.status} ${response.statusText}`);
-          }
+          // A helper error body ({"error": code}) becomes a HelperError with
+          // that code; anything else stays a generic InvalidResponseError.
+          throw await errorFromResponse(response, endpoint);
         }
 
         // For speak endpoint, return blob

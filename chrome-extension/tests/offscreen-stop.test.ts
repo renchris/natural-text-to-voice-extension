@@ -22,10 +22,13 @@ function deferred(): Deferred {
   return { resolve, promise };
 }
 
-const fetchMock = mock(async (input: RequestInfo | URL, _init?: RequestInit) => {
+const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (url.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', model_loaded: true }), { status: 200 });
+  }
+  if (url.endsWith('/speak') && String(init?.body).includes('"zz_nope"')) {
+    return new Response(JSON.stringify({ error: 'unknown_voice', message: 'Unknown voice: zz_nope' }), { status: 400 });
   }
   if (url.endsWith('/speak')) {
     const gate = deferred();
@@ -327,6 +330,15 @@ describe('offscreen speak / stop', () => {
     expect(result.type).toBe('SPEAK_ERROR');
     expect(result.success).toBe(false);
     expect(fetchMock.mock.calls.length).toBe(calls);
+  });
+
+  test('a helper error body reaches the service worker as a clear message (D12)', async () => {
+    const { response } = send<OffscreenSpeakResponse>({ type: 'SPEAK_IN_OFFSCREEN', text: 'Hi', voice: 'zz_nope', speed: 1 });
+    expect(await response).toEqual({
+      type: 'SPEAK_ERROR',
+      success: false,
+      error: 'Your Natural TTS helper does not have this voice. Pick another voice, or update the helper.',
+    });
   });
 
   test('never touches a real port: every request went to the mocked 18249', () => {

@@ -6,18 +6,13 @@
  * managed by the background service worker.
  */
 
-import { getApiClient } from '../shared/api-client';
+import { getApiClient, userMessageForError } from '../shared/api-client';
 import type {
   SpeakInOffscreenMessage,
   OffscreenSpeakResponse,
   OffscreenStopResponse,
   OffscreenMessage,
   OffscreenIdleMessage,
-} from '../shared/types';
-import {
-  HelperNotFoundError,
-  NetworkTimeoutError,
-  InvalidResponseError,
 } from '../shared/types';
 
 /**
@@ -216,24 +211,10 @@ async function runSpeakJob(
 function toErrorResponse(error: unknown): OffscreenSpeakResponse {
   console.error('[Offscreen] Error generating/playing speech:', error);
 
-  // Determine error type
-  let errorMessage: string;
-  if (error instanceof HelperNotFoundError) {
-    errorMessage = 'Native helper not found. Please ensure the helper is running.';
-  } else if (error instanceof NetworkTimeoutError) {
-    errorMessage = 'Request timed out. The helper may be busy or not responding.';
-  } else if (error instanceof InvalidResponseError) {
-    errorMessage = 'Invalid response from helper. Please try again.';
-  } else if (error instanceof Error) {
-    errorMessage = error.message;
-  } else {
-    errorMessage = 'An unexpected error occurred';
-  }
-
   return {
     type: 'SPEAK_ERROR',
     success: false,
-    error: errorMessage,
+    error: userMessageForError(error),
   };
 }
 

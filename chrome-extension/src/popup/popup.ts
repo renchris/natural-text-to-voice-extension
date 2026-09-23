@@ -3,9 +3,9 @@
  * Handles voice selection, speed control, and speech generation
  */
 
-import { getApiClient, resetApiClient } from '../shared/api-client';
+import { getApiClient, resetApiClient, userMessageForError } from '../shared/api-client';
 import { Voice, HealthResponse } from '../shared/types';
-import { HelperNotFoundError, NetworkTimeoutError, InvalidResponseError } from '../shared/types';
+import { HelperNotFoundError, NetworkTimeoutError } from '../shared/types';
 import { readSelection } from '../shared/selection';
 import type { OffscreenMessage } from '../shared/types';
 import { renderShortcutChip } from './shortcut-chip';
@@ -565,22 +565,12 @@ function stopPopupAudio(): boolean {
 function handleSpeakError(error: unknown): void {
   console.error('Speak error:', error);
 
-  if (error instanceof HelperNotFoundError) {
-    showMessage('Helper not found. Please ensure the native helper is running.', 'error');
-  } else if (error instanceof NetworkTimeoutError) {
-    showMessage('Request timed out. The helper may be busy or not responding.', 'error');
-  } else if (error instanceof InvalidResponseError) {
-    showMessage('Invalid response from helper. Please try again.', 'error');
-  } else if (error instanceof Error) {
-    if (error.message.includes('Text is required')) {
-      showMessage('No text provided. Please select text to speak.', 'warning');
-    } else if (error.message.includes('Speed must be')) {
-      showMessage('Invalid speed value. Please use the slider.', 'error');
-    } else {
-      showMessage(`Error: ${error.message}`, 'error');
-    }
+  if (error instanceof Error && error.message.includes('Text is required')) {
+    showMessage('No text provided. Please select text to speak.', 'warning');
+  } else if (error instanceof Error && error.message.includes('Speed must be')) {
+    showMessage('Invalid speed value. Please use the slider.', 'error');
   } else {
-    showMessage('An unexpected error occurred. Please try again.', 'error');
+    showMessage(userMessageForError(error), 'error');
   }
 }
 
