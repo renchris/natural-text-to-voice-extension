@@ -78,13 +78,38 @@ actor HTTPServer {
         requestCount += 1
         logger.debug("[\(requestCount)] \(head.method) \(head.uri)")
 
+        // DNS-rebinding defence, on every endpoint. A web page that rebinds
+        // its own hostname to 127.0.0.1 reaches this port as a same-origin
+        // request, so neither CORS nor the Origin check below stops it, but
+        // the browser still sends the page's hostname as Host. Only loopback
+        // names with our own port are accepted.
+        let host = head.headers.first(name: "Host")
+        guard isAllowedHost(host) else {
+            logger.warning("Rejected request with Host \(host.map { String($0.prefix(100)) } ?? "<missing>") on \(head.uri)")
+            let error = ErrorResponse(
+                error: "bad_host",
+                message: "Host must be 127.0.0.1:\(config.port), localhost:\(config.port) or [::1]:\(config.port)",
+                retryAfterSeconds: nil
+            )
+            return jsonResponse(error, status: .forbidden, origin: nil)
+        }
+
         let origin = head.headers.first(name: "Origin")
 
-        // Gate mutating + voice-listing endpoints against browser CSRF.
-        // /health stays open — extensions probe it during discovery, and a
-        // missing-ACAO response is harmless to disclose. Non-browser callers
-        // (no Origin header) are allowed through; Phase 2 X-Secret will gate
-        // those.
+        // Origin policy (the privacy policy describes this, keep them in step):
+        // - /speak and /voices: a browser request carrying a web-page Origin
+        //   (https://…, http://…, "null", anything not an extension scheme) is
+        //   rejected with 403, so no website can make the helper read text or
+        //   list voices. chrome-extension:// (and the moz-/safari- extension
+        //   schemes) are allowed and get Access-Control-Allow-Origin.
+        // - Requests with NO Origin header are allowed. Browsers attach Origin
+        //   to every cross-origin fetch and to every POST, so a missing Origin
+        //   means a local process run by a user on this Mac (curl, a script):
+        //   the helper binds 127.0.0.1 only and treats local processes as
+        //   trusted, like any other per-user loopback service.
+        // - /health is open to any Origin: the extension probes it during
+        //   discovery, it reveals only status/version, and without an ACAO
+        //   header a web page cannot read the response anyway.
         if head.uri == "/speak" || head.uri == "/voices" {
             if let origin = origin, !isExtensionOrigin(origin) {
                 logger.warning("Rejected non-extension origin on \(head.uri): \(origin)")
@@ -226,7 +251,13 @@ actor HTTPServer {
         return jsonResponse(response, status: .ok, origin: origin)
     }
 
-    // MARK: - CORS / Origin
+    // MARK: - CORS / Origin / Host
+
+    private func isAllowedHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        let port = config.port
+        return host == "127.0.0.1:\(port)" || host == "localhost:\(port)" || host == "[::1]:\(port)"
+    }
 
     private func isExtensionOrigin(_ origin: String) -> Bool {
         return origin.hasPrefix("chrome-extension://") ||
