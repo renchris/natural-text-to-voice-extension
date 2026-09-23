@@ -333,17 +333,3 @@ async function sendToOffscreen(
     error: 'Could not start audio playback. Try again.',
   };
 }
-
-/**
- * Export for testing
- */
-if (typeof globalThis !== 'undefined') {
-  (globalThis as any).__serviceWorkerTestHelpers = {
-    setupContextMenu,
-    getPreferences,
-    ensureOffscreenDocument,
-    sendToOffscreen,
-    speakText,
-    stopSpeaking,
-  };
-}

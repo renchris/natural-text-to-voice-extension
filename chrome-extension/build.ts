@@ -1,5 +1,9 @@
 import { $ } from 'bun';
 
+// Strip debug logging from shipped bundles. console.warn/error stay: they are
+// the only trace of real failures (e.g. an offscreen createDocument error).
+const PRODUCTION_DROP = ['console.log', 'console.info', 'console.debug'];
+
 console.log('🚀 Building Chrome extension with Bun...');
 
 // Clean dist
@@ -22,12 +26,13 @@ await Bun.build({
   target: 'browser',
   minify: true,
   sourcemap: 'none',
+  drop: PRODUCTION_DROP,
 });
 
 // Copy popup HTML and CSS
 await $`mkdir -p dist/popup`;
 await $`cp src/popup/popup.html dist/popup/`;
-await $`cp src/popup/popup.css dist/popup/` || true;
+await $`cp src/popup/popup.css dist/popup/`;
 
 // Build options page
 console.log('⚙️  Building options page...');
@@ -37,12 +42,13 @@ await Bun.build({
   target: 'browser',
   minify: true,
   sourcemap: 'none',
+  drop: PRODUCTION_DROP,
 });
 
 // Copy options HTML and CSS
 await $`mkdir -p dist/options`;
 await $`cp src/options/options.html dist/options/`;
-await $`cp src/options/options.css dist/options/` || true;
+await $`cp src/options/options.css dist/options/`;
 
 // Build background service worker
 console.log('⚡ Building background service worker...');
@@ -52,6 +58,7 @@ await Bun.build({
   target: 'browser',
   minify: true,
   sourcemap: 'none',
+  drop: PRODUCTION_DROP,
 });
 
 // Build offscreen document
@@ -62,6 +69,7 @@ await Bun.build({
   target: 'browser',
   minify: true,
   sourcemap: 'none',
+  drop: PRODUCTION_DROP,
 });
 
 // Copy offscreen HTML

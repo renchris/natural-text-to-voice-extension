@@ -256,14 +256,3 @@ function playAudio(audioBlob: Blob, job: SpeakJob): Promise<void> {
     });
   });
 }
-
-/**
- * Export for testing
- */
-if (typeof window !== 'undefined') {
-  (window as any).__offscreenTestHelpers = {
-    playAudio,
-    handleSpeakRequest,
-    stopSpeaking,
-  };
-}

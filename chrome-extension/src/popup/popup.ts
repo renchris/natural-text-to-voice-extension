@@ -719,17 +719,3 @@ async function savePreferences(): Promise<void> {
     console.error('Failed to save preferences:', error);
   }
 }
-
-// =================================================================================
-// EXPORTS (for testing)
-// =================================================================================
-
-// Export functions for testing
-if (typeof window !== 'undefined') {
-  (window as any).__popupTestHelpers = {
-    getState: () => state,
-    showMessage,
-    checkHelperStatus,
-    loadVoices,
-  };
-}
