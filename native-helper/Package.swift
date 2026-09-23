@@ -30,9 +30,5 @@ let package = Package(
                 .copy("Resources")
             ]
         ),
-        .testTarget(
-            name: "NaturalTTSHelperTests",
-            dependencies: ["NaturalTTSHelper"]
-        ),
     ]
 )
