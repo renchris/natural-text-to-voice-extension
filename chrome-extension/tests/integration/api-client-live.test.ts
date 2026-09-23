@@ -1,40 +1,41 @@
 /**
  * Integration test for API client against a running native helper
  *
- * Prerequisites:
- * - Native helper must be running on port 8249
- * - Run: cd ../native-helper && ./Scripts/quickstart.sh
+ * Opt-in: it talks to a real helper, so it only runs when you name its port.
+ *   NTTS_LIVE_HELPER_PORT=8249 bun test tests/integration
+ * (start one with: cd ../native-helper && ./Scripts/quickstart.sh).
+ * Without the variable the suite is skipped, so a plain `bun test` never
+ * touches a helper another process owns.
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { ApiClient } from '../../src/shared/api-client';
 
+const LIVE_PORT = Number(process.env.NTTS_LIVE_HELPER_PORT) || 0;
+
 // Save original fetch before unit tests mock it
 const originalFetch = globalThis.fetch;
 
-// Mock chrome.storage API for this integration test
-global.chrome = {
-  storage: {
-    local: {
-      get: async () => ({
-        native_tts_helper_config: {
-          port: 8249,
-          secret: '',
-          default_voice: 'af_bella',
-        },
-      }),
-      set: async () => {},
-      remove: async () => {},
-    },
-  },
-} as any;
-
-describe('ApiClient Integration Tests (Live Helper)', () => {
+describe.skipIf(!LIVE_PORT)('ApiClient Integration Tests (Live Helper)', () => {
   let client: ApiClient;
 
   beforeAll(async () => {
     // Restore original fetch for integration tests (unit tests mock it globally)
     globalThis.fetch = originalFetch;
+
+    // Point the client at the named helper (set here, not at import time, so
+    // a skipped run leaves the other suites' chrome mock alone).
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: async () => ({
+            native_tts_helper_config: { port: LIVE_PORT, secret: '', default_voice: 'af_bella' },
+          }),
+          set: async () => {},
+          remove: async () => {},
+        },
+      },
+    } as any;
 
     client = new ApiClient();
 
