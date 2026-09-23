@@ -46,8 +46,21 @@ let package = Package(
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "Logging", package: "swift-log"),
             ],
+            // Only the worker script ships in the resource bundle. The Python
+            // environment lives beside it in the source tree (built there by
+            // Scripts/setup-python-env.sh) and is found at runtime relative to
+            // the executable (Config.swift, PathResolver); copying the whole
+            // Resources directory dragged ~2 GB of venv into every build.
+            // The venv and its setup-script rollback copy MUST be excluded: left
+            // unclaimed, SwiftPM scans the venv's C sources and fails with "target
+            // ... contains mixed language source files". Until they exist it
+            // prints "Invalid Exclude ... File not found" for each. Expected.
+            exclude: [
+                "Resources/python-env",
+                "Resources/python-env.pre-1.5",
+            ],
             resources: [
-                .copy("Resources")
+                .copy("Resources/tts_worker.py")
             ]
         ),
     ]
