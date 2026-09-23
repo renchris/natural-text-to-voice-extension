@@ -126,6 +126,9 @@ See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
 3. **Click** "Speak selected text"
 4. **Audio plays** immediately
 
+If right-click or shortcut speech fails, the toolbar icon shows a red **!**.
+Hover over the icon to read why; the badge clears the next time speech works.
+
 ### Method 2: Popup Interface
 1. **Select text** on the page
 2. **Click** extension icon in Chrome toolbar

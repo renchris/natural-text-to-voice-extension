@@ -32,8 +32,14 @@ const getContexts = mock(async (_filter: unknown) => (offscreenExists ? [{ conte
 const createDocument = mock(async (_params: unknown) => { offscreenExists = true; });
 const closeDocument = mock(async () => { offscreenExists = false; });
 
+const setBadgeText = mock(async (_details: { text: string }) => {});
+const setBadgeBackgroundColor = mock(async (_details: { color: string }) => {});
+const setTitle = mock(async (_details: { title: string }) => {});
+
 const mockChrome = {
+  action: { setBadgeText, setBadgeBackgroundColor, setTitle },
   runtime: {
+    getManifest: () => ({ name: 'Natural Text-to-Speech', version: '1.4.0' }),
     onInstalled: capture('onInstalled'),
     onStartup: capture('onStartup'),
     onMessage: capture('runtime.onMessage'),
@@ -86,6 +92,9 @@ beforeEach(() => {
   createDocument.mockClear();
   createDocument.mockImplementation(async () => { offscreenExists = true; });
   closeDocument.mockClear();
+  setBadgeText.mockClear();
+  setBadgeBackgroundColor.mockClear();
+  setTitle.mockClear();
 });
 
 function speakMessages(): Array<{ type: string; text: string; voice: string; speed: number }> {
@@ -291,5 +300,76 @@ describe('offscreen lifetime (IN-09)', () => {
     listeners['runtime.onMessage']({ type: 'OFFSCREEN_IDLE' });
     await new Promise(r => setTimeout(r, 0));
     expect(closeDocument).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('error badge for right-click and shortcut speech (D2)', () => {
+  const HELPER_DOWN = 'The Natural TTS helper is not running. Start it, then try again.';
+  const click = (tabId: number) => listeners['contextMenus.onClicked'](
+    { menuItemId: 'natural-tts-speak-selection', selectionText: 'Read this', pageUrl: 'https://example.com/' },
+    { id: tabId }
+  );
+  const badgeTexts = () => setBadgeText.mock.calls.map(call => call[0].text);
+  const titles = () => setTitle.mock.calls.map(call => call[0].title);
+
+  test('a failed right-click speak shows a red "!" and the reason in the tooltip', async () => {
+    pageSelection = 'Read this';
+    sendMessage.mockImplementation(async (message: { type: string }) =>
+      message.type === 'SPEAK_IN_OFFSCREEN' ? { type: 'SPEAK_ERROR', success: false, error: HELPER_DOWN } : undefined
+    );
+
+    await click(41);
+
+    expect(badgeTexts()).toEqual(['!']);
+    expect(setBadgeBackgroundColor.mock.calls.map(call => call[0].color)).toEqual(['#D93025']);
+    expect(titles()).toEqual([`Natural TTS: ${HELPER_DOWN}`]);
+  });
+
+  test('the next success clears the badge and restores the tooltip', async () => {
+    pageSelection = 'Read this';
+    await click(42);
+
+    expect(badgeTexts()).toEqual(['']);
+    expect(titles()).toEqual(['Natural Text-to-Speech']);
+    expect(setBadgeBackgroundColor).not.toHaveBeenCalled();
+  });
+
+  test('a deliberate stop counts as success and clears the badge', async () => {
+    pageSelection = 'Read this';
+    sendMessage.mockImplementation(async (message: { type: string }) =>
+      message.type === 'SPEAK_IN_OFFSCREEN' ? { type: 'SPEAK_STOPPED', success: true } : undefined
+    );
+    await click(43);
+    expect(badgeTexts()).toEqual(['']);
+  });
+
+  test('an unreachable offscreen document shows the badge', async () => {
+    pageSelection = 'Read this';
+    sendMessage.mockImplementation(async () => { throw new Error('Receiving end does not exist.'); });
+    await click(44);
+    expect(badgeTexts()).toEqual(['!']);
+    expect(titles()).toEqual(['Natural TTS: Could not start audio playback. Try again.']);
+  });
+
+  test('a shortcut with nothing selected shows the badge instead of failing silently', async () => {
+    pageSelection = '';
+    await listeners['commands.onCommand']('speak-selection', { id: 45 });
+    expect(badgeTexts()).toEqual(['!']);
+    expect(titles()[0]).toStartWith('Natural TTS: Nothing to speak.');
+    expect(speakMessages()).toEqual([]);
+  });
+
+  test('a right-click whose selection cannot be read shows the badge', async () => {
+    executeScriptThrows = true;
+    await listeners['contextMenus.onClicked'](
+      { menuItemId: 'natural-tts-speak-selection', pageUrl: 'https://example.com/' },
+      { id: 46 }
+    );
+    expect(badgeTexts()).toEqual(['!']);
+  });
+
+  test('stop-speaking leaves the badge alone', async () => {
+    await listeners['commands.onCommand']('stop-speaking', { id: 47 });
+    expect(setBadgeText).not.toHaveBeenCalled();
   });
 });

@@ -75,6 +75,7 @@ const storage: Record<string, unknown> = {
   native_tts_helper_config: { port: 18249, secret: '', default_voice: 'af_bella' },
 };
 let onMessage: ((message: unknown) => boolean) | null = null;
+const setBadgeText = mock(async (_details: { text: string }) => {});
 
 const saved = {
   chrome: (globalThis as any).chrome,
@@ -85,8 +86,9 @@ const saved = {
 
 function installGlobals(): void {
   (globalThis as any).chrome = {
+    action: { setBadgeText, setBadgeBackgroundColor: mock(async () => {}), setTitle: mock(async () => {}) },
     runtime: {
-      getManifest: () => ({ version: '1.4.0' }),
+      getManifest: () => ({ name: 'Natural Text-to-Speech', version: '1.4.0' }),
       onMessage: { addListener: (fn: (message: unknown) => boolean) => { onMessage = fn; } },
       openOptionsPage: mock(() => {}),
     },
@@ -215,6 +217,9 @@ describe('popup speak button (IN-10)', () => {
     expect(button.classList.contains('is-playing')).toBe(true);
     expect(el('messageContainer').textContent).toBe('Playing audio…');
     expect(el('messageContainer').style.display).toBe('block');
+
+    // A working popup speak clears any error badge a right-click left (D2).
+    expect(setBadgeText.mock.calls.map(call => call[0].text)).toContain('');
 
     button.click();
     expect(audio.pause).toHaveBeenCalled();

@@ -13,6 +13,12 @@ import type {
 } from '../shared/types';
 import { loadSettings } from '../shared/settings-defaults';
 import { readSelection, resolveContextMenuText } from '../shared/selection';
+import { showErrorBadge, clearErrorBadge } from '../shared/error-badge';
+import { userMessageForError } from '../shared/helper-errors';
+
+const NOTHING_SELECTED_MENU = 'Could not read the selected text. Select it again and retry.';
+const NOTHING_SELECTED_SHORTCUT =
+  'Nothing to speak. Select text first; shortcuts cannot read PDFs, frames from other sites or browser pages, so right-click there.';
 
 /**
  * Constants
@@ -102,12 +108,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     if (!selectedText) {
       console.warn('[Background] No selected text to speak');
+      await showErrorBadge(NOTHING_SELECTED_MENU);
       return;
     }
 
     await speakText(selectedText);
   } catch (error) {
     console.error('[Background] Error handling context menu click:', error);
+    await showErrorBadge(userMessageForError(error));
   }
 });
 
@@ -128,23 +136,27 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     if (command === SPEAK_COMMAND) {
       if (tab?.id === undefined || tab.id < 0) {
         console.warn('[Background] speak-selection: no tab to read from');
+        await showErrorBadge(NOTHING_SELECTED_SHORTCUT);
         return;
       }
       const selectedText = (await readSelection(tab.id)).trim();
       if (!selectedText) {
         console.warn('[Background] speak-selection: nothing selected (or the page cannot be scripted)');
+        await showErrorBadge(NOTHING_SELECTED_SHORTCUT);
         return;
       }
       await speakText(selectedText);
     }
   } catch (error) {
     console.error(`[Background] Error handling command ${command}:`, error);
+    await showErrorBadge(userMessageForError(error));
   }
 });
 
 /**
  * Speak text through the offscreen document with the user's preferences.
- * Resolves when playback completes, fails, or is stopped.
+ * Resolves when playback completes, fails, or is stopped. A failure shows the
+ * error badge; success (including a deliberate stop) clears it.
  */
 async function speakText(text: string): Promise<void> {
   speaksInFlight++;
@@ -169,6 +181,12 @@ async function speakText(text: string): Promise<void> {
       console.log('[Background] Speech playback completed successfully');
     } else {
       console.error('[Background] Speech playback failed:', response.error);
+    }
+
+    if (response.success) {
+      await clearErrorBadge();
+    } else {
+      await showErrorBadge(response.error || 'Speech failed. Try again.');
     }
   } finally {
     speaksInFlight--;
@@ -312,7 +330,7 @@ async function sendToOffscreen(
   return {
     type: 'SPEAK_ERROR',
     success: false,
-    error: 'Offscreen document unreachable after retry — check service worker console',
+    error: 'Could not start audio playback. Try again.',
   };
 }
 

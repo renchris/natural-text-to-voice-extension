@@ -11,6 +11,7 @@ import type { OffscreenMessage } from '../shared/types';
 import { renderShortcutChip } from './shortcut-chip';
 import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
 import { buildVoiceOptionNodes } from '../shared/voice-options';
+import { clearErrorBadge } from '../shared/error-badge';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -436,6 +437,9 @@ async function handleSpeak(): Promise<void> {
 
     // Resolves once playback has started; onended resets the state.
     await playAudio(audioBlob);
+
+    // Speech works again: drop any error badge a right-click left behind.
+    void clearErrorBadge();
 
   } catch (error) {
     handleSpeakError(error);
