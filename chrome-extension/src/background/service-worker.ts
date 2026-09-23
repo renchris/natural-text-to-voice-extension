@@ -7,16 +7,19 @@
 
 import type {
   SpeakInOffscreenMessage,
+  StopInOffscreenMessage,
   OffscreenSpeakResponse,
 } from '../shared/types';
 import { loadSettings } from '../shared/settings-defaults';
-import { resolveContextMenuText } from '../shared/selection';
+import { readSelection, resolveContextMenuText } from '../shared/selection';
 
 /**
  * Constants
  */
 const CONTEXT_MENU_ID = 'natural-tts-speak-selection';
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen/offscreen.html';
+const SPEAK_COMMAND = 'speak-selection';
+const STOP_COMMAND = 'stop-speaking';
 
 /**
  * Initialize background service worker
@@ -88,33 +91,84 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // Get user preferences
-    const { voice, speed } = await getPreferences();
-
-    // Note: Context menu is an explicit user action, so we always play
-    // (autoPlay setting is reserved for future use)
-
-    // Ensure offscreen document exists
-    await ensureOffscreenDocument();
-
-    // Send text to offscreen document for speech generation
-    const response = await sendToOffscreen({
-      type: 'SPEAK_IN_OFFSCREEN',
-      text: selectedText,
-      voice,
-      speed,
-    });
-
-    if (response.success) {
-      console.log('[Background] Speech playback completed successfully');
-    } else {
-      console.error('[Background] Speech playback failed:', response.error);
-    }
-
+    await speakText(selectedText);
   } catch (error) {
     console.error('[Background] Error handling context menu click:', error);
   }
 });
+
+/**
+ * Keyboard commands (manifest "commands"; no default keys, bound by the user
+ * at chrome://extensions/shortcuts). A shortcut grants activeTab on the
+ * current tab, so speak-selection can read the selection there. It cannot
+ * reach the PDF viewer or cross-origin iframes; the context menu is the path
+ * for those.
+ */
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  try {
+    if (command === STOP_COMMAND) {
+      await stopSpeaking();
+      return;
+    }
+
+    if (command === SPEAK_COMMAND) {
+      if (tab?.id === undefined || tab.id < 0) {
+        console.warn('[Background] speak-selection: no tab to read from');
+        return;
+      }
+      const selectedText = (await readSelection(tab.id)).trim();
+      if (!selectedText) {
+        console.warn('[Background] speak-selection: nothing selected (or the page cannot be scripted)');
+        return;
+      }
+      await speakText(selectedText);
+    }
+  } catch (error) {
+    console.error(`[Background] Error handling command ${command}:`, error);
+  }
+});
+
+/**
+ * Speak text through the offscreen document with the user's preferences.
+ * Resolves when playback completes, fails, or is stopped.
+ */
+async function speakText(text: string): Promise<void> {
+  // Get user preferences
+  const { voice, speed } = await getPreferences();
+
+  // Ensure offscreen document exists
+  await ensureOffscreenDocument();
+
+  // Send text to offscreen document for speech generation
+  const response = await sendToOffscreen({
+    type: 'SPEAK_IN_OFFSCREEN',
+    text,
+    voice,
+    speed,
+  });
+
+  if (response.type === 'SPEAK_STOPPED') {
+    console.log('[Background] Speech stopped');
+  } else if (response.success) {
+    console.log('[Background] Speech playback completed successfully');
+  } else {
+    console.error('[Background] Speech playback failed:', response.error);
+  }
+}
+
+/**
+ * Stop speech everywhere: the offscreen document stops and settles its
+ * pending speak request, and an open popup stops its own playback. Having
+ * no receiver (nothing ever spoke) is not an error.
+ */
+async function stopSpeaking(): Promise<void> {
+  const message: StopInOffscreenMessage = { type: 'STOP_IN_OFFSCREEN' };
+  try {
+    await chrome.runtime.sendMessage(message);
+  } catch (error) {
+    console.warn('[Background] Stop: no receiver', error);
+  }
+}
 
 /**
  * Get user preferences from storage
@@ -212,5 +266,7 @@ if (typeof globalThis !== 'undefined') {
     getPreferences,
     ensureOffscreenDocument,
     sendToOffscreen,
+    speakText,
+    stopSpeaking,
   };
 }

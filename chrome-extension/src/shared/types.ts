@@ -110,15 +110,35 @@ export interface SpeakInOffscreenMessage {
 }
 
 /**
- * Response from Offscreen Document to Background
+ * Stop whatever is being spoken. Sent by the service worker (stop-speaking
+ * command) to every extension page: the offscreen document stops and settles
+ * its pending speak request, and an open popup stops its own playback.
+ */
+export interface StopInOffscreenMessage {
+  type: 'STOP_IN_OFFSCREEN';
+}
+
+/**
+ * Response from Offscreen Document to Background.
+ * SPEAK_STOPPED settles a speak request that was cut short by a stop (or
+ * superseded by a newer request); it is not a failure.
  */
 export interface OffscreenSpeakResponse {
-  type: 'SPEAK_COMPLETE' | 'SPEAK_ERROR';
+  type: 'SPEAK_COMPLETE' | 'SPEAK_STOPPED' | 'SPEAK_ERROR';
   success: boolean;
   error?: string;
 }
 
 /**
+ * Response from Offscreen Document to a STOP_IN_OFFSCREEN message
+ */
+export interface OffscreenStopResponse {
+  type: 'STOPPED';
+  /** true when something was generating or playing and has been stopped */
+  stopped: boolean;
+}
+
+/**
  * Union type for all offscreen document messages
  */
-export type OffscreenMessage = SpeakInOffscreenMessage | OffscreenSpeakResponse;
+export type OffscreenMessage = SpeakInOffscreenMessage | StopInOffscreenMessage | OffscreenSpeakResponse;

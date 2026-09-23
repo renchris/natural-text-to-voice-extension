@@ -7,6 +7,8 @@ import { getApiClient, resetApiClient } from '../shared/api-client';
 import { Voice, HealthResponse } from '../shared/types';
 import { HelperNotFoundError, NetworkTimeoutError, InvalidResponseError } from '../shared/types';
 import { readSelection } from '../shared/selection';
+import type { OffscreenMessage } from '../shared/types';
+import { renderShortcutChip } from './shortcut-chip';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -111,6 +113,8 @@ async function init(): Promise<void> {
   updateUI();
   const footerVersion = document.getElementById('footerVersion');
   if (footerVersion) footerVersion.textContent = `v${chrome.runtime.getManifest().version}`;
+  const shortcutChip = document.getElementById('shortcutChip');
+  if (shortcutChip) await renderShortcutChip(shortcutChip);
 }
 
 /**
@@ -159,6 +163,16 @@ function setupEventListeners(): void {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeyboard);
+
+  // The stop-speaking command broadcasts STOP_IN_OFFSCREEN to every extension
+  // page; stop the popup's own playback too. Never responds, so the offscreen
+  // document's reply is the one the service worker receives.
+  chrome.runtime.onMessage.addListener((message: OffscreenMessage) => {
+    if (message?.type === 'STOP_IN_OFFSCREEN') {
+      stopPopupAudio();
+    }
+    return false;
+  });
 }
 
 // =================================================================================
@@ -381,9 +395,7 @@ async function handleSpeak(): Promise<void> {
     return;
   }
   if (state.currentAudio && !state.currentAudio.paused) {
-    state.currentAudio.pause();
-    state.currentAudio = null;
-    setPlayingState(false);
+    stopPopupAudio();
     return;
   }
 
@@ -540,6 +552,21 @@ async function playAudio(audioBlob: Blob): Promise<void> {
       reject(error);
     }
   });
+}
+
+/**
+ * Stop the popup's own playback and settle its pending playAudio() promise
+ * through the normal end-of-playback path (revoke URL, reset state).
+ * Returns false when nothing was playing.
+ */
+function stopPopupAudio(): boolean {
+  const audio = state.currentAudio;
+  if (!audio) {
+    return false;
+  }
+  audio.pause();
+  audio.onended?.call(audio, new Event('ended'));
+  return true;
 }
 
 // =================================================================================

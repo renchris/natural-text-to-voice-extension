@@ -129,3 +129,56 @@ describe('context menu → selection → offscreen', () => {
     expect(speakMessages()).toEqual([]);
   });
 });
+
+describe('keyboard commands (IN-12)', () => {
+  test('stop-speaking broadcasts STOP_IN_OFFSCREEN', async () => {
+    await listeners['commands.onCommand']('stop-speaking', { id: 3 });
+
+    expect(sendMessage.mock.calls.map(call => call[0])).toEqual([{ type: 'STOP_IN_OFFSCREEN' }]);
+    expect(executeScript).not.toHaveBeenCalled();
+  });
+
+  test('stop-speaking with no receiver (nothing ever spoke) does not throw', async () => {
+    sendMessage.mockImplementationOnce(async () => {
+      throw new Error('Could not establish connection. Receiving end does not exist.');
+    });
+
+    await expect(listeners['commands.onCommand']('stop-speaking', undefined)).resolves.toBeUndefined();
+  });
+
+  test('speak-selection reads the selection in the command tab and speaks it', async () => {
+    pageSelection = '  Shortcut text  ';
+
+    await listeners['commands.onCommand']('speak-selection', { id: 21 });
+
+    expect((executeScript.mock.calls[0][0] as any).target).toEqual({ tabId: 21 });
+    expect(speakMessages()).toEqual([
+      { type: 'SPEAK_IN_OFFSCREEN', text: 'Shortcut text', voice: 'af_nicole', speed: 1.25 },
+    ]);
+  });
+
+  test('speak-selection does nothing when nothing is selected or the page cannot be scripted', async () => {
+    pageSelection = '';
+    await listeners['commands.onCommand']('speak-selection', { id: 22 });
+
+    executeScriptThrows = true;
+    await listeners['commands.onCommand']('speak-selection', { id: 23 });
+
+    expect(executeScript).toHaveBeenCalledTimes(2);
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  test('speak-selection without a tab does not inject', async () => {
+    await listeners['commands.onCommand']('speak-selection', undefined);
+
+    expect(executeScript).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  test('unknown commands are ignored', async () => {
+    await listeners['commands.onCommand']('something-else', { id: 1 });
+
+    expect(executeScript).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+});

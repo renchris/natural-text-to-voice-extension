@@ -194,3 +194,19 @@ describe('manifest (IN-08)', () => {
     expect(manifest.minimum_chrome_version).toBe('148');
   });
 });
+
+describe('manifest commands (IN-12)', () => {
+  const manifest = JSON.parse(readFileSync(join(import.meta.dir, '..', 'public', 'manifest.json'), 'utf8'));
+
+  test('declares speak-selection and stop-speaking with descriptions', () => {
+    expect(Object.keys(manifest.commands).sort()).toEqual(['speak-selection', 'stop-speaking']);
+    expect(manifest.commands['speak-selection'].description).toBeTruthy();
+    expect(manifest.commands['stop-speaking'].description).toBeTruthy();
+  });
+
+  test('ships no default keys (the user binds them at chrome://extensions/shortcuts)', () => {
+    for (const command of Object.values(manifest.commands) as Array<Record<string, unknown>>) {
+      expect(command.suggested_key).toBeUndefined();
+    }
+  });
+});

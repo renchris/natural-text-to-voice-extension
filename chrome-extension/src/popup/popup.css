@@ -365,7 +365,20 @@ body {
   }
   .footer-shortcut {
     font-family: ui-monospace, monospace;
+    font-size: inherit;
+    color: inherit;
     background: var(--color-bg-secondary);
+    border: none;
     padding: 2px 6px;
     border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .footer-shortcut.is-unset {
+    font-family: inherit;
+  }
+  .footer-shortcut:hover {
+    color: var(--color-text-primary);
+  }
+  .footer-shortcut:empty {
+    visibility: hidden;
   }

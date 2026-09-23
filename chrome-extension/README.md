@@ -134,7 +134,17 @@ See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
 5. **Click** "Speak" button
 
 ### Method 3: Keyboard Shortcuts
-*(Coming in future update)*
+Two commands ship with **no keys bound**, so they never collide with macOS
+Option-key typing (for example ⌥⇧S types "Í"):
+
+- **Speak the selected text** (`speak-selection`)
+- **Stop speaking** (`stop-speaking`) stops speech started from the context
+  menu, a shortcut or the popup, and settles the pending request
+
+Bind them at `chrome://extensions/shortcuts`. The popup footer shows the key
+you bound, or **Set a shortcut**, which opens that page. A shortcut reads the
+selection in the current tab; it cannot reach PDFs or cross-origin iframes, so
+use the context menu there.
 
 ### Settings & Customization
 
@@ -402,7 +412,6 @@ See [PRIVACY.md](./PRIVACY.md) for full privacy policy.
 - 📝 Screenshots and demo video
 
 ### Future Versions (Planned)
-- 🔮 Keyboard shortcuts
 - 🔮 Export audio to file
 - 🔮 Reading queue (batch processing)
 - 🔮 Text highlighting as spoken
