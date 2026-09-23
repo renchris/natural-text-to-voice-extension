@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Natural Text-to-Speech",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Privacy-first TTS with local Metal-accelerated processing",
   "minimum_chrome_version": "148",
   "permissions": [

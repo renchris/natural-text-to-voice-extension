@@ -7,6 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-23
+
+The 2026-09 upgrade program. It rebuilds the helper on a locked, current MLX stack. It narrows the extension's
+permission to the local helper only, and it turns every silent failure into a visible one. The specs are
+`docs/research/2026-09-upgrade/UPGRADE_RESEARCH.md` §6 (IN-01 … IN-17). The before/after numbers are in
+`docs/research/2026-09-upgrade/W2-integration-measurements.md`.
+
+### Breaking
+- **The helper now needs macOS 14 (Sonoma) or later on Apple silicon.** Every mlx release after 0.29.3 ships macOS
+  14+ wheels only, and the Kokoro fidelity fix needs mlx ≥ 0.31.1. Building from source needs a Swift 6.0 toolchain
+  (Xcode 16.2 or later).
+- **The helper's Python environment is built with [uv](https://docs.astral.sh/uv/)** (`brew install uv`). Re-run
+  `native-helper/Scripts/setup-python-env.sh`. It moves the old environment to `native-helper/.python-env.pre-1.5`
+  as a rollback.
+- **The extension needs Chromium 148 or later** (`minimum_chrome_version`). Every current Chrome, Edge, Brave,
+  Opera, Vivaldi, Arc and Dia build is at 152 or later.
+
+### Changed: helper
+- **Hash-locked Python environment** (`native-helper/python/pyproject.toml` + `uv.lock`). It pins Python 3.12,
+  mlx 0.32.2 and mlx-audio 0.5.5. misaki, spaCy and `en_core_web_sm` are declared explicitly, and torch is not
+  installed. The old script pinned 3 packages, let ~178 float, and deleted every `*.dist-info`, which broke a fresh
+  install. The environment shrinks from 2.1 GB (183 packages) to 655 MB (89).
+- **Faster start, and the first request is not cold.** The worker runs a warm-up sentence before it reports ready.
+  A missing model or dependency now fails at launch, not on the first `/speak`. Launch to healthy takes 1.95 s
+  (was 5.5 s), and the first `/speak` takes 0.35 s (was 3.0–4.8 s). Warm synthesis runs at ~26.5× real time (was
+  18.7–22.2×).
+- **Offline by default.** The worker sets `HF_HUB_OFFLINE=1`, and the setup script fetches the model once. Before,
+  every `/speak` resolved its voice on huggingface.co.
+- **All 28 English Kokoro voices**, with correct US/UK labels (the old list had "Sarah (UK)"). British voices use
+  British pronunciation (`lang_code b`). An unknown voice returns 400 `unknown_voice`, not a 500 that leaked the
+  Hub URL.
+- **`/health` never waits on synthesis.** It takes under 1 ms during a long `/speak`, where it used to take 6.6 s,
+  so the extension's 2 s probe no longer reports a busy helper as missing. `/health` also reports `version` and
+  `apiVersion: 2`.
+- **A quick restart keeps port 8249.** The port probe now survives TIME_WAIT, so a restart no longer drifts to
+  8250 and saves that port into `config.json`. The new `--port`, `--python` and `--worker` overrides are never
+  saved.
+- **Text keeps its punctuation.** Curly quotes, dashes and ellipses now reach the G2P instead of being dropped.
+- **Worker guards.** Invalid speeds, empty text after normalisation and NaN audio return named errors, not raw
+  exceptions. Audio that would clip is scaled down.
+- **swift-nio 2.97.1 and swift-log 1.8.0.** These are the newest releases that still build on Xcode 16.2, the
+  last Xcode for Sonoma.
+- **The build bundles only `tts_worker.py`.** It used to copy the 2.1 GB venv into `.build`. The empty Swift test
+  target that broke fresh-clone builds is gone.
+
+### Changed: extension
+- **Permission reduction.** The `<all_urls>` content script is gone. The selection is read on demand through
+  `activeTab` + `scripting`, with `info.selectionText` as the fallback for PDFs and frames. The install warning
+  changes from "Read and change all your data on all websites" to "Read and change your data on 127.0.0.1".
+- **Visible errors.** Helper errors become plain messages (for example "The Natural TTS helper is not running.
+  Start it, then try again."), not "Server error: 500". A failed right-click or shortcut sets a red "!" badge that
+  gives the reason. A helper older than apiVersion 2 gets an "Update the Natural TTS helper" notice.
+- **Keyboard commands.** `speak-selection` and `stop-speaking` ship with no default keys (bind them at
+  `chrome://extensions/shortcuts`), and Stop now really stops playback.
+- **Long selections play.** The offscreen document declares `BLOBS`, so Chrome no longer closes it during a long
+  synthesis. It closes itself after 60 s idle. The `/speak` timeout scales with length, up to 120 s, and a `/speak`
+  is never retried, because a retry synthesised the text twice.
+- **Popup fixes.** Stop is reachable while audio plays, and Enter sends one request, not two. Voice labels are
+  built as text, not HTML. The `autoPlay` and `helperAutoRetry` toggles did nothing and are removed. Retry works
+  again after a successful retry.
+- **One voice catalogue** (`src/shared/voices.ts`, 28 voices) is the single source of voice ids and labels.
+- **Production build hygiene.** `console.log`/`info`/`debug` are dropped from `dist`, and no test hooks ship.
+- **Toolchain.** The unused vite chain is removed, and the project moves to TypeScript 6, @types/chrome 0.3.0 and
+  happy-dom 20. `bun audit` goes from 45 advisories to 0.
+
+### Added
+- MIT `LICENSE` and `THIRD_PARTY_NOTICES.md`. The GPL/LGPL components (espeak-ng, phonemizer-fork, num2words,
+  libsndfile) are installed into the user's own environment and are not redistributed.
+- Verification tooling:
+  - `scripts/verify-all.sh`: the fail-closed integration gate.
+  - `native-helper/Scripts/verify-python.sh`, `verify_worker.py`, `kokoro_probe.py`, `verify_g2p.py`, plus
+    fidelity reference audio.
+  - `chrome-extension/scripts/verify-permissions.cjs` and a headed end-to-end suite (`bun run test:e2e`).
+  - The capture rig in `scripts/capture/`.
+
+### Removed
+- The dangling `TTS.cpp` gitlink and its ignore rules.
+- The helper's config `secret`, which was generated but never checked.
+
+### Previously unlogged: 2026-05-25 (30 commits after the `v1.4.0` tag)
+- Helper: pinned the port to 8249 with fallback and an atomic config write. CORS is restricted to extension
+  origins, and web-page CSRF is rejected. The model loads eagerly at startup.
+- Extension: a 12-port helper probe and a visible "warming" state, plus a defence against the offscreen
+  listener-registration race. A prewarm-on-install was added and then reverted, because it broke `/speak` on
+  lazy-loading helpers.
+- UI redesign:
+  - a token system and a 360 px popup;
+  - voices grouped by accent;
+  - a speed stepper and a log-scale slider;
+  - a status pill with a label, and a two-state Speak/Stop button;
+  - a footer with the shortcut hint and the version;
+  - `prefers-reduced-motion` support;
+  - accessibility fixes: a focus ring, `aria-live` per severity, a stable retry button, and WCAG text colours.
+- The build copies `variables.css`, and the manifest was bumped to 1.4.0. The `v1.4.0` tag's manifest still says
+  1.3.0.
+
 ## [1.4.0] - 2025-11-11
 
 ### Added
@@ -252,7 +348,8 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.4.0
 [1.3.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.3.0
 [1.1.0-beta.2]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.1.0-beta.2

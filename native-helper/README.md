@@ -47,13 +47,13 @@ This Swift-based helper app provides a local HTTP API for the Natural Text-to-Vo
 Get up and running in 5 minutes:
 
 ```bash
-# 1. Install espeak-ng (REQUIRED for phoneme generation)
-brew install espeak-ng
+# 1. Install uv (builds the locked Python env) and espeak-ng (phoneme data)
+brew install uv espeak-ng
 
 # 2. Clone repository
 cd /path/to/natural-text-to-voice-extension/native-helper
 
-# 3. Setup Python environment (creates venv with MLX)
+# 3. Build the locked Python environment, fetch the model once, verify the worker
 ./Scripts/setup-python-env.sh
 
 # 4. Build release binary
@@ -87,7 +87,8 @@ curl -X POST http://127.0.0.1:8249/speak \
   --output test.wav && afplay test.wav
 ```
 
-First run will download Kokoro-82M (~200MB) and spaCy model (~13MB) automatically.
+Step 3 is the only step that needs the network: ~0.65 GB for the Python environment plus a ~0.36 GB
+Kokoro-82M download. After that the helper runs offline (the worker sets `HF_HUB_OFFLINE=1`).
 
 ---
 
@@ -95,13 +96,12 @@ First run will download Kokoro-82M (~200MB) and spaCy model (~13MB) automaticall
 
 ### Required
 
-- **macOS 13+** (Ventura or later)
-- **Apple Silicon** (M1/M2/M3/M4) for Metal GPU acceleration
-- **Xcode Command Line Tools**: `xcode-select --install`
-- **Python 3.9-3.11** (Python 3.12+ not yet supported by MLX)
-- **espeak-ng** (phoneme generation for Kokoro)
+- **macOS 14+** (Sonoma or later) on **Apple silicon** (M1 or later). Current MLX ships macOS 14+ wheels only
+- **Xcode Command Line Tools** with a Swift 6.0+ toolchain (Xcode 16.2 or later): `xcode-select --install`
+- **uv** 0.11.28 or later. It installs and pins **Python 3.12** itself, so no system Python is needed
+- **espeak-ng** (phoneme data for Kokoro)
   ```bash
-  brew install espeak-ng
+  brew install uv espeak-ng
   ```
 
 ### Optional
@@ -140,13 +140,16 @@ cd native-helper
 ./Scripts/setup-python-env.sh
 ```
 
-This creates a virtual environment at `Sources/NaturalTTSHelper/Resources/python-env/` with MLX dependencies (~500MB):
-- `mlx==0.29.3` (Apple Metal ML framework)
-- `mlx-audio==0.2.6` (Kokoro TTS implementation)
-- `soundfile==0.13.1` (WAV encoding)
-- `phonemizer==3.3.0` (espeak-ng interface)
+This syncs the hash-locked uv project in `python/` (`pyproject.toml` + `uv.lock`) into
+`Sources/NaturalTTSHelper/Resources/python-env/` (~0.65 GB, Python 3.12, no torch). It then pre-fetches
+Kokoro-82M (~0.36 GB, into `~/.cache/huggingface/hub/`) and runs `Scripts/verify_worker.py` end to end. Key pins:
+- `mlx==0.32.2` (Apple Metal ML framework)
+- `mlx-audio==0.5.5` (Kokoro TTS implementation)
+- `misaki==0.9.4` + `spacy==3.8.16` + `en_core_web_sm` 3.8.0 (G2P)
+- `phonemizer-fork==3.3.2` + `espeakng-loader==0.2.4` (espeak-ng interface)
 
-**First-time setup**: ~3-5 minutes (downloads packages)
+A pre-1.5 (pip-built) environment is moved once to `native-helper/.python-env.pre-1.5` as the rollback; pass
+`--force` to replace it without a copy. Re-running the script is safe.
 
 ### 2. Build Swift Package
 
@@ -164,14 +167,9 @@ The binary will be at: `.build/release/natural-tts-helper`
 .build/release/natural-tts-helper
 ```
 
-**First run** (~35s):
-- Downloads Kokoro-82M model (~200MB)
-- Downloads spaCy model (~13MB)
-- Warms up MLX model (~2.5s)
-
-**Subsequent runs** (~2.5s):
-- Models are cached in `~/.cache/huggingface/hub/`
-- Only model warmup time
+**Startup** (~2 s on an M1 Max): loads the cached model and runs one warm-up sentence, so the first request
+is as fast as later ones. Nothing is downloaded at run time; if the model is missing, the worker exits at
+startup with a hint to re-run `Scripts/setup-python-env.sh`.
 
 ---
 
