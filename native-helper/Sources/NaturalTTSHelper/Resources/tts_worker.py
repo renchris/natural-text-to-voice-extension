@@ -120,23 +120,34 @@ def load_mlx_model():
         return False
 
 
+# Typographic punctuation misaki reads natively. The ASCII fold used to delete these ("We’re" -> "Were",
+# "3–5" -> "35"), so they are protected: U+2019 U+2018 U+201C U+201D U+2014 U+2013 U+2026.
+PROTECTED_PUNCTUATION = "’‘“”—–…"
+
+
 def normalize_text(text):
-    """Normalize Unicode text for better TTS pronunciation"""
+    """Normalize Unicode text for better TTS pronunciation.
+
+    The 7 PROTECTED_PUNCTUATION characters pass through unchanged. Every other segment gets the
+    NFKD + ASCII fold, which turns formatted/mathematical Unicode into ASCII (𝚟𝚒𝚝𝚎 -> vite) and still
+    drops emoji, CJK, Cyrillic and Arabic. Whitespace, including newlines (PDF selections break every
+    line), collapses to single spaces.
+    """
     import unicodedata
     import re
 
-    # NFKD normalization: converts formatted/mathematical Unicode to ASCII equivalents
-    # e.g., 𝚟𝚒𝚝𝚎 (mathematical monospace) -> vite (normal ASCII)
-    normalized = unicodedata.normalize("NFKD", text)
-
-    # Remove any remaining non-ASCII combining marks
-    # Keep only printable ASCII and common punctuation
-    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    parts = re.split("([" + PROTECTED_PUNCTUATION + "])", text)
+    folded = "".join(
+        part
+        if len(part) == 1 and part in PROTECTED_PUNCTUATION
+        else unicodedata.normalize("NFKD", part)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        for part in parts
+    )
 
     # Clean up any excessive whitespace
-    ascii_text = re.sub(r"\s+", " ", ascii_text).strip()
-
-    return ascii_text
+    return re.sub(r"\s+", " ", folded).strip()
 
 
 def parse_speed(value):
