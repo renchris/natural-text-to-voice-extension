@@ -152,12 +152,31 @@ actor HTTPServer {
             return badRequest("Text too long (max 5000 characters)", origin: origin)
         }
 
+        // Validate voice against the catalogue. An unknown ID used to reach
+        // the worker and come back as a 500 that leaked the Hub URL.
+        let voice: String
+        if let requested = request.voice {
+            guard VoiceCatalogue.contains(requested) else {
+                let error = ErrorResponse(
+                    error: "unknown_voice",
+                    message: "Unknown voice '\(requested)'. GET /voices lists the supported IDs.",
+                    retryAfterSeconds: nil
+                )
+                return jsonResponse(error, status: .badRequest, origin: origin)
+            }
+            voice = requested
+        } else if VoiceCatalogue.contains(config.defaultVoice) {
+            voice = config.defaultVoice
+        } else {
+            voice = VoiceCatalogue.fallbackVoice
+        }
+
         // Generate audio
         do {
             let startTime = Date()
             let audio = try await worker.generate(
                 text: request.text,
-                voice: request.voice ?? config.defaultVoice,
+                voice: voice,
                 speed: request.speed ?? 1.0
             )
             let genTime = Date().timeIntervalSince(startTime)
@@ -201,16 +220,7 @@ actor HTTPServer {
     }
 
     private func handleVoices(origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
-        let voices = [
-            Voice(id: "af_bella", name: "Bella (US)", language: "en-US"),
-            Voice(id: "af_sarah", name: "Sarah (UK)", language: "en-GB"),
-            Voice(id: "af_nicole", name: "Nicole (US)", language: "en-US"),
-            Voice(id: "af_sky", name: "Sky (US)", language: "en-US"),
-            Voice(id: "am_adam", name: "Adam (US)", language: "en-US"),
-            Voice(id: "am_michael", name: "Michael (US)", language: "en-US")
-        ]
-
-        let response = VoicesResponse(voices: voices)
+        let response = VoicesResponse(voices: VoiceCatalogue.voices)
         return jsonResponse(response, status: .ok, origin: origin)
     }
 
