@@ -12,8 +12,9 @@
 #   6 g2p       Scripts/verify_g2p.py         (normalize_text + misaki rows)
 #   7 fidelity  Scripts/ref_compare.py        (|level| <= NTTS_MAX_LEVEL_DB, log-mel L1 <= NTTS_MAX_L1)
 #
-# Checks 4, 6 and (possibly) 7 exercise tts_worker.py behaviour that IN-03 / IN-04 change; they are
-# expected red until those land. Thresholds for 7 are parameters (defaults 0.5 dB / 0.13, calibrated
+# Checks 4, 6 and 7 run the shipped tts_worker.py, so they guard IN-03 (worker hardening) and IN-04
+# (typographic punctuation) against regression; all 7 are green from IN-04 on. Thresholds for 7 are
+# parameters (defaults 0.5 dB / 0.13, calibrated
 # against the R01 reference method: noise floor 0.049, mlx-audio 0.5.5 = 0.115, 0.2.6 = 0.428).
 #
 # Usage (any cwd):  native-helper/Scripts/verify-python.sh
