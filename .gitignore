@@ -80,11 +80,6 @@ _deps/
 *.out
 *.app
 
-# TTS.cpp specific
-TTS.cpp/build/
-TTS.cpp/*.gguf
-TTS.cpp/models/
-
 # Swift Package Manager
 .build/
 .swiftpm/
