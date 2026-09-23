@@ -69,6 +69,33 @@ const createObjectURL = mock((_blob: Blob) => {
 });
 const revokeObjectURL = mock((url: string) => { liveUrls.delete(url); });
 
+// ---- idle timer: 60 s timeouts are captured so the test can fire them; every
+// other delay goes to the real timer.
+const IDLE_MS = 60_000;
+const realSetTimeout = globalThis.setTimeout;
+const realClearTimeout = globalThis.clearTimeout;
+const idleTimers = new Map<number, () => void>();
+let fakeTimerId = 1_000_000;
+function fakeSetTimeout(fn: () => void, ms?: number, ...rest: unknown[]) {
+  if (ms === IDLE_MS) {
+    const id = ++fakeTimerId;
+    idleTimers.set(id, fn);
+    return id;
+  }
+  return (realSetTimeout as any)(fn, ms, ...rest);
+}
+function fakeClearTimeout(id: any) {
+  if (idleTimers.delete(id)) return;
+  realClearTimeout(id);
+}
+function fireIdleTimers(): number {
+  const pending = [...idleTimers.values()];
+  idleTimers.clear();
+  pending.forEach(fn => fn());
+  return pending.length;
+}
+const runtimeSendMessage = mock(async (_message: unknown) => undefined);
+
 const saved = {
   chrome: (globalThis as any).chrome,
   fetch: globalThis.fetch,
@@ -80,6 +107,7 @@ function installGlobals(): void {
   (globalThis as any).chrome = {
     runtime: {
       onMessage: { addListener: (fn: Listener) => { onMessage = fn; } },
+      sendMessage: runtimeSendMessage,
     },
     storage: {
       local: {
@@ -90,6 +118,8 @@ function installGlobals(): void {
   };
   globalThis.fetch = fetchMock as unknown as typeof fetch;
   (globalThis as any).Audio = FakeAudio;
+  (globalThis as any).setTimeout = fakeSetTimeout;
+  (globalThis as any).clearTimeout = fakeClearTimeout;
   const BaseURL = saved.URL ?? class {};
   (globalThis as any).URL = class extends BaseURL {
     static createObjectURL = createObjectURL;
@@ -111,6 +141,8 @@ afterAll(() => {
   globalThis.fetch = saved.fetch;
   (globalThis as any).Audio = saved.Audio;
   (globalThis as any).URL = saved.URL;
+  globalThis.setTimeout = realSetTimeout;
+  globalThis.clearTimeout = realClearTimeout;
   if (saved.chrome === undefined) delete (globalThis as any).chrome;
   if (saved.Audio === undefined) delete (globalThis as any).Audio;
 });
@@ -141,6 +173,74 @@ async function until(condition: () => boolean, label: string): Promise<void> {
 function settledWithin<T>(promise: Promise<T>, ms = 50): Promise<T | 'pending'> {
   return Promise.race([promise, new Promise<'pending'>(r => setTimeout(() => r('pending'), ms))]);
 }
+
+async function speakToEnd(text = 'Hello there'): Promise<OffscreenSpeakResponse> {
+  const before = FakeAudio.instances.length;
+  const { response } = speak(text);
+  await until(() => pendingSpeaks.length > 0, '/speak request');
+  pendingSpeaks.shift()!.resolve();
+  await until(() => FakeAudio.instances.length > before, 'audio element');
+  lastAudio().finish();
+  return response;
+}
+
+function idleMessages(): unknown[] {
+  return runtimeSendMessage.mock.calls.map(call => call[0]).filter((m: any) => m?.type === 'OFFSCREEN_IDLE');
+}
+
+describe('offscreen idle close (IN-09)', () => {
+  test('the document arms a 60 s idle timer as soon as it loads', () => {
+    // Armed at import time, before any speak request.
+    expect(idleTimers.size).toBe(1);
+  });
+
+  test('playback end arms the timer; when it fires the document reports OFFSCREEN_IDLE', async () => {
+    idleTimers.clear();
+    runtimeSendMessage.mockClear();
+
+    expect(await speakToEnd()).toEqual({ type: 'SPEAK_COMPLETE', success: true });
+    expect(idleTimers.size).toBe(1);
+    expect(idleMessages()).toEqual([]);
+
+    expect(fireIdleTimers()).toBe(1);
+    expect(idleMessages()).toEqual([{ type: 'OFFSCREEN_IDLE' }]);
+  });
+
+  test('a new speak request cancels the pending idle timer', async () => {
+    idleTimers.clear();
+    runtimeSendMessage.mockClear();
+    await speakToEnd();
+    expect(idleTimers.size).toBe(1);
+
+    const { response } = speak('again');
+    expect(idleTimers.size).toBe(0);
+    await until(() => pendingSpeaks.length > 0, '/speak request');
+
+    // Nothing fires while the helper synthesises, however long it takes.
+    expect(fireIdleTimers()).toBe(0);
+    expect(idleMessages()).toEqual([]);
+
+    pendingSpeaks.shift()!.resolve();
+    await until(() => FakeAudio.instances.length > 0 && !lastAudio().paused, 'playback');
+    lastAudio().finish();
+    await response;
+    expect(idleTimers.size).toBe(1);
+  });
+
+  test('a failed request and a stop both arm the timer too', async () => {
+    idleTimers.clear();
+    await speak('   ').response; // empty text fails before any fetch
+    expect(idleTimers.size).toBe(1);
+
+    idleTimers.clear();
+    const { response } = speak('stop me');
+    await until(() => pendingSpeaks.length > 0, '/speak request');
+    stop();
+    await response;
+    expect(idleTimers.size).toBe(1);
+    pendingSpeaks.shift()!.resolve();
+  });
+});
 
 describe('offscreen speak / stop', () => {
   test('STOP with nothing active reports stopped:false', async () => {

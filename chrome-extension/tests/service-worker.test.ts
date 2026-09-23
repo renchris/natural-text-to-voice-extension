@@ -151,27 +151,6 @@ describe('Preference Loading', () => {
   });
 });
 
-describe('Offscreen Document API', () => {
-  test('should create document with correct reason', () => {
-    const config = {
-      url: '/offscreen.html',
-      reasons: ['AUDIO_PLAYBACK'],
-      justification: 'Play text-to-speech audio from context menu actions',
-    };
-
-    expect(config.reasons).toContain('AUDIO_PLAYBACK');
-    expect(config.justification).toContain('audio');
-  });
-
-  test('should have proper justification', () => {
-    const justification = 'Play text-to-speech audio from context menu actions';
-
-    expect(justification.length).toBeGreaterThan(10);
-    expect(justification).toContain('text-to-speech');
-    expect(justification).toContain('audio');
-  });
-});
-
 describe('Context Menu Click Handler', () => {
   test('should only handle correct menu ID', () => {
     const ourMenuId = 'natural-tts-speak-selection';

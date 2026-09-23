@@ -11,6 +11,15 @@ import {
 import { getConfig } from './config';
 
 /**
+ * Timeout for POST /speak, scaled by text length: 30 s plus 15 ms per
+ * character, capped at 120 s. A flat 30 s was the real ceiling for long
+ * selections; a 4,985-character request took 45 s under GPU contention.
+ */
+export function speakTimeoutMs(text: string): number {
+  return Math.min(120000, 30000 + 15 * text.length);
+}
+
+/**
  * HTTP client for Native TTS Helper API
  */
 export class ApiClient implements NativeTTSClient {
@@ -69,7 +78,12 @@ export class ApiClient implements NativeTTSClient {
 
     let lastError: Error | null = null;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Never retry a POST: a /speak that failed after reaching the helper may
+    // still be synthesising, and a retry would generate the speech twice.
+    const method = (options.method ?? 'GET').toUpperCase();
+    const retries = method === 'POST' ? 0 : maxRetries;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -125,8 +139,8 @@ export class ApiClient implements NativeTTSClient {
           throw error;
         }
 
-        // Retry on network errors
-        if (attempt < maxRetries) {
+        // Retry on network errors (GET only, see above)
+        if (attempt < retries) {
           // Wait before retry (exponential backoff)
           await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
           continue;
@@ -196,7 +210,7 @@ export class ApiClient implements NativeTTSClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-    }, 30000); // Longer timeout for speech generation
+    }, speakTimeoutMs(request.text));
   }
 
   /**

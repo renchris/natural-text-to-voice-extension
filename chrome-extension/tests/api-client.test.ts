@@ -3,7 +3,9 @@ import {
   ApiClient,
   getApiClient,
   resetApiClient,
+  speakTimeoutMs,
 } from '../src/shared/api-client';
+import { discoverConfig } from '../src/shared/config';
 import {
   HelperNotFoundError,
   InvalidResponseError,
@@ -298,6 +300,86 @@ describe('ApiClient', () => {
       });
 
       await client.speak({ text: 'Hello world' });
+    });
+  });
+
+  describe('speak() robustness (IN-09)', () => {
+    test('the /speak timeout scales with text length and caps at 120 s', () => {
+      expect(speakTimeoutMs('Hi')).toBe(30030);
+      expect(speakTimeoutMs('x'.repeat(1000))).toBe(45000);
+      expect(speakTimeoutMs('x'.repeat(4985))).toBe(104775);
+      expect(speakTimeoutMs('x'.repeat(6000))).toBe(120000);
+      expect(speakTimeoutMs('x'.repeat(100000))).toBe(120000);
+    });
+
+    test('speak() arms its abort timer with the scaled timeout', async () => {
+      const delays: number[] = [];
+      const realSetTimeout = globalThis.setTimeout;
+      (globalThis as any).setTimeout = (_fn: () => void, ms?: number) => {
+        delays.push(ms ?? 0);
+        return realSetTimeout(() => {}, 0);
+      };
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+        }
+        return { ok: true, blob: async () => new Blob(['wav']) };
+      });
+      try {
+        await client.speak({ text: 'x'.repeat(2000) });
+      } finally {
+        globalThis.setTimeout = realSetTimeout;
+      }
+      expect(delays).toContain(60000);
+    });
+
+    test('a POST /speak that fails at the network is not retried', async () => {
+      let speakCalls = 0;
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes('/health')) {
+          return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+        }
+        speakCalls++;
+        throw new TypeError('Failed to fetch');
+      });
+
+      await expect(client.speak({ text: 'Hello world' })).rejects.toThrow(HelperNotFoundError);
+      expect(speakCalls).toBe(1);
+    });
+
+    test('GET requests are still retried on network errors', async () => {
+      let healthCalls = 0;
+      mockFetch.mockImplementation(async () => {
+        healthCalls++;
+        // 1: config verification, 2: first attempt fails, 3: retry succeeds
+        if (healthCalls === 2) throw new TypeError('Failed to fetch');
+        return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+      });
+
+      await client.checkHealth();
+      expect(healthCalls).toBe(3);
+    });
+  });
+
+  describe('discoverConfig() without chrome.storage (D1)', () => {
+    test('returns the port it found even when saving the config fails', async () => {
+      (chrome.storage.local.set as any).mockImplementation(async () => {
+        throw new Error('chrome.storage is not available in this context');
+      });
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes(':18250/')) {
+          return { ok: true, json: async () => ({ status: 'ok' }) };
+        }
+        throw new TypeError('Failed to fetch');
+      });
+
+      const config = await discoverConfig([18249, 18250, 18251]);
+
+      expect(config.port).toBe(18250);
+      expect(mockFetch.mock.calls.map(call => String(call[0]))).toEqual([
+        'http://127.0.0.1:18249/health',
+        'http://127.0.0.1:18250/health',
+      ]);
     });
   });
 

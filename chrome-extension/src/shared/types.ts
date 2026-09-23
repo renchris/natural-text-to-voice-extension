@@ -139,6 +139,19 @@ export interface OffscreenStopResponse {
 }
 
 /**
+ * Sent by the offscreen document to the service worker once nothing has been
+ * generating or playing for a while. With the BLOBS reason Chrome never
+ * closes the document by itself, so the service worker closes it on this.
+ */
+export interface OffscreenIdleMessage {
+  type: 'OFFSCREEN_IDLE';
+}
+
+/**
  * Union type for all offscreen document messages
  */
-export type OffscreenMessage = SpeakInOffscreenMessage | StopInOffscreenMessage | OffscreenSpeakResponse;
+export type OffscreenMessage =
+  | SpeakInOffscreenMessage
+  | StopInOffscreenMessage
+  | OffscreenIdleMessage
+  | OffscreenSpeakResponse;

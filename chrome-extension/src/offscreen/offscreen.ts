@@ -12,6 +12,7 @@ import type {
   OffscreenSpeakResponse,
   OffscreenStopResponse,
   OffscreenMessage,
+  OffscreenIdleMessage,
 } from '../shared/types';
 import {
   HelperNotFoundError,
@@ -40,9 +41,41 @@ let activeJob: SpeakJob | null = null;
 const STOPPED_RESPONSE: OffscreenSpeakResponse = { type: 'SPEAK_STOPPED', success: true };
 
 /**
+ * How long the document may sit with nothing generating or playing before it
+ * asks the service worker to close it. The BLOBS reason means Chrome never
+ * closes it by itself, so this timer is what frees it.
+ */
+export const OFFSCREEN_IDLE_MS = 60_000;
+
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armIdleTimer(): void {
+  cancelIdleTimer();
+  idleTimer = setTimeout(() => {
+    idleTimer = null;
+    if (activeJob) return;
+    const idle: OffscreenIdleMessage = { type: 'OFFSCREEN_IDLE' };
+    chrome.runtime.sendMessage(idle).catch((error: unknown) => {
+      console.warn('[Offscreen] Could not report idle:', error);
+    });
+  }, OFFSCREEN_IDLE_MS);
+}
+
+function cancelIdleTimer(): void {
+  if (idleTimer !== null) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
+/**
  * Initialize offscreen document
  */
 console.log('[Offscreen] Document loaded');
+
+// If no speak request ever arrives (the service worker failed after creating
+// us), still close after the idle period.
+armIdleTimer();
 
 /**
  * Listen for messages from background service worker
@@ -112,6 +145,7 @@ function handleSpeakRequest(
 
   // A new request supersedes whatever is speaking now; settle that one.
   stopSpeaking();
+  cancelIdleTimer();
 
   return new Promise<OffscreenSpeakResponse>(resolve => {
     const job: SpeakJob = {
@@ -122,7 +156,11 @@ function handleSpeakRequest(
       settle: (response) => {
         if (job.settled) return;
         job.settled = true;
-        if (activeJob === job) activeJob = null;
+        if (activeJob === job) {
+          activeJob = null;
+          // Playback ended, failed or was stopped: start the idle countdown.
+          armIdleTimer();
+        }
         resolve(response);
       },
     };

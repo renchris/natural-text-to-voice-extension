@@ -105,8 +105,14 @@ export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Pr
           default_voice: 'af_bella'
         };
 
-        // Save the discovered config
-        await saveConfig(config);
+        // Save the discovered config. A context without chrome.storage (the
+        // offscreen document) cannot save, but the port it found is still
+        // the right one: return it rather than moving on to the next port.
+        try {
+          await saveConfig(config);
+        } catch (error) {
+          console.warn('Found the helper on port', port, 'but could not save it:', error);
+        }
 
         return config;
       }
