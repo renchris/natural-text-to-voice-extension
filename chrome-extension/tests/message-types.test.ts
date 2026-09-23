@@ -5,56 +5,10 @@
 
 import { describe, test, expect } from 'bun:test';
 import type {
-  GetSelectedTextMessage,
-  SelectedTextResponse,
   SpeakInOffscreenMessage,
   OffscreenSpeakResponse,
-  ContentScriptMessage,
   OffscreenMessage,
 } from '../src/shared/types';
-
-describe('Content Script Message Types', () => {
-  test('GetSelectedTextMessage should have correct structure', () => {
-    const message: GetSelectedTextMessage = {
-      type: 'GET_SELECTED_TEXT',
-    };
-
-    expect(message.type).toBe('GET_SELECTED_TEXT');
-  });
-
-  test('SelectedTextResponse should include text and success', () => {
-    const response: SelectedTextResponse = {
-      text: 'Hello world',
-      success: true,
-    };
-
-    expect(response.text).toBe('Hello world');
-    expect(response.success).toBe(true);
-    expect(response.error).toBeUndefined();
-  });
-
-  test('SelectedTextResponse should handle errors', () => {
-    const response: SelectedTextResponse = {
-      text: '',
-      success: false,
-      error: 'No text selected',
-    };
-
-    expect(response.success).toBe(false);
-    expect(response.error).toBe('No text selected');
-  });
-
-  test('ContentScriptMessage union type should work', () => {
-    const message: ContentScriptMessage = {
-      type: 'GET_SELECTED_TEXT',
-    };
-
-    // Type guard
-    if (message.type === 'GET_SELECTED_TEXT') {
-      expect(message.type).toBe('GET_SELECTED_TEXT');
-    }
-  });
-});
 
 describe('Offscreen Document Message Types', () => {
   test('SpeakInOffscreenMessage should have correct structure', () => {

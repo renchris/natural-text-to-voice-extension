@@ -6,7 +6,7 @@
 import { getApiClient, resetApiClient } from '../shared/api-client';
 import { Voice, HealthResponse } from '../shared/types';
 import { HelperNotFoundError, NetworkTimeoutError, InvalidResponseError } from '../shared/types';
-import type { GetSelectedTextMessage, SelectedTextResponse } from '../shared/types';
+import { readSelection } from '../shared/selection';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -458,12 +458,12 @@ function handleKeyboard(event: KeyboardEvent): void {
 }
 
 // =================================================================================
-// TEXT SELECTION (Phase 2.3 temporary implementation)
+// TEXT SELECTION
 // =================================================================================
 
 /**
- * Get selected text from page via content script
- * Phase 2.4: Get from content script via chrome.tabs.sendMessage
+ * Get the selected text in the active tab, read on demand via
+ * chrome.scripting (activeTab + scripting; no content script).
  */
 async function getSelectedText(): Promise<string> {
   try {
@@ -493,32 +493,15 @@ async function getSelectedText(): Promise<string> {
       return '';
     }
 
-    // Send message to content script
-    const message: GetSelectedTextMessage = {
-      type: 'GET_SELECTED_TEXT',
-    };
-
-    const response = await chrome.tabs.sendMessage(tab.id, message) as SelectedTextResponse;
-
-    // Handle response
-    if (response.success && response.text) {
-      console.log('[Popup] Got selected text:', {
-        length: response.text.length,
-        preview: response.text.substring(0, 50),
-      });
-      return response.text;
-    } else {
-      console.error('[Popup] Failed to get selected text:', response.error);
-      showMessage(response.error || 'Failed to get selected text', 'warning');
-      return '';
-    }
+    // Opening the popup granted activeTab on this tab, so read the selection
+    // directly. No content script is involved, so tabs opened before install
+    // work without a reload. Restricted pages (chrome://, the Web Store) and
+    // the PDF viewer return '' — the context menu is the PDF path.
+    return (await readSelection(tab.id)).trim();
 
   } catch (error) {
-    console.error('[Popup] Error communicating with content script:', error);
-    showMessage(
-      'Could not access page content. Please refresh the page and try again.',
-      'error'
-    );
+    console.error('[Popup] Error finding the active tab:', error);
+    showMessage('Could not read the selection on this page.', 'error');
     return '';
   }
 }

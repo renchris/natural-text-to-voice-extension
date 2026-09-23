@@ -106,8 +106,8 @@ The extension requests minimal permissions required for functionality:
 |------------|---------|------------|
 | `storage` | Save voice and speed preferences locally | ⚪ Minimal |
 | `contextMenus` | Add "Speak selected text" to right-click menu | ⚪ Minimal |
-| `activeTab` | Access selected text when you click context menu | 🟡 Low |
-| `scripting` | Inject content script to retrieve selected text | 🟡 Low |
+| `activeTab` | Read the selected text in the current tab, only after you click the menu, the toolbar button or a shortcut | 🟡 Low |
+| `scripting` | Run one `getSelection()` call in that tab to read the selection | 🟡 Low |
 | `offscreen` | Play audio in background (Chrome API requirement) | ⚪ Minimal |
 
 ### Host Permissions
@@ -120,11 +120,13 @@ The extension declares:
 **Why**: To communicate with the native helper on `localhost:8249`
 **Risk**: Minimal (localhost only, no external hosts)
 
-### Content Scripts
+### No Content Scripts
 
-The extension injects a content script on `<all_urls>` to:
-- Detect when you select text
-- Retrieve selected text when you use the context menu
+The extension does not inject anything into the pages you visit. It reads the
+selection only when you ask it to speak: your click or shortcut grants
+`activeTab` for that one tab, and the extension runs a single
+`getSelection()` call there. The install prompt therefore shows only
+"Read and change your data on 127.0.0.1" (the local helper).
 
 **What it does NOT do**:
 - ❌ Modify webpage content

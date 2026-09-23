@@ -54,20 +54,6 @@ await Bun.build({
   sourcemap: 'none',
 });
 
-// Build content script
-console.log('📄 Building content script...');
-await Bun.build({
-  entrypoints: ['./src/content/content-script.ts'],
-  outdir: './dist/content',
-  target: 'browser',
-  minify: true,
-  sourcemap: 'none',
-});
-
-// Copy content script CSS
-await $`mkdir -p dist/content`;
-await $`cp src/content/content-script.css dist/content/` || true;
-
 // Build offscreen document
 console.log('🎵 Building offscreen document...');
 await Bun.build({

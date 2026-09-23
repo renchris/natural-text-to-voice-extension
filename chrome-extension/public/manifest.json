@@ -3,10 +3,12 @@
   "name": "Natural Text-to-Speech",
   "version": "1.4.0",
   "description": "Privacy-first TTS with local Metal-accelerated processing",
+  "minimum_chrome_version": "148",
   "permissions": [
     "storage",
     "contextMenus",
     "activeTab",
+    "scripting",
     "offscreen"
   ],
   "host_permissions": [
@@ -24,14 +26,6 @@
       "128": "icons/icon128.png"
     }
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/content-script.js"],
-      "css": ["content/content-script.css"],
-      "run_at": "document_idle"
-    }
-  ],
   "options_page": "options/options.html",
   "icons": {
     "16": "icons/icon16.png",

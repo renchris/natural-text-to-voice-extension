@@ -64,7 +64,7 @@
 
 ### System Requirements
 - **Operating System**: macOS with Apple Silicon (M1/M2/M3/M4)
-- **Browser**: Google Chrome 88+ or Microsoft Edge 88+
+- **Browser**: Chrome, Edge, Brave, Opera, Vivaldi, Arc or Dia on Chromium 148+ (`minimum_chrome_version`)
 - **Disk Space**: ~500MB for ML model download
 - **Memory**: 2GB RAM recommended
 
@@ -162,7 +162,7 @@ See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
 │  ┌───────────┐  │      HTTP (localhost:8249)      ┌──────────────────┐
 │  │ Extension │  │ ◄────────────────────────────► │  Native Helper   │
 │  │  (popup,  │  │      JSON request/response      │  (Swift + MLX)   │
-│  │ content,  │  │                                  │                  │
+│  │ offscreen,│  │                                  │                  │
 │  │background)│  │                                  │  ┌────────────┐  │
 │  └───────────┘  │                                  │  │ MLX Python │  │
 └─────────────────┘                                  │  │  Worker    │  │
@@ -179,7 +179,6 @@ See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
 **Extension Side:**
 - **Popup** (`popup/`): User interface for manual text input
 - **Options** (`options/`): Settings and preferences page
-- **Content Script** (`content/`): Text selection on webpages
 - **Background Worker** (`background/`): Message routing, context menu handling
 - **Offscreen Document** (`offscreen/`): Audio playback (Chrome requirement)
 
@@ -248,9 +247,8 @@ chrome-extension/
 │   ├── popup/           # Popup UI (click extension icon)
 │   ├── options/         # Settings page
 │   ├── background/      # Service worker (message routing)
-│   ├── content/         # Content script (text selection)
 │   ├── offscreen/       # Offscreen document (audio playback)
-│   └── shared/          # Shared utilities (API client, types)
+│   └── shared/          # Shared utilities (API client, types, on-demand selection)
 ├── public/
 │   ├── manifest.json    # Extension manifest (Manifest V3)
 │   └── icons/           # Extension icons (16, 48, 128px)
@@ -320,9 +318,14 @@ Chrome Manifest V3 uses multiple isolated contexts:
 
 1. **Popup** - Runs when user clicks extension icon (ephemeral)
 2. **Options Page** - Runs when user opens settings (persistent tab)
-3. **Content Script** - Injected into every webpage (isolated from page)
-4. **Background Service Worker** - Always running (event-driven)
-5. **Offscreen Document** - Hidden page for audio playback (Chrome API requirement)
+3. **Background Service Worker** - Event-driven; reads the selection on demand
+4. **Offscreen Document** - Hidden page for audio playback (Chrome API requirement)
+
+No script is injected into pages ahead of time. When you click the context
+menu, the toolbar button or a keyboard command, Chrome grants `activeTab` for
+that tab, and the extension runs one `getSelection()` call there through
+`chrome.scripting.executeScript`. Where that cannot reach (PDFs, cross-origin
+iframes, restricted pages) the context menu's own `selectionText` is used.
 
 ### Communication Flow
 
@@ -330,9 +333,9 @@ Chrome Manifest V3 uses multiple isolated contexts:
 ```
 1. User selects text on webpage
 2. User right-clicks → "Speak selected text"
-3. Background worker receives context menu click
-4. Background → Content script: "Get selected text"
-5. Content script → Background: Returns text
+3. Background worker receives context menu click (grants activeTab)
+4. Background → chrome.scripting.executeScript: getSelection() in that tab
+5. Empty or blocked (PDF, iframe)? Use the menu's info.selectionText instead
 6. Background → API client: POST /speak request
 7. API client → Native helper (localhost:8249)
 8. Native helper → Python MLX worker
@@ -344,7 +347,7 @@ Chrome Manifest V3 uses multiple isolated contexts:
 
 ### Security Model
 - **Content Security Policy**: Strict CSP prevents inline scripts
-- **Permissions**: Minimal required permissions (storage, contextMenus, activeTab)
+- **Permissions**: storage, contextMenus, activeTab, scripting, offscreen; no content scripts. The only install warning is "Read and change your data on 127.0.0.1" (`bun run verify:permissions`)
 - **Network**: Only `http://127.0.0.1/*` allowed (localhost)
 - **No eval()**: No dynamic code execution
 - **No external scripts**: All code bundled statically

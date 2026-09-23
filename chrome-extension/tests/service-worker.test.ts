@@ -5,8 +5,6 @@
 
 import { describe, test, expect } from 'bun:test';
 import type {
-  GetSelectedTextMessage,
-  SelectedTextResponse,
   SpeakInOffscreenMessage,
   OffscreenSpeakResponse,
 } from '../src/shared/types';
@@ -50,50 +48,6 @@ describe('Context Menu Configuration', () => {
     const contexts = ['selection'];
     expect(contexts.length).toBe(1);
     expect(contexts[0]).toBe('selection');
-  });
-});
-
-describe('Message to Content Script', () => {
-  test('should create GET_SELECTED_TEXT message', () => {
-    const message: GetSelectedTextMessage = {
-      type: 'GET_SELECTED_TEXT',
-    };
-
-    expect(message.type).toBe('GET_SELECTED_TEXT');
-  });
-
-  test('should handle successful selected text response', () => {
-    const response: SelectedTextResponse = {
-      text: 'Selected text from page',
-      success: true,
-    };
-
-    expect(response.success).toBe(true);
-    expect(response.text).toBe('Selected text from page');
-    expect(response.error).toBeUndefined();
-  });
-
-  test('should handle failed selected text response', () => {
-    const response: SelectedTextResponse = {
-      text: '',
-      success: false,
-      error: 'No text selected',
-    };
-
-    expect(response.success).toBe(false);
-    expect(response.text).toBe('');
-    expect(response.error).toBe('No text selected');
-  });
-
-  test('should handle communication error response', () => {
-    const response: SelectedTextResponse = {
-      text: '',
-      success: false,
-      error: 'Failed to communicate with page',
-    };
-
-    expect(response.success).toBe(false);
-    expect(response.error).toContain('Failed to communicate');
   });
 });
 
@@ -294,23 +248,13 @@ describe('Message Flow Validation', () => {
     const menuId = 'natural-tts-speak-selection';
     expect(menuId).toBe('natural-tts-speak-selection');
 
-    // 2. Get selected text message
-    const getTextMessage: GetSelectedTextMessage = {
-      type: 'GET_SELECTED_TEXT',
-    };
-    expect(getTextMessage.type).toBe('GET_SELECTED_TEXT');
-
-    // 3. Selected text response
-    const textResponse: SelectedTextResponse = {
-      text: 'Test text',
-      success: true,
-    };
-    expect(textResponse.success).toBe(true);
+    // 2. Selection read on demand (chrome.scripting via activeTab)
+    const selectedText = 'Test text';
 
     // 4. Speak in offscreen message
     const speakMessage: SpeakInOffscreenMessage = {
       type: 'SPEAK_IN_OFFSCREEN',
-      text: textResponse.text,
+      text: selectedText,
       voice: 'af_bella',
       speed: 1.0,
     };
@@ -326,14 +270,6 @@ describe('Message Flow Validation', () => {
   });
 
   test('should handle error at each step', () => {
-    // Error getting selected text
-    const textError: SelectedTextResponse = {
-      text: '',
-      success: false,
-      error: 'No text selected',
-    };
-    expect(textError.success).toBe(false);
-
     // Error speaking in offscreen
     const offscreenError: OffscreenSpeakResponse = {
       type: 'SPEAK_ERROR',
@@ -377,12 +313,12 @@ describe('Chrome API Mocking Requirements', () => {
     expect(runtime.getContexts).toBeDefined();
   });
 
-  test('should define required chrome.tabs structure', () => {
-    const tabs = {
-      sendMessage: async (_tabId: number, _message: any) => {},
+  test('should define required chrome.scripting structure', () => {
+    const scripting = {
+      executeScript: async (_injection: any) => [],
     };
 
-    expect(tabs.sendMessage).toBeDefined();
+    expect(scripting.executeScript).toBeDefined();
   });
 
   test('should define required chrome.storage structure', () => {

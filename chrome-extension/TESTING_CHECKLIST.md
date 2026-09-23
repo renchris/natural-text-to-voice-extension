@@ -319,7 +319,6 @@ Check for errors in:
 - [ ] **Background Service Worker**: `chrome://extensions` → "Service worker" → "inspect views"
 - [ ] **Popup Console**: Right-click popup → Inspect
 - [ ] **Options Console**: Right-click options page → Inspect
-- [ ] **Content Script**: Any webpage → F12 → Console
 
 **Expected**: No uncaught errors or warnings
 
