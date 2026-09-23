@@ -231,12 +231,13 @@ section_extension() {
     if logged "${step%% *}" bash -c 'cd "$1" && bun $2' _ "$EXT_DIR" "$step"; then pass "bun $step"
     else fail "bun $step" "$(logtail "${step%% *}")"; fi
   done
-  # tests/integration/ talks to a live helper hard-wired to 127.0.0.1:8249, which this gate must never touch;
+  # tests/integration/ talks to a live helper (opt-in via NTTS_LIVE_HELPER_PORT) and, if that port fails, falls
+  # back to config.ts discovery over 127.0.0.1:8249-8260, which this gate must never touch;
   # every other test file runs.
   local tests; tests="$(cd "$EXT_DIR" && find tests -name '*.test.ts' -not -path 'tests/integration/*' | sort | sed 's|^|./|' | tr '\n' ' ')"
   if [[ -z "$tests" ]]; then fail "bun test" "no test files found"
   elif logged test bash -c 'cd "$1" && shift && bun test "$@"' _ "$EXT_DIR" $tests; then
-    pass "bun test" "$(echo "$tests" | wc -w | tr -d ' ') files (tests/integration/ excluded: hard-wired to :8249)"
+    pass "bun test" "$(echo "$tests" | wc -w | tr -d ' ') files (tests/integration/ excluded: live helper, discovery reaches :8249-8260)"
   else fail "bun test" "$(logtail test)"; fi
   if logged build bash -c 'cd "$1" && bun run build' _ "$EXT_DIR"; then pass "bun run build"
   else fail "bun run build" "$(logtail build)"; fi
@@ -279,7 +280,10 @@ section_consistency() {
       fail "voices: helper == extension" "no /voices capture from the swift section in this run"
     else
       local ext_ids="$LOGDIR/voices-ts-ids.txt"
-      python3 -c 'import re,sys; print("\n".join(sorted(set(re.findall(r"\bid\s*:\s*[\x27\"]([a-z]{2}_[a-z]+)[\x27\"]", open(sys.argv[1]).read())))))' "$vts" >"$ext_ids"
+      # Evaluate the module's own VOICE_IDS export rather than pattern-matching its source: the catalogue
+      # is built by a helper call (voice('af_heart', …)), so no `id: '…'` literal exists to match.
+      ( cd "$EXT_DIR" && bun -e 'import { VOICE_IDS } from "./src/shared/voices.ts"; console.log([...new Set(VOICE_IDS)].sort().join("\n"));' ) \
+        >"$ext_ids" 2>"$LOGDIR/consistency-voices-ts.log" || : >"$ext_ids"
       if diff -q "$VOICES_IDS" "$ext_ids" >/dev/null && [[ "$(grep -c . "$ext_ids")" == "$EXPECTED_VOICES" ]]; then
         pass "voices: helper == extension" "$EXPECTED_VOICES ids identical"
       else
