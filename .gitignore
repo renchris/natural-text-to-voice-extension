@@ -25,6 +25,10 @@ ENV/
 .Python
 python-env/
 .python-env/
+# helper env builds + the 1.5 rollback slot (native-helper/Scripts/setup-python-env.sh)
+python-env*/
+.python-env*/
+native-helper/.python-env.pre-1.5
 
 # Python bytecode and caches
 __pycache__/
@@ -173,6 +177,8 @@ site/
 
 # pyenv
 .python-version
+# ...except the helper's uv project pin (IN-01), which is part of the locked environment
+!native-helper/python/.python-version
 
 # Installer logs
 pip-log.txt

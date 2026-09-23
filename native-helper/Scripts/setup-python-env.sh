@@ -1,123 +1,130 @@
 #!/bin/bash
-# Setup Python environment for Natural TTS Helper
-# This script creates a virtual environment with MLX dependencies
+# Setup the Python environment for the Natural TTS Helper.
+#
+# Builds Sources/NaturalTTSHelper/Resources/python-env from the hash-locked uv project in
+# native-helper/python (pyproject.toml + uv.lock; Python 3.12, mlx 0.32.2, mlx-audio 0.5.5),
+# pre-fetches the Kokoro model once, then verifies the worker end to end.
 #
 # Usage:
-#   ./setup-python-env.sh          # Interactive mode
-#   ./setup-python-env.sh --force  # Auto-skip if venv exists
+#   ./Scripts/setup-python-env.sh                      # keep a legacy env as the rollback, then build
+#   ./Scripts/setup-python-env.sh --force              # rebuild in place, no rollback copy
+#   ./Scripts/setup-python-env.sh --skip-worker-check  # build + prefetch only (no verify_worker.py)
+#
+# Safe to re-run: `uv sync --frozen` reconciles an existing uv environment in place; a legacy
+# (pip-built) environment is moved ONCE to native-helper/.python-env.pre-1.5 (outside Sources, so
+# the Swift resource copy never bundles it). Fails closed: any failed step exits non-zero.
+#
+# Rollback:
+#   rm -rf Sources/NaturalTTSHelper/Resources/python-env
+#   mv .python-env.pre-1.5 Sources/NaturalTTSHelper/Resources/python-env   # then git revert
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+UV_PROJECT_DIR="$PROJECT_ROOT/python"
 VENV_DIR="$PROJECT_ROOT/Sources/NaturalTTSHelper/Resources/python-env"
+ROLLBACK_DIR="$PROJECT_ROOT/.python-env.pre-1.5"
+WORKER="$PROJECT_ROOT/Sources/NaturalTTSHelper/Resources/tts_worker.py"
+MODEL_ID="prince-canuma/Kokoro-82M"
 
-# Parse arguments
 FORCE_MODE=false
+CHECK_WORKER=true
 for arg in "$@"; do
-    case $arg in
-        --force|-f)
-            FORCE_MODE=true
-            shift
-            ;;
+    case "$arg" in
+        --force|-f) FORCE_MODE=true ;;
+        --skip-worker-check) CHECK_WORKER=false ;;
+        -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+        *) echo "Error: unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
 
 echo "==================================="
 echo "Natural TTS Helper - Python Setup"
 echo "==================================="
-echo
 
-# Check Python version
-if ! command -v python3 &> /dev/null; then
-    echo "Error: python3 not found"
-    echo "Please install Python 3.9+ first"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv not found. Install it with:" >&2
+    echo "  brew install uv" >&2
     exit 1
 fi
+echo "uv: $(uv --version)"
 
-PYTHON_VERSION=$(python3 --version | awk '{print $2}')
-echo "Python version: $PYTHON_VERSION"
+for f in pyproject.toml uv.lock .python-version; do
+    [ -f "$UV_PROJECT_DIR/$f" ] || { echo "Error: missing $UV_PROJECT_DIR/$f" >&2; exit 1; }
+done
 
-# Create virtual environment
-echo
-echo "Creating virtual environment at:"
-echo "  $VENV_DIR"
-echo
+# A uv-managed venv records "uv = <version>" in pyvenv.cfg; anything else is the legacy pip env.
+is_uv_env() { [ -f "$1/pyvenv.cfg" ] && grep -q '^uv = ' "$1/pyvenv.cfg"; }
 
-if [ -d "$VENV_DIR" ]; then
+if [ -e "$VENV_DIR" ] && ! is_uv_env "$VENV_DIR"; then
     if [ "$FORCE_MODE" = true ]; then
-        echo "✓ Virtual environment already exists (--force mode, skipping)"
-        exit 0
+        echo "Legacy environment found; --force: replacing it without a rollback copy"
+        rm -rf "$VENV_DIR"
+    elif [ -e "$ROLLBACK_DIR" ]; then
+        echo "Error: legacy environment at $VENV_DIR, but the rollback slot" >&2
+        echo "  $ROLLBACK_DIR already exists. Remove one of them, or pass --force." >&2
+        exit 1
     else
-        echo "Warning: Virtual environment already exists"
-        read -p "Remove and recreate? (y/N) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$VENV_DIR"
-        else
-            echo "Using existing environment"
-            exit 0
-        fi
+        echo "Moving the legacy environment to the rollback slot:"
+        echo "  $ROLLBACK_DIR"
+        mv "$VENV_DIR" "$ROLLBACK_DIR"
     fi
 fi
 
-python3 -m venv "$VENV_DIR"
-
-# Activate virtual environment
-source "$VENV_DIR/bin/activate"
-
-# Upgrade pip
 echo
-echo "Upgrading pip..."
-pip install --upgrade pip --quiet
+echo "Syncing the locked environment into:"
+echo "  $VENV_DIR"
+UV_PROJECT_ENVIRONMENT="$VENV_DIR" \
+    uv sync --project "$UV_PROJECT_DIR" --frozen --compile-bytecode
 
-# Install dependencies
-echo
-echo "Installing dependencies..."
-echo "  - mlx (Apple's ML framework)"
-echo "  - mlx-audio (MLX audio utilities)"
-echo "  - soundfile (WAV I/O)"
-echo
+PY="$VENV_DIR/bin/python3"
+[ -x "$PY" ] || { echo "Error: $PY missing after uv sync" >&2; exit 1; }
 
-pip install \
-    mlx==0.29.3 \
-    mlx-audio==0.2.6 \
-    soundfile==0.13.1 \
-    --quiet
-
-# Verify installation
 echo
-echo "Verifying installation..."
-python3 << 'EOF'
+echo "Verifying the installation..."
+"$PY" - <<'EOF'
+import importlib.metadata as m
 import sys
-import mlx
-import mlx_audio
-import soundfile
 
-print(f"✓ MLX version: {mlx.__version__}")
-print(f"✓ mlx-audio installed")
-print(f"✓ soundfile installed")
-print(f"✓ Python: {sys.version.split()[0]}")
+import mlx.core as mx
+import spacy
+
+assert sys.version_info[:2] == (3, 12), sys.version
+assert mx.__version__ == "0.32.2", mx.__version__
+assert m.version("mlx-audio") == "0.5.5", m.version("mlx-audio")
+assert spacy.util.is_package("en_core_web_sm"), "en_core_web_sm not installed (dist-info missing?)"
+try:
+    m.version("torch")
+except m.PackageNotFoundError:
+    pass
+else:
+    raise AssertionError("torch must not be installed")
+print(f"  Python {sys.version.split()[0]} | mlx {mx.__version__} | mlx-audio {m.version('mlx-audio')} | en_core_web_sm OK")
 EOF
 
-# Strip unnecessary files to reduce size
 echo
-echo "Cleaning up to reduce size..."
-find "$VENV_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-find "$VENV_DIR" -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
-find "$VENV_DIR" -type f -name "*.pyc" -delete 2>/dev/null || true
-find "$VENV_DIR" -type f -name "*.pyo" -delete 2>/dev/null || true
+echo "Fetching the Kokoro model once (weights + voices, ~360 MB on first run)..."
+PREFETCH="from huggingface_hub import snapshot_download as s; s('$MODEL_ID', ignore_patterns=['*.pt'])"
+if ! "$PY" -c "$PREFETCH"; then
+    echo "Online fetch failed; checking the local cache instead (HF_HUB_OFFLINE=1)..."
+    if ! HF_HUB_OFFLINE=1 "$PY" -c "$PREFETCH"; then
+        echo "Error: $MODEL_ID is not cached and could not be downloaded" >&2
+        exit 1
+    fi
+fi
 
-# Calculate size
-VENV_SIZE=$(du -sh "$VENV_DIR" | awk '{print $1}')
-echo "Final environment size: $VENV_SIZE"
+if [ "$CHECK_WORKER" = true ]; then
+    echo
+    echo "Verifying the worker end to end (Scripts/verify_worker.py)..."
+    "$PY" "$SCRIPT_DIR/verify_worker.py" "$PY" "$WORKER"
+fi
 
 echo
+echo "Environment size: $(du -sh "$VENV_DIR" | awk '{print $1}')"
+if [ -d "$ROLLBACK_DIR" ]; then
+    echo "Rollback copy:    $ROLLBACK_DIR"
+fi
 echo "==================================="
-echo "Python environment setup complete!"
+echo "Python environment setup complete"
 echo "==================================="
-echo
-echo "To test the worker script:"
-echo "  source $VENV_DIR/bin/activate"
-echo "  python $PROJECT_ROOT/Sources/NaturalTTSHelper/Resources/tts_worker.py"
-echo

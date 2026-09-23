@@ -1,0 +1,27 @@
+[project]
+name = "natural-tts-worker"
+version = "1.5.0"
+description = "Kokoro-82M (MLX) worker process for the Natural TTS native helper"
+# misaki 0.9.4 declares <3.13; pip refuses it on 3.13 while uv would resolve it anyway,
+# so the interpreter is pinned and the lock and the install use the same tool (uv).
+requires-python = "==3.12.*"
+# Every dependency is pinned EXACTLY; uv.lock pins the rest with hashes.
+dependencies = [
+    "mlx==0.32.2",            # >=0.29.4 ships macOS 14+ wheels only (Package.swift floor is 14)
+    "mlx-audio==0.5.5",       # Kokoro decoder fidelity fixes (PR #859)
+    # Base misaki only: misaki[en] pulls spacy-curated-transformers -> torch, never used
+    # because mlx-audio constructs G2P(trf=False). Its English deps are listed explicitly.
+    "misaki==0.9.4",
+    "spacy==3.8.16",
+    "num2words==0.5.14",
+    "phonemizer-fork==3.3.2",
+    "espeakng-loader==0.2.4",
+    "soundfile==0.14.0",
+    # Pinned so misaki never runs spacy.cli.download() (then sys.exit(2)) on the first request.
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+required-version = ">=0.11.28"
