@@ -19,9 +19,13 @@
 #   ./Scripts/quickstart.sh --attach      # Attach to tmux after setup
 #
 # Requirements:
-#   - macOS 13+ with Apple Silicon
+#   - macOS 14+ with Apple Silicon
 #   - Homebrew installed
-#   - tmux and jq installed (auto-installed if missing)
+#   - uv, tmux and jq (auto-installed if missing); uv provides Python 3.12
+#
+# Re-running it is how an existing install is updated: step 3 always runs
+# Scripts/setup-python-env.sh, which syncs the locked environment in place (a
+# pre-1.5 pip environment is moved once to native-helper/.python-env.pre-1.5).
 #
 #==============================================================================
 
@@ -120,11 +124,11 @@ EXAMPLES:
     $0 --skip-tests
 
 REQUIREMENTS:
-    - macOS 13+ (Ventura or later)
-    - Apple Silicon (M1/M2/M3/M4)
-    - Xcode Command Line Tools
-    - Homebrew (will install tmux and jq if needed)
-    - Python 3.9-3.11
+    - macOS 14+ (Sonoma or later)
+    - Apple Silicon (M1 or later)
+    - Xcode Command Line Tools (Swift 6.0+, Xcode 16.2 or later)
+    - Homebrew (will install uv, tmux and jq if needed)
+    - Python 3.12 is installed by uv; no system Python is needed
 
 TMUX SESSION:
     The helper runs in a detached tmux session named: $SESSION_NAME
@@ -181,8 +185,8 @@ check_prerequisites() {
     fi
 
     MACOS_VERSION=$(sw_vers -productVersion | cut -d '.' -f 1)
-    if [ "$MACOS_VERSION" -lt 13 ]; then
-        log_error "macOS 13+ (Ventura or later) required, found version: $(sw_vers -productVersion)"
+    if [ "$MACOS_VERSION" -lt 14 ]; then
+        log_error "macOS 14+ (Sonoma or later) required, found version: $(sw_vers -productVersion)"
         exit 1
     fi
     log_success "macOS version: $(sw_vers -productVersion)"
@@ -203,23 +207,6 @@ check_prerequisites() {
     fi
     log_success "Xcode Command Line Tools: $(xcode-select -p)"
 
-    # Check Python version
-    if ! command -v python3 &>/dev/null; then
-        log_error "python3 not found"
-        log_info "Install Python 3.9-3.11 first"
-        exit 1
-    fi
-
-    PYTHON_VERSION=$(python3 --version | awk '{print $2}')
-    PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d '.' -f 1)
-    PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d '.' -f 2)
-
-    if [ "$PYTHON_MAJOR" -ne 3 ] || [ "$PYTHON_MINOR" -lt 9 ] || [ "$PYTHON_MINOR" -gt 11 ]; then
-        log_warn "Python $PYTHON_VERSION found (3.9-3.11 recommended)"
-    else
-        log_success "Python version: $PYTHON_VERSION"
-    fi
-
     # Check Homebrew
     if ! command -v brew &>/dev/null; then
         log_error "Homebrew not found"
@@ -227,6 +214,14 @@ check_prerequisites() {
         exit 1
     fi
     log_success "Homebrew: $(brew --version | head -n 1)"
+
+    # Check/install uv (builds the locked environment and provides Python 3.12)
+    if ! command -v uv &>/dev/null; then
+        log_info "Installing uv via Homebrew..."
+        export HOMEBREW_NO_AUTO_UPDATE=1
+        brew install uv &>/dev/null
+    fi
+    log_success "uv: $(uv --version)"
 
     # Check/install tmux
     if ! command -v tmux &>/dev/null; then
@@ -293,17 +288,22 @@ setup_python_env() {
 
     VENV_DIR="$PROJECT_ROOT/Sources/NaturalTTSHelper/Resources/python-env"
 
-    if [ -d "$VENV_DIR" ]; then
-        log_success "Python environment already exists (skipping setup)"
+    # Always run the setup script, even when an environment exists: it is idempotent
+    # (uv sync --frozen reconciles in place), and it is what updates a pre-1.5 install.
+    # Skipping it left the old pip environment under a new worker. Failures stop here.
+    log_info "Syncing the locked Python environment (first run: ~0.65 GB + ~0.36 GB model)..."
+    if [ "$VERBOSE" = true ]; then
+        ./Scripts/setup-python-env.sh
     else
-        log_info "Creating Python virtual environment with MLX (~500MB, 3-5 minutes)..."
-        if [ "$VERBOSE" = true ]; then
-            ./Scripts/setup-python-env.sh --force
-        else
-            ./Scripts/setup-python-env.sh --force 2>&1 | grep -E "(✓|Error|Warning)" || true
+        SETUP_LOG="$(mktemp "${TMPDIR:-/tmp}/ntts-python-setup.XXXXXX")"
+        if ! ./Scripts/setup-python-env.sh >"$SETUP_LOG" 2>&1; then
+            log_error "Python environment setup failed (full log: $SETUP_LOG):"
+            tail -n 20 "$SETUP_LOG"
+            exit 1
         fi
-        log_success "Python environment created"
+        rm -f "$SETUP_LOG"
     fi
+    log_success "Python environment ready"
 
     # Verify MLX installation with functional test
     MLX_VERSION=$("$VENV_DIR/bin/python3" -c "import mlx.core; print(mlx.core.__version__)" 2>/dev/null || echo "")

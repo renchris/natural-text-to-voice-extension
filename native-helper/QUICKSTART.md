@@ -9,7 +9,7 @@ Get the Natural TTS Helper running in 5 minutes.
 Before starting, ensure you have:
 
 ```bash
-# Check macOS version (need 13+)
+# Check macOS version (need 14+)
 sw_vers
 # ProductName:            macOS
 # ProductVersion:         14.0  (or higher)
@@ -18,9 +18,9 @@ sw_vers
 xcode-select -p
 # /Applications/Xcode.app/Contents/Developer (or similar)
 
-# Check Python version (need 3.9-3.11)
-python3 --version
-# Python 3.11.x (or 3.9.x, 3.10.x)
+# Check uv (it installs Python 3.12 itself; no system Python needed)
+uv --version || brew install uv
+# uv 0.11.28 (or later)
 
 # Check architecture (need Apple Silicon)
 uname -m
@@ -57,12 +57,11 @@ cd /path/to/natural-text-to-voice-extension/native-helper
 ```
 
 **What this does**:
-- Creates Python virtual environment at `Sources/NaturalTTSHelper/Resources/python-env/`
-- Installs MLX 0.29.3 (~150MB)
-- Installs mlx-audio 0.2.6 (~50MB)
-- Installs soundfile, phonemizer, and other dependencies
-
-**Time**: ~3-5 minutes (downloads ~500MB of packages)
+- Syncs the hash-locked uv project in `python/` into `Sources/NaturalTTSHelper/Resources/python-env/`
+  (Python 3.12, MLX 0.32.2, mlx-audio 0.5.5; ~0.65 GB, no torch)
+- Pre-fetches Kokoro-82M once (~0.36 GB); after that the helper runs offline
+- Verifies the worker end to end (`Scripts/verify_worker.py`)
+- Moves a pre-1.5 environment to `native-helper/.python-env.pre-1.5` as a rollback
 
 **Expected output**:
 ```
