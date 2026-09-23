@@ -238,11 +238,11 @@ function updateStatusIndicator(status: 'connected' | 'disconnected' | 'checking'
  * Handle retry connection button click
  */
 async function handleRetryConnection(): Promise<void> {
+  const label = elements.retryButton.querySelector('span');
   try {
     // Show loading state
     elements.retryButton.disabled = true;
-    const span206 = elements.retryButton.querySelector('span');
-    if (span206) span206.textContent = 'Connecting...';
+    if (label) label.textContent = 'Connecting...';
     updateStatusIndicator('checking', 'Checking helper status...');
 
     // Reset API client to force config re-discovery
@@ -261,16 +261,15 @@ async function handleRetryConnection(): Promise<void> {
       elements.voiceSelect.disabled = false;
     } else {
       showMessage('Still unable to connect. Ensure the helper is running.', 'error');
-      // Keep retry button visible
-      const span = elements.retryButton.querySelector('span');
-      if (span) span.textContent = 'Retry Connection';
-      elements.retryButton.disabled = false;
     }
   } catch (error) {
     console.error('Error during retry:', error);
     showMessage('Failed to retry connection. Check console for details.', 'error');
-    const span = elements.retryButton.querySelector('span');
-    if (span) span.textContent = 'Retry Connection';
+  } finally {
+    // Always restore the button, including after a successful retry: it is
+    // hidden then, but if the helper later goes away it is shown again and
+    // must still work.
+    if (label) label.textContent = 'Retry Connection';
     elements.retryButton.disabled = false;
   }
 }

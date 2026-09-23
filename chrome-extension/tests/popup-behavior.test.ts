@@ -288,6 +288,19 @@ describe('popup voice list (IN-10)', () => {
     expect(select.textContent).not.toContain('UK');
   });
 
+  test('Retry still works after a successful retry', async () => {
+    const retry = el<HTMLButtonElement>('retryButton');
+    retry.click();
+    await until(() => !retry.disabled, 'first retry finished');
+    expect(retry.querySelector('span')!.textContent).toBe('Retry Connection');
+
+    const healthCalls = () => fetchMock.mock.calls.filter(call => String(call[0]).endsWith('/health')).length;
+    const before = healthCalls();
+    retry.click();
+    await until(() => healthCalls() > before, 'second retry reached the helper');
+    await until(() => !retry.disabled, 'second retry finished');
+  });
+
   test('every request went to the mocked 127.0.0.1:18249', () => {
     const urls = fetchMock.mock.calls.map(call => String(call[0]));
     expect(urls.length).toBeGreaterThan(0);
