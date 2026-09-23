@@ -19,6 +19,8 @@ export interface HealthResponse {
   model_loaded: boolean;
   uptime_seconds: number;
   requests_served: number;
+  /** Helper HTTP API version; absent before v1.5 (see helper-version.ts) */
+  apiVersion?: number;
 }
 
 /**

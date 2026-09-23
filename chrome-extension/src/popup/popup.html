@@ -41,6 +41,11 @@
       <!-- Message Container (for errors/warnings/success) -->
       <div id="messageContainer" class="message" role="status" aria-live="polite" style="display: none;"></div>
 
+      <!-- Shown when the helper is older than this extension (no apiVersion 2) -->
+      <p id="helperUpdateNotice" class="update-notice" hidden>
+        Update the Natural TTS helper: <code id="helperUpdateCommand"></code>
+      </p>
+
       <!-- Voice Selector -->
       <div class="form-group">
         <label for="voiceSelect" class="form-label">Voice:</label>

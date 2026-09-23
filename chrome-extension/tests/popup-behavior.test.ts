@@ -301,6 +301,48 @@ describe('popup voice list (IN-10)', () => {
     await until(() => !retry.disabled, 'second retry finished');
   });
 
+  test('a current helper (apiVersion 2) shows no update notice', () => {
+    expect(el<HTMLParagraphElement>('helperUpdateNotice').hidden).toBe(true);
+  });
+
+  test('an old helper (no apiVersion) shows the update notice and still speaks with its own voices', async () => {
+    delete healthPayload.apiVersion;
+    voicesPayload = {
+      voices: [
+        { id: 'af_bella', name: 'Bella (US)', language: 'en-US' },
+        { id: 'af_sarah', name: 'Sarah (UK)', language: 'en-GB' },
+        { id: 'af_nicole', name: 'Nicole (US)', language: 'en-US' },
+        { id: 'af_sky', name: 'Sky (US)', language: 'en-US' },
+        { id: 'am_adam', name: 'Adam (US)', language: 'en-US' },
+        { id: 'am_michael', name: 'Michael (US)', language: 'en-US' },
+      ],
+    };
+    el<HTMLButtonElement>('retryButton').click();
+    await until(() => el<HTMLSelectElement>('voiceSelect').options.length === 6, 'old helper voices');
+
+    const notice = el<HTMLParagraphElement>('helperUpdateNotice');
+    expect(notice.hidden).toBe(false);
+    expect(notice.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Update the Natural TTS helper: cd native-helper && ./Scripts/quickstart.sh'
+    );
+    expect(el('statusLabel').textContent).toBe('Connected');
+
+    const before = speakCalls();
+    el<HTMLButtonElement>('speakButton').click();
+    await until(() => pendingSpeaks.length > 0, '/speak');
+    expect(speakCalls() - before).toBe(1);
+    pendingSpeaks.shift()!.resolve();
+    await until(() => el('buttonText').textContent === 'Stop', 'playing state');
+    lastAudio().finish();
+    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'reset');
+  });
+
+  test('the notice goes away once the helper reports apiVersion 2', async () => {
+    healthPayload.apiVersion = 2;
+    el<HTMLButtonElement>('retryButton').click();
+    await until(() => el<HTMLParagraphElement>('helperUpdateNotice').hidden === true, 'notice hidden');
+  });
+
   test('every request went to the mocked 127.0.0.1:18249', () => {
     const urls = fetchMock.mock.calls.map(call => String(call[0]));
     expect(urls.length).toBeGreaterThan(0);

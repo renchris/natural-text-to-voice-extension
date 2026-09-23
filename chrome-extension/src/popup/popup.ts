@@ -12,6 +12,7 @@ import { renderShortcutChip } from './shortcut-chip';
 import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
 import { buildVoiceOptionNodes } from '../shared/voice-options';
 import { clearErrorBadge } from '../shared/error-badge';
+import { HELPER_UPDATE_COMMAND, helperNeedsUpdate } from '../shared/helper-version';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -47,6 +48,8 @@ const elements = {
   settingsButton: document.getElementById('settingsButton') as HTMLButtonElement,
   retryButton: document.getElementById('retryButton') as HTMLButtonElement,
   statusLabel: document.getElementById('statusLabel') as HTMLSpanElement,
+  updateNotice: document.getElementById('helperUpdateNotice') as HTMLParagraphElement | null,
+  updateCommand: document.getElementById('helperUpdateCommand') as HTMLElement | null,
 };
 
 // =================================================================================
@@ -192,6 +195,9 @@ async function checkHelperStatus(): Promise<void> {
   try {
     const health: HealthResponse = await client.checkHealth();
 
+    // An older helper still works (with the voices it reports); say how to update it.
+    showUpdateNotice(helperNeedsUpdate(health));
+
     if (health.status === 'ok' && health.model_loaded) {
       state.helperStatus = 'connected';
       updateStatusIndicator('connected', `Helper is running (${health.model})`);
@@ -204,6 +210,7 @@ async function checkHelperStatus(): Promise<void> {
     }
   } catch (error) {
     state.helperStatus = 'disconnected';
+    showUpdateNotice(false);
 
     if (error instanceof HelperNotFoundError) {
       updateStatusIndicator('disconnected', 'Helper not found - please start the helper');
@@ -216,6 +223,15 @@ async function checkHelperStatus(): Promise<void> {
     // Don't re-throw - let initialization continue gracefully
     console.error('Helper connection failed:', error);
   }
+}
+
+/**
+ * Show or hide the one-line "Update the Natural TTS helper" notice.
+ */
+function showUpdateNotice(visible: boolean): void {
+  if (!elements.updateNotice) return;
+  if (elements.updateCommand) elements.updateCommand.textContent = HELPER_UPDATE_COMMAND;
+  elements.updateNotice.hidden = !visible;
 }
 
 /**
