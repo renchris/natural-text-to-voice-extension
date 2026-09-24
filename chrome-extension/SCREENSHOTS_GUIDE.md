@@ -1,5 +1,5 @@
 # Screenshots & Demo Video Guide
-**Natural Text-to-Speech Chrome Extension**
+**Natural TTS Chrome Extension**
 
 This guide provides detailed instructions for capturing screenshots and creating a demo video for the extension's documentation and promotional materials.
 
@@ -18,7 +18,7 @@ This guide provides detailed instructions for capturing screenshots and creating
 1. Start native helper: `cd ../native-helper && .build/release/natural-tts-helper`
 2. Open Chrome and click extension icon
 3. Wait for green status indicator (connected)
-4. Ensure default voice is selected (Bella)
+4. Ensure default voice is selected (Heart)
 5. Ensure speed is at 1.0x
 
 **Capture**:
@@ -29,7 +29,7 @@ This guide provides detailed instructions for capturing screenshots and creating
 - [ ] Extension title "Natural TTS"
 - [ ] Green status indicator (top-right)
 - [ ] Settings gear icon
-- [ ] Voice dropdown showing "Bella (US) - en-US"
+- [ ] Voice dropdown showing "Heart (US)"
 - [ ] Speed slider at 1.0x
 - [ ] "Speak Selected Text" button
 
@@ -203,14 +203,14 @@ toggles were removed in v1.5 because neither had any effect. Skip this shot.
 
 **Setup**:
 1. Navigate to `chrome://extensions`
-2. Find "Natural Text-to-Speech" extension
+2. Find "Natural TTS: Private Kokoro Voices for Mac" extension
 3. Ensure extension is enabled
 
 **Capture**: Crop to show just the extension card
 
 **Key Elements Visible**:
 - [ ] Extension icon (48x48)
-- [ ] Extension name "Natural Text-to-Speech"
+- [ ] Extension name "Natural TTS: Private Kokoro Voices for Mac"
 - [ ] Version number (1.4.0)
 - [ ] Description text
 - [ ] "Details" and "Remove" buttons
@@ -292,7 +292,7 @@ toggles were removed in v1.5 because neither had any effect. Skip this shot.
 
 1. **Opening (5 sec)**
    - Show extension icon in Chrome toolbar
-   - Title overlay: "Natural Text-to-Speech"
+   - Title overlay: "Natural TTS"
 
 2. **Popup Interface (15 sec)**
    - Click extension icon

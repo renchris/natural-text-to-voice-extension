@@ -1,4 +1,4 @@
-# Natural Text-to-Speech Chrome Extension
+# Natural TTS: Private Kokoro Voices for Mac
 
 **Privacy-first text-to-speech Chrome extension with local Metal-accelerated processing using Kokoro-82M.**
 
@@ -222,8 +222,11 @@ Keep this terminal window open. Helper must run in background.
 #### Popup says "Update the Natural TTS helper"
 **Cause**: The running helper predates this extension (its `/health` has no
 `apiVersion` 2). Speech still works with the voices that helper offers.
-**Solution**: from the repository root, run
-`cd native-helper && ./Scripts/quickstart.sh`, then reopen the popup.
+**Solution**: run `brew upgrade natural-tts && brew services restart natural-tts`,
+then reopen the popup. A helper older than 1.5 was installed from source, not
+Homebrew: update that one from the repository root with
+`cd native-helper && ./Scripts/quickstart.sh`, or switch to Homebrew with
+`brew install renchris/tap/natural-tts && brew services start natural-tts`.
 
 #### "Extension not loading" in Chrome
 **Cause**: Wrong folder selected or build not complete

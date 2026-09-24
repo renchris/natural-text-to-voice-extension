@@ -1,5 +1,5 @@
 # Privacy Policy
-**Natural Text-to-Speech Chrome Extension**
+**Natural TTS Chrome Extension**
 
 **Last Updated**: September 2026
 **Version**: 1.5.0
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Natural Text-to-Speech is a **100% local, privacy-first** Chrome extension. This privacy policy explains how the extension handles your data and protects your privacy.
+Natural TTS is a **100% local, privacy-first** Chrome extension. This privacy policy explains how the extension handles your data and protects your privacy.
 
 **TL;DR**:
 - ✅ All processing happens on your device
@@ -25,7 +25,7 @@ Natural Text-to-Speech is a **100% local, privacy-first** Chrome extension. This
 
 **We collect ZERO data.**
 
-The Natural Text-to-Speech extension does not:
+The Natural TTS extension does not:
 - ❌ Collect personal information
 - ❌ Track your browsing history
 - ❌ Record text you convert to speech
@@ -301,7 +301,7 @@ We adhere to:
 
 ### Your Privacy Is Our Priority
 
-Natural Text-to-Speech is built with **privacy by design**:
+Natural TTS is built with **privacy by design**:
 - All processing happens on your device
 - No data leaves your computer (except to localhost)
 - No tracking, no analytics, no telemetry
@@ -314,7 +314,7 @@ Natural Text-to-Speech is built with **privacy by design**:
 
 ## Acknowledgments
 
-Thank you for trusting Natural Text-to-Speech. If you have any questions about this privacy policy, please don't hesitate to reach out via the contact methods above.
+Thank you for trusting Natural TTS. If you have any questions about this privacy policy, please don't hesitate to reach out via the contact methods above.
 
 ---
 

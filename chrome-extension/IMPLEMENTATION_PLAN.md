@@ -1,5 +1,11 @@
 # Phase 2: Chrome Extension Development - Implementation Plan
 
+> **Historical plan (2025-11).** The shipped extension differs from it: there is
+> no content script (the selection is read on demand with `chrome.scripting`),
+> the build is Bun only (no Vite), the default voice is `af_heart`, there is no
+> helper secret or `X-Secret` header, and the name is "Natural TTS: Private
+> Kokoro Voices for Mac". README.md describes the current extension.
+
 **Status**: ✅ READY TO BEGIN (Step 0 complete: Bun testing passed)
 **Created**: 2025-11-10
 **Updated**: 2025-11-10 (Bun v1.3.0 validated)

@@ -1,5 +1,5 @@
 # Accessibility Audit Report
-**Natural Text-to-Speech Chrome Extension**
+**Natural TTS Chrome Extension**
 
 **Audit Date**: November 2025
 **Version Audited**: 1.4.0
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The Natural Text-to-Speech Chrome Extension demonstrates **excellent accessibility** with comprehensive support for keyboard navigation, screen readers, and assistive technologies. The extension meets **WCAG 2.1 Level AA** standards with only minor recommendations for enhancement.
+The Natural TTS Chrome Extension demonstrates **excellent accessibility** with comprehensive support for keyboard navigation, screen readers, and assistive technologies. The extension meets **WCAG 2.1 Level AA** standards with only minor recommendations for enhancement.
 
 **Overall Rating**: ✅ **Accessible** (Score: 95/100)
 
@@ -382,7 +382,7 @@ function showMessage(message: string, type: MessageType): void {
 
 ## Conclusion
 
-The Natural Text-to-Speech Chrome Extension is **highly accessible** and suitable for users with disabilities. The extension demonstrates a strong commitment to accessibility with comprehensive ARIA support, keyboard navigation, and screen reader compatibility.
+The Natural TTS Chrome Extension is **highly accessible** and suitable for users with disabilities. The extension demonstrates a strong commitment to accessibility with comprehensive ARIA support, keyboard navigation, and screen reader compatibility.
 
 **Certification**: This extension meets **WCAG 2.1 Level AA** standards with only minor optional enhancements suggested.
 

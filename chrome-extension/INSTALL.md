@@ -1,5 +1,5 @@
 # Installation Guide
-**Natural Text-to-Speech Chrome Extension**
+**Natural TTS Chrome Extension**
 
 > **Total time**: 15-20 minutes
 > **Difficulty**: Beginner (command-line basics required)
@@ -338,7 +338,7 @@ kill <PID>
 
 ### Remove Chrome Extension
 1. Go to `chrome://extensions`
-2. Find "Natural Text-to-Speech"
+2. Find "Natural TTS: Private Kokoro Voices for Mac"
 3. Click "Remove"
 4. Confirm
 

@@ -1,5 +1,5 @@
 # Manual Testing Checklist
-**Natural Text-to-Speech Chrome Extension v1.4.0**
+**Natural TTS Chrome Extension v1.4.0**
 
 **Pre-Release Testing Checklist**
 
@@ -38,7 +38,7 @@ This checklist ensures all functionality works correctly before tagging and rele
 
 ### 1.1 First-Time Installation ✅ / ❌
 - [ ] Extension loads without errors
-- [ ] Default settings are applied (Bella voice, 1.0x speed)
+- [ ] Default settings are applied (Heart voice, 1.0x speed)
 - [ ] Status indicator shows "checking" then "connected"
 - [ ] Voice dropdown populates with 28 voices in 4 groups (American Female/Male, British Female/Male)
 - [ ] No console errors in background service worker
@@ -115,7 +115,7 @@ This checklist ensures all functionality works correctly before tagging and rele
 Test at least one voice from each group (the full list of 28 is in
 `src/shared/voices.ts`):
 
-- [ ] **Bella** - American Female (default)
+- [ ] **Heart** - American Female (default)
 - [ ] **Michael** - American Male
 - [ ] **Emma** - British Female
 - [ ] **George** - British Male
@@ -249,7 +249,7 @@ Test special characters and formatting:
 3. [ ] Click "Reset to Defaults"
 4. [ ] Confirm reset dialog
 5. [ ] Verify:
-   - [ ] Voice returns to "Bella"
+   - [ ] Voice returns to "Heart"
    - [ ] Speed returns to 1.0x
 6. [ ] Verify success message shown
 
