@@ -8,8 +8,16 @@ struct NaturalTTSHelper {
         // helper handles (PythonWorker.sendMessage), not a signal that kills it.
         signal(SIGPIPE, SIG_IGN)
 
-        // Configure logging
+        // Configure logging. In a terminal, each line is just the message (warnings and errors keep their level);
+        // anywhere else (the brew services log file, a pipe) it keeps swift-log's full "timestamp level label"
+        // format, which is what a log file needs.
+        let interactive = isatty(STDOUT_FILENO) != 0
         LoggingSystem.bootstrap { label in
+            if interactive {
+                var handler = TerminalLogHandler()
+                handler.logLevel = .info
+                return handler
+            }
             var handler = StreamLogHandler.standardOutput(label: label)
             handler.logLevel = .info
             return handler
