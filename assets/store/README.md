@@ -15,19 +15,19 @@ continue outward as a faint motif. Palette: `assets/brand/README.md`.
 | Store field | File | Size | Bytes | Headline / content | State |
 |---|---|---|---|---|---|
 | Screenshot 1 | `screenshot-1-right-click.png` | 1280×800 | — | **"Select text. Right-click. Listen."** The native context menu over the demo article, with "Speak selected text" highlighted | **Waiting for the GUI pass.** The native menu has no headless equivalent. The template is `cws/shot1.html`, and it needs `src/contextmenu-crop.png` (`scripts/capture/GUI_PASS.md`) |
-| Screenshot 2 | `screenshot-2-voices.png` | 1280×800 | 115,446 | **"Natural voices, at your speed."** Emma (UK) is speaking at 1.3×: "Speaking your selection…", "Kokoro · Emma (UK)", Stop. The counts (20 American English: 11 female, 9 male; 8 British English: 4 female, 4 male) are the live popup's four voice groups (`src/voice-groups.json`) | Done |
-| Screenshot 3 | `screenshot-3-on-device.png` | 1280×800 | 133,529 | **"Made on your Mac. Not in the cloud."** A "Your Mac" boundary around Chrome → 127.0.0.1 → Natural TTS helper (Kokoro-82M) → Apple GPU (MLX), beside the popup with Heart (US) speaking | Done |
-| Screenshot 4 | `screenshot-4-no-helper.png` | 1280×800 | 125,809 | **"Works without the helper, too."** The popup with no helper: Offline, "a system voice will read your selection", the Homebrew install hint, and "System voice" in the voice box (the top 330 CSS px of `assets/media/fallback.png`). This **replaces "PDFs too, with ligatures fixed"** (see below) | Done |
-| Screenshot 5 | `screenshot-5-setup.png` | 1280×800 | 121,758 | **"Install once. It's always ready."** The Homebrew one-liner as two commands (`brew install renchris/tap/natural-tts`, `brew services start natural-tts`), the connected popup (Heart, 1.0×), and the fallback line "Until then, a voice built into your Mac reads instead." | Done. The tap is the planned install path and is not published yet; publish it before the listing goes live |
-| Small promo tile | `small-tile-440x280.png` | 440×280 | 54,325 | No text. The icon's white glyph, with its arcs continuing outward | Done |
-| Marquee promo tile | `marquee-1400x560.png` | 1400×560 | 255,755 | The icon and the "Natural TTS" wordmark, the tagline "Private, on-device voices", and the popup (Emma speaking) rising out of the frame | Done |
-| Promo video thumbnail (YouTube) | `youtube-thumbnail-1280x720.png` | 1280×720 | 302,747 | **"Natural voices. On your Mac."** plus "Kokoro text-to-speech for Chrome." and the popup (Emma speaking). Checked legible at 320×180 | Done. The video itself waits for the GUI pass |
-| GitHub social preview (repo settings) | `../brand/social-preview.png` | 1280×640 | 266,932 | The icon and wordmark, "Private Kokoro voices for Mac", "Select text in Chrome and hear it read aloud. The speech is made on your Mac.", and the popup | Done. Uploading it is a repo setting, so it stays manual |
+| Screenshot 2 | `screenshot-2-voices.png` | 1280×800 | 136,883 | **"Natural voices, at your speed."** Emma (UK) is speaking at 1.3×: "Speaking your selection…", "Kokoro · Emma (UK)", Stop, with a lens (2.4× CSS) on the first two so they read at 640×400. The counts (20 American English: 11 female, 9 male; 8 British English: 4 female, 4 male) are the live popup's four voice groups (`src/voice-groups.json`) | Done |
+| Screenshot 3 | `screenshot-3-on-device.png` | 1280×800 | 154,981 | **"Made on your Mac. Not in the cloud."** A "Your Mac" boundary around Chrome → 127.0.0.1 → Natural TTS helper (Kokoro-82M) → Apple GPU (MLX), beside the popup with Heart (US) speaking and a lens on "Kokoro · Heart (US)" | Done |
+| Screenshot 4 | `screenshot-4-no-helper.png` | 1280×800 | 130,261 | **"Works without the helper, too."** The popup with no helper: Offline, "a system voice will read your selection" and the Homebrew install hint, shown at 1.9× CSS (the top of `assets/media/fallback.png`), the cut fading into the page. This **replaces "PDFs too, with ligatures fixed"** (see below) | Done |
+| Screenshot 5 | `screenshot-5-setup.png` | 1280×800 | 130,821 | **"Install once. It's always ready."** "Two Homebrew commands set up the helper and start it at login." over the two commands (`brew install renchris/tap/natural-tts`, `brew services start natural-tts`), the connected popup (Heart, 1.0×) with a lens on its Connected pill, and the fallback line "Until then, a voice built into your Mac reads instead." | Done. The tap is the planned install path and is not published yet; publish it before the listing goes live |
+| Small promo tile | `small-tile-440x280.png` | 440×280 | 60,516 | The icon's white glyph, its arcs continuing outward, and the "Natural TTS" wordmark, so the tile names the product in a carousel | Done |
+| Marquee promo tile | `marquee-1400x560.png` | 1400×560 | 256,554 | The icon (with a thin white ring, so it separates from the background) and the "Natural TTS" wordmark, the tagline "Private, on-device voices", and the popup (Emma speaking) rising out of the frame | Done |
+| Promo video thumbnail (YouTube) | `youtube-thumbnail-1280x720.png` | 1280×720 | 303,285 | **"Natural voices. On your Mac."** plus "Kokoro text-to-speech for Chrome." and the popup (Emma speaking). Checked legible at 320×180 | Done. The video itself waits for the GUI pass |
+| GitHub social preview (repo settings) | `../brand/social-preview.png` | 1280×640 | 267,653 | The icon and wordmark, "Private Kokoro voices for Mac", "Select text in Chrome and hear it read aloud. The speech is made on your Mac.", and the popup | Done. Uploading it is a repo setting, so it stays manual |
 
 All files are 24-bit sRGB PNGs with no alpha and no metadata chunks. They are written with zlib level 9 and adaptive
 filtering; this machine has no oxipng or pngquant, and lossy quantisation would soften the popup text. Square corners
-and full bleed, as the store asks. The listing icon is `assets/brand/icon-512.png`, and `chrome-extension/public/icons/icon128.png` is the
-128 px store icon.
+and full bleed, as the store asks. The Chrome Web Store icon is `chrome-extension/public/icons/icon128.png` (128×128,
+`docs/publishing/CHROME_WEB_STORE.md` §2.2); `assets/brand/icon-512.png` is for the README and other listings.
 
 **Recommended upload order:** the store shows screenshot 1 first. Until the GUI pass fills it, upload 2, 3, 5 and 4 in
 that order. That leads with the voice, then privacy, then setup, then the fallback. Put the right-click shot first once
@@ -53,17 +53,16 @@ The check was run headless on 2026-09-24, with CfT 153.0.8010.12 and the extensi
 Screenshot 4 therefore shows the system-voice fallback (OD-2), a behaviour the image *can* prove. Screenshot 2 covers
 the "28 voices, American and British" story.
 
-## Known product defects visible in these images
+## Product defects these images used to show (fixed 2026-09-24)
 
-These are in `chrome-extension/` and were left as they are, because the images must show the real UI. Fix them, then
-re-run the two commands below, which rebuild every image here byte for byte from the new captures:
+The first render showed three popup defects. They were fixed in `chrome-extension/`, and every image here was then
+re-captured and re-rendered with the commands below:
 
-1. **Screenshot 4:** the install command wraps between the two ampersands ("…natural-tts &" / "& brew services…"),
-   because `.fallback-notice code` uses `word-break: break-all`.
-2. **Every popup** uses a `#0B6BE0`-like blue for the Speak button, the slider and the speed value, not the brand accent
-   `#3D4ED7` that `assets/brand/README.md` says it shares.
-3. The Retry Connection button has no `.secondary-button` style. It is below the crop in screenshot 4, but visible in
-   `assets/media/fallback.png`.
+1. The install command wrapped between the two ampersands ("…natural-tts &" / "& brew services…"), because
+   `.fallback-notice code` used `word-break: break-all`. It now wraps only after `&&`.
+2. Every popup rendered `#076BE3` (`oklch(0.55 0.20 258)` from an `@supports` override in `variables.css`) instead of
+   the brand accent `#3D4ED7`. The override is gone, so the popup and the icon match.
+3. The Retry connection button had no `.secondary-button` style. It is now an outline button with a refresh icon.
 
 ## Regenerate
 
@@ -76,6 +75,7 @@ HEADLESS=1 scripts/capture/launch.sh /tmp/ntts-cap 8250
 scripts/capture/cws/capture-inputs.sh /tmp/ntts-cap assets/store/src 8250   # popup-*-speaking.png, voice-groups.json
 # assets/media/popup.png and fallback.png: scripts/capture/README.md, "Headless capture"
 # 2. Every image in this directory, plus assets/brand/social-preview.png, with 640x400 proofs in /tmp/ntts-cws-proofs
+#    (pass a third argument for a private proof directory when another session may render at the same time)
 scripts/capture/cws/render.sh
 ```
 

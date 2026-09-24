@@ -77,13 +77,21 @@ with `--load-extension`, light colour scheme, device scale factor 2. The popup p
 bubble; that one needs a display (GUI pass).
 
 Every request the capture browser made to 127.0.0.1 went through `scripts/capture/port-guard.mjs`, which refused
-port 8249 (an older helper runs there on this machine) and logged each request with the page that sent it.
+port 8249 (an older helper runs there on this machine) and logged each request with the page that sent it. Since the
+re-shoot below, the guard refuses every discovery port 8249-8260 except the capture helper's 8250 (a sibling
+session's helper was listening on 8251).
+
+**Re-shot 2026-09-24 (afternoon)** after the popup fixes landed: the brand indigo accent (the `oklch()` override that
+rendered `#076BE3` is gone), the deep-ink Stop button, the legible settings gear, the refresh icon and outline style
+on Retry, the install command that wraps only after `&&`, the AA Connected pill, and `…`, `×` and sentence case in
+every label. `popup.png`, `fallback.png`, `status.webp` and both `assets/store/src/popup-*-speaking.png` are from that
+build (helper 1.5.0 built from `6b881a1`), with the same commands.
 
 | File | Size | What is on screen, and how it was made |
 |---|---|---|
-| `popup.png` | 720×700 (360×350 CSS @2x) | Connected to the real helper 1.5.0 on 127.0.0.1:8250 (launched with `--port/--python/--worker`), Heart (`af_heart`) selected, 1.0×. Re-shot independently and byte-identical to the first take |
-| `fallback.png` | 720×1124 (360×562 CSS @2x) | The same popup with no helper on 8250 and 8249 refused (1 refused request in the guard log): "Offline" pill, the system-voice line, the install hint with the Homebrew command (the tap is the planned install path; it is not published yet), "System voice" in the voice box |
-| `status.webp` | 720×700, 3.6 s loop | The popup opening against the real helper: "Checking" → "Connected", the voice box going from "Loading voices…" to "Heart". **One timing change:** the guard held each of the popup's two `/health` requests for 600 ms (`--hold-health 8250:600`), because the real "Checking" state lasts a few milliseconds. Responses were not altered. Frames are full-resolution `Page.captureScreenshot` grabs (~20/s) at their real times; the last frame is held 2.5 s. Encoded `img2webp -near_lossless 40` |
+| `popup.png` | 720×700 (360×350 CSS @2x) | Connected to the real helper 1.5.0 on 127.0.0.1:8250 (launched with `--port/--python/--worker`), Heart (`af_heart`) selected, 1.0× |
+| `fallback.png` | 720×1178 (360×589 CSS @2x) | The same popup with no helper on 8250 and 8249, 8251-8260 refused (all eleven logged as refused): "Offline" pill, the system-voice line, the install hint with the Homebrew command (the tap is the planned install path; it is not published yet), "System voice" in the voice box |
+| `status.webp` | 720×700, 4.5 s loop | The popup opening against the real helper: "Checking" → "Connected", the voice box going from "Loading voices…" to "Heart". **One timing change:** the guard held each of the popup's two `/health` requests for 600 ms (`--hold-health 8250:600`), because the real "Checking" state lasts a few milliseconds. Responses were not altered. Frames are full-resolution `Page.captureScreenshot` grabs (~20/s) at their real times (Checking 0.37-1.53 s, Connected settled at 1.83 s). **Two more timing changes, for legibility at README scroll speed:** the first Checking frame is held 1.2 s longer (`--lead 1200`) and the last Connected frame 1.8 s (`--hold 1800`), so Checking is on screen 2.4 s and Connected 2.0 s. Encoded lossless (`img2webp -m 6`): the earlier near-lossless encode left a faint ghost of "Loading voices…" behind "Heart" |
 | `helper.webp` | 1182×870, 26.1 s loop | VHS 0.11.0 recording of a real shell: the helper 1.5.0 starting on 8250 to "ready" (real time, including the ~6 s warm-up), `curl /health`, a real `/speak` (af_heart, "Hello from a private Kokoro voice.") writing `hello.wav`, and `afinfo` on the result. The helper's paths are shown through `/tmp/natural-tts/` symlinks (`scripts/capture/tapes/env.sh`) so no home path is on screen; its log prefix (timestamp, level, label) is trimmed by the `sed` visible in the command. Off camera: moving the helper to the background (Ctrl+Z, `bg`, `clear`) and stopping it at the end. `gif2webp -m 6 -min_size` (lossless) |
 | `gate.webp` | 1280×824, 11.8 s loop | VHS recording of a real `bash scripts/verify-all.sh` run from this tree (`PASS: all 48 checks`, 267 s of real recording cut to 77 distinct screens), sped up by `scripts/capture/tapes/retime.mjs`, which only shortens stretches where the screen does not change (each capped at 120 ms; the final table is held 6 s). Lossless `img2webp -min_size` |
 
@@ -95,7 +103,8 @@ and preview (they need the native context menu). Both are in `scripts/capture/GU
 
 Web Store screenshots 2–5, the small tile, the marquee, the YouTube thumbnail and `assets/brand/social-preview.png`
 frame real popup captures. Two captures are new: `assets/store/src/popup-emma-speaking.png` (Emma (UK), 1.3×) and
-`popup-heart-speaking.png` (Heart (US), 1.0×), each made while the real helper 1.5.0 on 127.0.0.1:8250 was speaking.
+`popup-heart-speaking.png` (Heart (US), 1.0×), each made while the real helper 1.5.0 on 127.0.0.1:8250 was speaking
+(re-shot with the fixed popup, see above).
 The speech was started by the service worker. It sent its offscreen document the same `SPEAK_IN_OFFSCREEN` message the
 right-click handler sends, with this article's paragraph 2. The native menu click was skipped, because it needs a
 display. The helper log shows each request (12.07 s of Emma audio at 1.3× in 0.75 s). The guard logged 37 requests,

@@ -5,9 +5,9 @@ may take over the operator's screen). Everything that can be captured through CD
 
 | Asset | State |
 |---|---|
-| `assets/media/popup.png` | done, headless (720×700, 2x, Connected, Heart, 1.0x) |
-| `assets/media/fallback.png` | done, headless (720×1124, 2x, helper stopped, system-voice line + install hint) |
-| `assets/media/status.webp` | done, headless (720×700, Checking → Connected loop) |
+| `assets/media/popup.png` | done, headless (720×700, 2x, Connected, Heart, 1.0×) |
+| `assets/media/fallback.png` | done, headless (720×1178, 2x, helper stopped, system-voice line + install hint) |
+| `assets/media/status.webp` | done, headless (720×700, 4.5 s Checking → Connected loop) |
 | `assets/media/helper.webp`, `assets/media/gate.webp` | done, VHS (renders headlessly) |
 | `assets/store/screenshot-{2,3,4,5}-*.png`, `small-tile-440x280.png`, `marquee-1400x560.png`, `youtube-thumbnail-1280x720.png`, `assets/brand/social-preview.png` | done, headless (capture step 3): `cws/capture-inputs.sh` + `cws/render.sh`, listed in `assets/store/README.md` |
 
