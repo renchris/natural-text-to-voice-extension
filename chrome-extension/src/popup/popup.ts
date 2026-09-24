@@ -432,8 +432,8 @@ async function handleRetryConnection(): Promise<void> {
   try {
     // Show loading state
     elements.retryButton.disabled = true;
-    if (label) label.textContent = 'Connecting...';
-    updateStatusIndicator('checking', 'Checking helper status...');
+    if (label) label.textContent = 'Connecting…';
+    updateStatusIndicator('checking', 'Checking helper status…');
 
     // Reset API client to force config re-discovery
     resetApiClient();
@@ -571,7 +571,7 @@ async function handleSpeedChange(event: Event): Promise<void> {
   if (Math.abs(rawPos - snappedPos) > 0.001) {
     target.value = snappedPos.toString();
   }
-  elements.speedValue.textContent = `${speed.toFixed(1)}x`;
+  elements.speedValue.textContent = `${speed.toFixed(1)}×`;
   target.style.setProperty('--fill', `${snappedPos * 100}%`);
   target.setAttribute('aria-valuenow', speed.toString());
   target.setAttribute('aria-valuetext', `${speed.toFixed(1)} times speed`);
@@ -936,10 +936,10 @@ function setLoadingState(isLoading: boolean): void {
 
   if (isLoading) {
     elements.speakButton.classList.add('is-loading');
-    elements.buttonText.textContent = 'Generating...';
+    elements.buttonText.textContent = 'Generating…';
   } else {
     elements.speakButton.classList.remove('is-loading');
-    elements.buttonText.textContent = 'Speak Selected Text';
+    elements.buttonText.textContent = 'Speak selected text';
   }
 }
 
@@ -949,7 +949,7 @@ function setPlayingState(isPlaying: boolean): void {
     elements.buttonText.textContent = 'Stop';
   } else {
     elements.speakButton.classList.remove('is-playing');
-    elements.buttonText.textContent = 'Speak Selected Text';
+    elements.buttonText.textContent = 'Speak selected text';
   }
 }
 
@@ -959,7 +959,7 @@ function setPlayingState(isPlaying: boolean): void {
 function updateUI(): void {
   // Speed slider — convert state.selectedSpeed (semantic speed 0.5–2.0) to its
   // log-scaled position (0–1) for the slider value + fill bar.
-  elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
+  elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}×`;
   const pos = speedToPosition(state.selectedSpeed);
   elements.speedSlider.value = pos.toString();
   elements.speedSlider.style.setProperty('--fill', `${pos * 100}%`);
@@ -998,7 +998,7 @@ async function loadPreferences(): Promise<void> {
       const pos = speedToPosition(state.selectedSpeed);
       elements.speedSlider.value = pos.toString();
       elements.speedSlider.style.setProperty('--fill', `${pos * 100}%`);
-      elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}x`;
+      elements.speedValue.textContent = `${state.selectedSpeed.toFixed(1)}×`;
     }
   } catch (error) {
     console.error('Failed to load preferences:', error);

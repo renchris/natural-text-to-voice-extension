@@ -201,7 +201,7 @@ describe('popup speak button (IN-10)', () => {
     pendingSpeaks.shift()!.resolve();
     await until(() => el('buttonText').textContent === 'Stop', 'playing state');
     lastAudio().finish();
-    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'reset');
+    await until(() => el('buttonText').textContent === 'Speak selected text', 'reset');
   });
 
   test('Enter on the focused button speaks once (no keydown handler of our own)', async () => {
@@ -218,14 +218,14 @@ describe('popup speak button (IN-10)', () => {
     pendingSpeaks.shift()!.resolve();
     await until(() => el('buttonText').textContent === 'Stop', 'playing state');
     lastAudio().finish();
-    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'reset');
+    await until(() => el('buttonText').textContent === 'Speak selected text', 'reset');
   });
 
   test('while audio plays the button is an enabled Stop, "Playing audio…" shows, and Stop works', async () => {
     const button = el<HTMLButtonElement>('speakButton');
     button.click();
     await until(() => pendingSpeaks.length > 0, '/speak');
-    expect(el('buttonText').textContent).toBe('Generating...');
+    expect(el('buttonText').textContent).toBe('Generating…');
     expect(button.disabled).toBe(true);
 
     pendingSpeaks.shift()!.resolve();
@@ -246,7 +246,7 @@ describe('popup speak button (IN-10)', () => {
     button.click();
     expect(audio.pause).toHaveBeenCalled();
     expect(liveUrls.has(audio.src)).toBe(false);
-    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(el('buttonText').textContent).toBe('Speak selected text');
     expect(button.classList.contains('is-playing')).toBe(false);
     expect(el('messageContainer').style.display).toBe('none');
   });
@@ -260,7 +260,7 @@ describe('popup speak button (IN-10)', () => {
 
     expect(onMessage!({ type: 'STOP_IN_OFFSCREEN' })).toBe(false);
     expect(audio.pause).toHaveBeenCalled();
-    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(el('buttonText').textContent).toBe('Speak selected text');
   });
 
   test('on open it asks the offscreen document whether it is speaking (EXT-3)', () => {
@@ -277,7 +277,7 @@ describe('popup speak button (IN-10)', () => {
 
     runtimeSendMessage.mockClear();
     button.click();
-    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'button back to Speak');
+    await until(() => el('buttonText').textContent === 'Speak selected text', 'button back to Speak');
     const sent = runtimeSendMessage.mock.calls.map(call => call[0]);
     expect(sent).toEqual([{ type: 'STOP_IN_OFFSCREEN' }]);
     // It stopped the offscreen speech; it did not start a second, overlapping one.
@@ -288,7 +288,7 @@ describe('popup speak button (IN-10)', () => {
     onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: true });
     expect(el('buttonText').textContent).toBe('Stop');
     onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false });
-    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(el('buttonText').textContent).toBe('Speak selected text');
     expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
   });
 
@@ -388,7 +388,7 @@ describe('popup voice list (IN-10)', () => {
     pendingSpeaks.shift()!.resolve();
     await until(() => el('buttonText').textContent === 'Stop', 'playing state');
     lastAudio().finish();
-    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'reset');
+    await until(() => el('buttonText').textContent === 'Speak selected text', 'reset');
   });
 
   test('the notice goes away once the helper reports apiVersion 2', async () => {
@@ -523,7 +523,7 @@ describe('system-voice fallback in the popup (OD-2)', () => {
 
     runtimeSendMessage.mockClear();
     button.click();
-    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'stopped');
+    await until(() => el('buttonText').textContent === 'Speak selected text', 'stopped');
     expect(sent('STOP_IN_OFFSCREEN')).toEqual([{ type: 'STOP_IN_OFFSCREEN' }]);
     expect(engine().hidden).toBe(true);
     expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
@@ -533,7 +533,7 @@ describe('system-voice fallback in the popup (OD-2)', () => {
     el<HTMLButtonElement>('speakButton').click();
     await until(() => el('buttonText').textContent === 'Stop', 'system voice playing');
     onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'system' });
-    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(el('buttonText').textContent).toBe('Speak selected text');
     expect(engine().hidden).toBe(true);
   });
 
@@ -542,7 +542,7 @@ describe('system-voice fallback in the popup (OD-2)', () => {
     el<HTMLButtonElement>('speakButton').click();
     await until(() => el('messageContainer').className === 'message message-error', 'error shown');
     expect(el('messageContainer').textContent).toContain('the system voice could not speak');
-    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(el('buttonText').textContent).toBe('Speak selected text');
     systemVoiceReply = { type: 'SPEAK_STARTED', success: true, engine: 'system' };
   });
 
@@ -570,7 +570,7 @@ describe('system-voice fallback in the popup (OD-2)', () => {
     expect(engine().textContent).toBe('Kokoro · Bella (US)');
     expect(engine().hidden).toBe(false);
     lastAudio().finish();
-    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'reset');
+    await until(() => el('buttonText').textContent === 'Speak selected text', 'reset');
     expect(engine().hidden).toBe(true);
   });
 

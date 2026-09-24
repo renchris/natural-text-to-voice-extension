@@ -67,7 +67,7 @@ describe('helper error codes (one per code)', () => {
     speakResponse = json(500, { error: 'generation_failed', message: 'Audio generation failed: invalid_speed' });
     const error = await speakError();
     expect((error as HelperError).code).toBe('invalid_speed');
-    expect(userMessageForError(error)).toBe('The helper rejected the speed. Choose a speed between 0.5x and 2.0x.');
+    expect(userMessageForError(error)).toBe('The helper rejected the speed. Choose a speed between 0.5× and 2.0×.');
   });
 
   test('nan_audio: the worker code wrapped in generation_failed', async () => {

@@ -115,7 +115,7 @@ export async function errorFromResponse(
 const MESSAGES: Record<HelperErrorCode, string> = {
   unknown_voice:
     'Your Natural TTS helper does not have this voice. Pick another voice, or update the helper.',
-  invalid_speed: 'The helper rejected the speed. Choose a speed between 0.5x and 2.0x.',
+  invalid_speed: 'The helper rejected the speed. Choose a speed between 0.5× and 2.0×.',
   nan_audio: 'The helper produced broken audio for this text. Try again, or pick another voice.',
   bad_host:
     'The helper refused the request address. Update the Natural TTS helper and the extension, and check that no proxy rewrites 127.0.0.1.',

@@ -156,7 +156,7 @@ function handleSpeedChange(event: Event): void {
  * Update speed display value
  */
 function updateSpeedDisplay(speed: number): void {
-  elements.speedValue.textContent = `${speed.toFixed(1)}x`;
+  elements.speedValue.textContent = `${speed.toFixed(1)}×`;
   elements.speedSlider.setAttribute('aria-valuenow', speed.toString());
   elements.speedSlider.setAttribute('aria-valuetext', `${speed.toFixed(1)} times speed`);
 }
@@ -167,7 +167,7 @@ function updateSpeedDisplay(speed: number): void {
 async function handleSave(): Promise<void> {
   try {
     elements.saveButton.disabled = true;
-    elements.saveButton.textContent = 'Saving...';
+    elements.saveButton.textContent = 'Saving…';
 
     // Gather settings from form
     const newSettings: ExtensionSettings = {
@@ -206,7 +206,7 @@ async function handleReset(): Promise<void> {
 
   try {
     elements.resetButton.disabled = true;
-    elements.resetButton.textContent = 'Resetting...';
+    elements.resetButton.textContent = 'Resetting…';
 
     // Save default settings
     await saveSettings(DEFAULT_SETTINGS);
@@ -234,7 +234,7 @@ async function handleReset(): Promise<void> {
  */
 export async function checkHelperStatus(): Promise<void> {
   try {
-    updateStatusIndicator('checking', 'Checking helper...');
+    updateStatusIndicator('checking', 'Checking helper…');
 
     const apiClient = getApiClient();
     const health = await apiClient.checkHealth();
