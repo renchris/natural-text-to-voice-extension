@@ -52,16 +52,17 @@ need "$repo/assets/media/popup.png"    popup-connected.png
 need "$repo/assets/media/fallback.png" popup-fallback.png
 have_menu=0; [[ -f "$caps/contextmenu-crop.png" ]] && { cp "$caps/contextmenu-crop.png" "$work/"; have_menu=1; }
 
-render() { # <template> <w> <h> <output path>
-  local tpl="$1" w="$2" h="$3" dst="$4" name; name="$(basename "$4" .png)"
+render() { # <template> <w> <h> <output path> [device scale factor, default 1: the output is w*dsf x h*dsf]
+  local tpl="$1" w="$2" h="$3" dst="$4" dsf="${5:-1}" name; name="$(basename "$4" .png)"
   perl -e 'alarm 60; exec @ARGV' "$CHROME" --user-data-dir="$profile" --no-first-run --hide-scrollbars \
-    --force-device-scale-factor=1 --window-size="$w,$h" --screenshot="$work/$name.raw.png" \
+    --force-device-scale-factor="$dsf" --window-size="$w,$h" --screenshot="$work/$name.raw.png" \
     "file://$work/$tpl" >"$work/$name.log" 2>&1 || { echo "FAIL $name: renderer exited $? (log below)" >&2; tail -5 "$work/$name.log" >&2; exit 1; }
   [[ -s "$work/$name.raw.png" ]] || { echo "FAIL $name: no screenshot written" >&2; exit 1; }
   # 24-bit sRGB, no alpha, no metadata chunks, zlib level 9 with adaptive filtering.
   magick "$work/$name.raw.png" -alpha off -colorspace sRGB -strip -define png:color-type=2 -quality 95 "$dst"
-  local got; got="$(magick identify -format '%wx%h' "$dst")"
-  [[ "$got" == "${w}x${h}" ]] || { echo "FAIL $name: $got, want ${w}x${h}" >&2; exit 1; }
+  local got want; got="$(magick identify -format '%wx%h' "$dst")"
+  want="$(awk -v w="$w" -v h="$h" -v d="$dsf" 'BEGIN{printf "%dx%d", w*d, h*d}')"
+  [[ "$got" == "$want" ]] || { echo "FAIL $name: $got, want $want" >&2; exit 1; }
   printf 'ok   %-60s %s %7d B\n' "${dst#"$repo"/}" "$got" "$(stat -f %z "$dst")"
 }
 shots=()
@@ -75,6 +76,13 @@ render tile.html     440 280 "$out/small-tile-440x280.png"
 render marquee.html 1400 560 "$out/marquee-1400x560.png"
 render thumb.html   1280 720 "$out/youtube-thumbnail-1280x720.png"
 render social.html  1280 640 "$repo/assets/brand/social-preview.png"
+# YOUTUBE_CARDS=1 also renders the YouTube master's title and end cards at 1920x1080 (the 1280x720 templates at
+# DPR 1.5; the embedded 2x popup capture is downscaled, never upscaled). Not committed: GUI_PASS.md item 4 uses them.
+if [[ "${YOUTUBE_CARDS:-0}" == 1 ]]; then
+  cards="${CARDS_DIR:-/tmp/ntts-w3-out/cards}"; mkdir -p "$cards"
+  render thumb.html   1280 720 "$cards/title-1920x1080.png" 1.5
+  render endcard.html 1280 720 "$cards/end-1920x1080.png"   1.5
+fi
 
 # Legibility proofs: the store downscales screenshots to 640x400; YouTube lists thumbnails at about 320x180.
 for s in "${shots[@]}"; do magick "$s" -resize 640x400 "$proofs/$(basename "$s" .png).proof-640x400.png"; done
