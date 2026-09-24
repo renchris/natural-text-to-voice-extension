@@ -6,7 +6,7 @@
 //
 //   node bench/run.mjs --port 18249 [--python <env>/bin/python3] [--worker <tts_worker.py>] [--binary <helper>]
 //                      [--voice af_heart] [--speed 1.0] [--runs 5] [--cold-starts 3] [--out bench/results.json]
-//                      [--gpu-idle-max 15] [--load-max 12] [--gpu-idle-secs 10] [--wait 300]
+//                      [--gpu-idle-max 15] [--load-max 12] [--gpu-idle-secs 10] [--wait 300] [--require-idle]
 //
 // What it measures (bench/README.md explains each number):
 //   1. launch -> ready: spawn to the first /health that says status "ok" and model_loaded, per cold start.
@@ -54,6 +54,7 @@ const OUT = resolve(opt('out', join(HERE, 'results.json')));
 const GPU_IDLE_MAX = Number(opt('gpu-idle-max', '15'));
 const GPU_WAIT_S = Number(opt('wait', '300'));
 const LOAD_MAX = Number(opt('load-max', '12'));
+const REQUIRE_IDLE = argv.includes('--require-idle');
 const GPU_IDLE_SECS = Number(opt('gpu-idle-secs', '10'));
 const WORK = join(os.tmpdir(), `ntts-bench-${PORT}-${Date.now()}`);
 mkdirSync(WORK, { recursive: true });
@@ -251,7 +252,11 @@ async function main() {
     const load1 = os.loadavg()[0];
     calm = u !== null && u <= GPU_IDLE_MAX && load1 <= LOAD_MAX ? calm + 1 : 0;
     if (calm >= GPU_IDLE_SECS) { gpuIdleReached = true; break; }
-    if (now() - tWait > GPU_WAIT_S) { log(`machine never idle (GPU <= ${GPU_IDLE_MAX}%, load1 <= ${LOAD_MAX}, for ${GPU_IDLE_SECS} s) within ${GPU_WAIT_S} s; running anyway, result marked contended`); break; }
+    if (now() - tWait > GPU_WAIT_S) {
+      if (REQUIRE_IDLE) { log(`machine never idle within ${GPU_WAIT_S} s; --require-idle given, so nothing was measured`); process.exit(2); }
+      log(`machine never idle (GPU <= ${GPU_IDLE_MAX}%, load1 <= ${LOAD_MAX}, for ${GPU_IDLE_SECS} s) within ${GPU_WAIT_S} s; running anyway, result marked contended`);
+      break;
+    }
     if (now() - lastNote > 60) { lastNote = now(); log(`waiting for an idle machine: GPU ${u}%, load1 ${load1.toFixed(1)}`); }
     await sleep(1000);
   }

@@ -26,7 +26,8 @@ Other options: `--voice af_heart`, `--speed 1.0`, `--runs 5`, `--cold-starts 3`,
 **It waits for an idle machine.** Before the first launch it samples the GPU (`ioreg`, "Device Utilization %")
 and the 1-minute load average once a second, and starts only after 10 consecutive seconds with the GPU at
 ≤ 15 % and load ≤ 12 (`--gpu-idle-max`, `--load-max`, `--gpu-idle-secs`). If that never happens within
-`--wait` seconds (default 300) it runs anyway and writes `"clean": false`. `chart.mjs` refuses a result with
+`--wait` seconds (default 300) it runs anyway and writes `"clean": false`, or, with `--require-idle`, exits with
+status 2 without measuring. `chart.mjs` refuses a result with
 `"clean": false` unless you pass `--allow-contended`, and then the chart title says "busy machine". Anything that
 shares the GPU or saturates the CPU (a game, a video export, another local model, a large build) slows synthesis
 by up to half, so compare only clean runs.
