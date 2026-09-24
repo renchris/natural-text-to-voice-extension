@@ -545,6 +545,12 @@ section_consistency() {
   local dv; dv="$(cd "$EXT_DIR" && bun -e 'import { DEFAULT_VOICE } from "./src/shared/voices.ts"; console.log(DEFAULT_VOICE);' 2>/dev/null || echo '?')"
   if [[ "$dv" == "$EXPECTED_DEFAULT_VOICE" ]]; then pass "extension DEFAULT_VOICE" "$dv"
   else fail "extension DEFAULT_VOICE" "got $dv, want $EXPECTED_DEFAULT_VOICE"; fi
+  # OD-7: the old product name survives only in history (research, CHANGELOG, the original implementation plan).
+  # The pattern is split so this line does not match itself.
+  local oldname; oldname="$(git -C "$REPO" grep -n "Natural Text-to""-Speech" -- . ':!docs/research' ':!CHANGELOG.md' \
+    ':!chrome-extension/IMPLEMENTATION_PLAN.md' 2>/dev/null | cut -c1-120 | head -3 | tr '\n' ' ' || true)"
+  if [[ -z "$oldname" ]]; then pass "no old product name (OD-7)" "tracked files outside history"
+  else fail "no old product name (OD-7)" "$oldname"; fi
   local mf="$EXT_DIR/public/manifest.json" pj="$EXT_DIR/package.json"
   if need "$mf" "manifest version == package version" && need "$pj" "manifest version == package version"; then
     local mv pv

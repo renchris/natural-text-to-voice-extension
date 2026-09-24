@@ -7,6 +7,7 @@
 #     contextmenu-crop.png     native menu with "Speak selected text" highlighted  (shot2)
 #     popup-anchored-crop.png  the anchored popup, cropped at >= 1:1 CSS scale     (marquee)
 #   Writes <out-dir>/{cws-shot1-1280x800,cws-shot2-1280x800,cws-tile-440x280,cws-marquee-1400x560}.png
+#   The tile and marquee draw the OD-10 icon from its vector master, assets/brand/icon.svg.
 #
 # Renders headless at the exact viewport and DPR 1, strips alpha and metadata, then asserts each size.
 # CHROME overrides the renderer (default: Playwright's chrome-headless-shell 153, chromium_headless_shell-1243).
@@ -24,6 +25,9 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/ntts-cws.XXXXXX")"
 profile="$work/profile"
 trap 'rm -rf "$work"' EXIT
 cp "$here"/*.html "$here"/base.css "$work"/
+icon="$here/../../../assets/brand/icon.svg"
+[[ -f "$icon" ]] || { echo "missing icon master: $icon" >&2; exit 1; }
+cp "$icon" "$work/icon.svg"
 for f in window.png contextmenu-crop.png popup-anchored-crop.png; do
   [[ -f "$caps/$f" ]] || { echo "missing capture: $caps/$f" >&2; exit 1; }
   cp "$caps/$f" "$work/"

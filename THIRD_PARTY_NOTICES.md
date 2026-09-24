@@ -1,6 +1,6 @@
 # Third-party notices
 
-Natural Text-to-Speech is released under the MIT License (see [`LICENSE`](LICENSE)). It depends on the third-party
+Natural TTS is released under the MIT License (see [`LICENSE`](LICENSE)). It depends on the third-party
 components below. Every licence was checked against the component's primary source on 2026-09-23; the URL in each row
 is that source.
 
