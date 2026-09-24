@@ -1,8 +1,9 @@
 # Helper benchmark
 
 `bench/run.mjs` measures the Natural TTS helper on the machine it runs on and writes `bench/results.json`.
-`bench/chart.mjs` turns that file into `assets/diagrams/performance.mmd`, the README's performance chart. Every
-performance number in the README comes from `results.json`; none is typed by hand.
+`bench/chart.mjs` turns that file into `assets/diagrams/performance.mmd`, the README's performance chart, with each
+bar's value and the time to first audio under it. The root README's performance chart comes from `results.json`;
+none of its numbers is typed by hand.
 
 ## Reproduce
 

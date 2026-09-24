@@ -215,8 +215,9 @@ Homebrew helper updates with `brew upgrade natural-tts && brew services restart 
 
 #### Long selections take a while to start
 The helper returns the whole WAV before playback starts, so time to first audio is the full synthesis time:
-about 0.34 s for a 15-word sentence and 6.5 s for 400 words on an M1 Max (~26× faster than real time;
-[measurements](../docs/research/2026-09-upgrade/W2-integration-measurements.md)). The first request after the
+about 0.34 s for a 15-word sentence and 6.5 s for 400 words on an idle M1 Max (~26× faster than real time;
+[measurements](../docs/research/2026-09-upgrade/W2-integration-measurements.md)), and 0.38 s and 7.7 s with other
+GPU work running (~22×, [bench/results.json](../bench/results.json), the chart in the root README). The first request after the
 helper starts is not slower: it warms its model before it reports ready.
 
 ### Getting Help
