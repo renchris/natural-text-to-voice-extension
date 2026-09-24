@@ -180,6 +180,48 @@ def guard_phase(worker, check):
         check(got == want, f"output guard: {label} buffer gave {got!r}, want {want!r}")
 
 
+def offline_phase(py, worker, env, check):
+    """The worker stays offline even when the launching environment says HF_HUB_OFFLINE=0 or "":
+    huggingface_hub reads both as online, and a defaulted variable let load_model call the Hub at every
+    start. HF_ENDPOINT points at a local counting server, so nothing reaches huggingface.co either way;
+    the worker loads, warms up, sees EOF and exits."""
+    import http.server
+    import threading
+
+    hits = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            self.send_response(503)
+            self.end_headers()
+
+        do_HEAD = do_GET
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    endpoint = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        for value in ("0", ""):
+            before = len(hits)
+            p = subprocess.run(
+                [py, worker],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=dict(env, HF_HUB_OFFLINE=value, HF_ENDPOINT=endpoint),
+                timeout=180,
+            )
+            print(f"OFFLINE HF_HUB_OFFLINE={value!r} -> hub requests={len(hits) - before} exit={p.returncode}")
+            check(len(hits) == before, f"HF_HUB_OFFLINE={value!r}: worker sent {len(hits) - before} Hub request(s)")
+            check(p.returncode == 0, f"HF_HUB_OFFLINE={value!r}: worker exit {p.returncode}")
+    finally:
+        server.shutdown()
+
+
 def main():
     py = sys.argv[1] if len(sys.argv) > 1 else sys.executable
     worker = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_WORKER
@@ -300,6 +342,7 @@ def main():
 
     bounds_phase(py, worker, env, check)
     guard_phase(worker, check)
+    offline_phase(py, worker, env, check)
 
     if failures:
         print("verify_worker: FAIL", file=sys.stderr)

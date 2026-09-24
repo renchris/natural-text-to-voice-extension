@@ -6,9 +6,12 @@ Communicates with Swift via stdin/stdout using Native Messaging protocol
 
 import os
 
-# Offline by default: the model is cached by Scripts/setup-python-env.sh, so the worker never needs the
-# network. Must run before anything imports huggingface_hub (it reads the variable at import time).
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
+# Offline, always: the model is cached by Scripts/setup-python-env.sh, so the worker never needs the
+# network. Forced, not defaulted: huggingface_hub reads "0" or "" as online, so a shell that exports
+# HF_HUB_OFFLINE=0 used to send a Hub request at every worker start. Must run before anything imports
+# huggingface_hub (it reads the variables at import time).
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 import sys
 import json

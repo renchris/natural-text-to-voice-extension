@@ -77,9 +77,13 @@ actor PythonWorker {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        // Set environment variables for espeak-ng
+        // Set environment variables for espeak-ng, and keep the worker off the
+        // network whatever the launching shell exports (tts_worker.py forces
+        // the same; HF_HUB_OFFLINE=0 or "" would otherwise turn the Hub on).
         var environment = ProcessInfo.processInfo.environment
         environment["ESPEAK_DATA_PATH"] = "/opt/homebrew/opt/espeak-ng/share/espeak-ng-data"
+        environment["HF_HUB_OFFLINE"] = "1"
+        environment["HF_HUB_DISABLE_TELEMETRY"] = "1"
         process.environment = environment
 
         // Forward worker stderr line by line, through the redactor so request
