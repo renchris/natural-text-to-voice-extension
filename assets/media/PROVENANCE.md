@@ -52,7 +52,9 @@ changed: no music, no gain edits, no cuts inside a clip. See `scripts/capture/RE
 
 - **README hero MP4:** `hero.wav` only.
 - **Store / YouTube video:** `s1-rightclick.wav`, `s2-british.wav`, `s3-speed.wav`, `s4-pdf.wav`,
-  `s5-offline.wav` in that order, each under its own scene; title and end cards are silent.
+  `s5-offline.wav` in that order, each under its own scene; title and end cards are silent. (As of step 3 the
+  PDF scene gives way to a live system-voice fallback scene, so `s4-pdf.wav` is unused; `s5-offline.wav` goes under
+  the privacy scene, which never touches Wi-Fi. Spec: `scripts/capture/GUI_PASS.md` item 4.)
 - **Silent GIF loops and still images:** no audio.
 
 When a finished video is produced, add a line here naming the video file, the clips it uses and their
@@ -60,8 +62,8 @@ offsets.
 
 **Caveat on the PDF scene (checked 2026-09-24).** `article.pdf` does not, on its own, demonstrate the ligature fix:
 Skia writes a ToUnicode map that already turns each fi/fl/ffi glyph back into plain letters, so
-`pdftotext src/article.pdf -` returns 0 code points in U+FB00–FB06, and a selection in Chrome's viewer (not checked by hand: that needs a display) is
-expected to carry none either. The glyphs on the page are real ligatures; the "fixed" part needs a PDF whose text layer carries
+`pdftotext src/article.pdf -` returns 0 code points in U+FB00–FB06, and a selection in Chrome's viewer carries none either. That was confirmed headless on 2026-09-24:
+the viewer's own `getSelectedText()` returned 0 of them (`assets/store/README.md`). The glyphs on the page are real ligatures; the "fixed" part needs a PDF whose text layer carries
 U+FB01-style code points before any store image or scene claims it (`scripts/capture/GUI_PASS.md`).
 
 ## Screens and loops (capture step 2, headless, 2026-09-24)
@@ -88,6 +90,18 @@ port 8249 (an older helper runs there on this machine) and logged each request w
 Not made in this step, and why: `voices.webp` (a voice switch needs the native `<select>` dropdown open; the
 closed box only changes its one-word label, which would not show the accent groups) and the hero video, poster
 and preview (they need the native context menu). Both are in `scripts/capture/GUI_PASS.md`.
+
+## Store images (capture step 3, headless, 2026-09-24)
+
+Web Store screenshots 2–5, the small tile, the marquee, the YouTube thumbnail and `assets/brand/social-preview.png`
+frame real popup captures. Two captures are new: `assets/store/src/popup-emma-speaking.png` (Emma (UK), 1.3×) and
+`popup-heart-speaking.png` (Heart (US), 1.0×), each made while the real helper 1.5.0 on 127.0.0.1:8250 was speaking.
+The speech was started by the service worker. It sent its offscreen document the same `SPEAK_IN_OFFSCREEN` message the
+right-click handler sends, with this article's paragraph 2. The native menu click was skipped, because it needs a
+display. The helper log shows each request (12.07 s of Emma audio at 1.3× in 0.75 s). The guard logged 37 requests,
+all to 127.0.0.1:8250. The voice counts printed on screenshot 2 are read from the live popup
+(`assets/store/src/voice-groups.json`). The PDF check, the slot list and the regenerate commands are in
+`assets/store/README.md`.
 
 ## Remaking the clips
 

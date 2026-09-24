@@ -22,8 +22,9 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `cdp.mjs` | Evaluates a JS expression in the first CDP target whose URL contains a substring (`--list` lists targets) |
 | `cdp-browser.mjs` | Sends one browser-level CDP command (`Extensions.*`, `Browser.*`) |
 | `demo.mjs` | The timed hero-demo driver: selection → real popup → speed ×3 → close → native context menu. Writes a timeline |
-| `cws/*.html`, `cws/base.css` | Store-image templates (screenshots 1–2, small tile, marquee) |
-| `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs |
+| `cws/*.html`, `cws/base.css`, `cws/arcs.js`, `cws/glyph.svg` | Store-image templates: screenshots 1–5, small tile, marquee, YouTube thumbnail, GitHub social preview |
+| `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
+| `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
 | `versions.sh` | Prints the toolchain versions; save its output next to every capture set |
 | `launch.sh` | Launches the capture browser (headed, or `HEADLESS=1`), seeds the helper port/voice/speed, arms `port-guard.mjs`, writes `env.txt` |
 | `port-guard.mjs` | CDP `Fetch` guard in every target: refuses 8249, logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
@@ -157,13 +158,15 @@ ffmpeg -i "$OUT/hero.mp4" -vf "tpad=stop_mode=clone:stop_duration=2,fps=30,scale
 ### Chrome Web Store images
 
 ```bash
-scripts/capture/cws/render.sh "$OUT" "$OUT/cws"
+scripts/capture/cws/capture-inputs.sh "$OUT" assets/store/src 8250   # headless is fine; needs a real helper on 8250
+scripts/capture/cws/render.sh                                         # -> assets/store/, assets/brand/social-preview.png
 ```
 
-Needs `window.png`, `contextmenu-crop.png` and `popup-anchored-crop.png` in `$OUT` (from the two sections above).
-Writes the two 1280×800 screenshots, the 440×280 small tile and the 1400×560 marquee, asserts each size, and writes
-640×400 proofs: the store downscales screenshots to 640×400, so check the popup text is still legible there. Crop the
-popup at ≥ 1:1 CSS scale; a whole-window framing leaves ~6 px text.
+`render.sh` embeds `assets/store/src/popup-{emma,heart}-speaking.png` and `assets/media/{popup,fallback}.png`, and
+renders screenshot 1 only once the GUI pass has saved `assets/store/src/contextmenu-crop.png`. It asserts each size,
+and writes 640×400 proofs to `/tmp/ntts-cws-proofs`. The store downscales screenshots to 640×400, so check the popup
+text is still legible there. The frames place the popup at 1.5× CSS scale; a whole-window framing leaves ~6 px text.
+Slots, headlines and the reason screenshot 4 is not the PDF shot: `assets/store/README.md`.
 
 ## Headless capture (no display, no window server)
 
