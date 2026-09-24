@@ -60,6 +60,50 @@ changed: no music, no gain edits, no cuts inside a clip. See `scripts/capture/RE
 When a finished video is produced, add a line here naming the video file, the clips it uses and their
 offsets.
 
+- **`hero.mp4`** (GUI pass, 2026-09-24): `hero.wav` starts at **5.755 s**. The click on "Speak selected text" is at
+  3.667 s (frame 110), so the clip starts **2.08 s after the click**, the lag measured on this take (below).
+  Speech (energy above −45 dBFS) starts at 6.075 s and ends at 20.875 s; the video ends at 21.4 s.
+
+## Hero video (GUI pass, 2026-09-24)
+
+| File | Size | Bytes | What it is |
+|---|---|---|---|
+| `hero.mp4` | 1280×800, 21.4 s | 740,757 | H.264 High, yuv420p, 30 fps CFR, `+faststart`; AAC-LC 128 kb/s, 48 kHz stereo |
+| `hero-poster.png` | 1280×800 | 382,780 | Frame 96 (3.2 s) of `hero.mp4`: the native menu open, "Speak selected text" highlighted |
+| `hero-preview.webp` | 960×600, 9.45 s loop | 1,305,176 | The first 8 s of `hero.mp4`, silent, 20 fps, last frame held 1.5 s; `img2webp -near_lossless 40` |
+
+**The take.** Headed Chrome for Testing 153.0.8010.12 (`scripts/capture/launch.sh` with `CDP_PORT=9556`), the
+extension built from this tree, the real helper 1.5.0 built from this tree on 127.0.0.1:8251 (started with
+`--port/--python/--worker`, so the shared `config.json` was never read or written), the port guard refusing 8249
+and 8250. `scripts/capture/hero.mjs --mode full` drove it: paragraph 2 of `https://essays.example/article.html`
+(served from `src/article.html`) selected word by word through the DOM, a CDP right-click on the selection (that is
+what opens Chrome's native menu), then a **real** OS cursor move onto "Speak selected text" and a real click, the
+item found through the Accessibility API (`axmenu`). At 6.5 s the driver opened the real anchored toolbar popup
+(`chrome.action.openPopup()` from the service worker), which shows the speaking state. The window was recorded
+with `sckrec --exclude-others` (picture and live audio, cursor hidden), 25 s at 2x, then cut from 2.9 s, converted
+to 30 fps **before** the cut (cutting a variable-frame-rate recording first re-zeroes on the first changed frame
+and shifted this take 0.37 s early, caught by the check below), scaled to 1280×800 with Lanczos and encoded at
+CRF 20.
+
+**Audio sync, measured on this take.** The click frame is the menu item's click flash, found by tracking the
+menu's mean luma frame by frame through a full decode (no seeking): menu open 4.900 s, hover highlight 5.588 s,
+click flash 6.572 s in the recording; the driver's clock (`click` mouse-down, +0.06 s to mouse-up) put it at
+6.576 s. The live audio of the same take was cross-correlated with `hero.wav` on 10 ms log-RMS envelopes (robust to
+Kokoro's random phase), refined at 1 ms: best match at 8.655 s, score 0.998. **Lag: 2.083 s** from click to the
+clip's first sample (2.41 s to audible speech). It is longer than the ~1 s in the research because this is a whole
+paragraph: the helper log shows "Generated 15.57s audio in 1.21s", and the service worker had idled out and was
+woken by the click (the guard log re-arms it at the click). `hero.wav` was muxed at 2.9 s less, 5.755 s
+(`adelay=5755`), and the finished file was checked the same way: click flash at 3.667 s, `hero.wav` found at
+5.755 s (score 1.000). The guard logged one `POST /speak` for the click, to 127.0.0.1:8251. The live track also
+caught a sub-second sound about 2 s before the click with no request in the guard log (not from the extension; it
+is not in the published file, whose only audio is `hero.wav`).
+
+**Checked by eye:** a 2 fps contact sheet of all 21.4 s and full-size frames at 3.2 s and 14 s: no cursor, no
+infobar, no other app's window, the menu not clipped, the popup reading "Speaking your selection…",
+"Kokoro · Heart (US)", 1.0×, Stop. Why it is 21.4 s and not 15–20 s: the clip is 15.58 s and the real lag is 2.08 s,
+so fitting 20 s would mean cutting the selection and the menu, or cutting frames out of the wait, which would
+misstate the latency.
+
 **Caveat on the PDF scene (checked 2026-09-24).** `article.pdf` does not, on its own, demonstrate the ligature fix:
 Skia writes a ToUnicode map that already turns each fi/fl/ffi glyph back into plain letters, so
 `pdftotext src/article.pdf -` returns 0 code points in U+FB00–FB06, and a selection in Chrome's viewer carries none either. That was confirmed headless on 2026-09-24:
@@ -97,7 +141,7 @@ build (helper 1.5.0 built from `6b881a1`), with the same commands.
 
 Not made in this step, and why: `voices.webp` (a voice switch needs the native `<select>` dropdown open; the
 closed box only changes its one-word label, which would not show the accent groups) and the hero video, poster
-and preview (they need the native context menu). Both are in `scripts/capture/GUI_PASS.md`.
+and preview (they need the native context menu). Both are in `scripts/capture/GUI_PASS.md`. (The hero set was made in the GUI pass: see "Hero video" above.)
 
 ## Store images (capture step 3, headless, 2026-09-24)
 
