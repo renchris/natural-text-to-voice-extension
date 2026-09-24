@@ -76,12 +76,10 @@ render tile.html     440 280 "$out/small-tile-440x280.png"
 render marquee.html 1400 560 "$out/marquee-1400x560.png"
 render thumb.html   1280 720 "$out/youtube-thumbnail-1280x720.png"
 render social.html  1280 640 "$repo/assets/brand/social-preview.png"
-# YOUTUBE_CARDS=1 also renders the YouTube master's title and end cards at 1920x1080 (the 1280x720 templates at
-# DPR 1.5; the embedded 2x popup capture is downscaled, never upscaled). Not committed: GUI_PASS.md item 4 uses them.
+# YOUTUBE_CARDS=1 also renders the YouTube master's title and end cards (and its caption overlays) at 1920x1080,
+# through video-cards.sh, the one renderer for them. Not committed: GUI_PASS.md item 4 uses them.
 if [[ "${YOUTUBE_CARDS:-0}" == 1 ]]; then
-  cards="${CARDS_DIR:-/tmp/ntts-w3-out/cards}"; mkdir -p "$cards"
-  render thumb.html   1280 720 "$cards/title-1920x1080.png" 1.5
-  render endcard.html 1280 720 "$cards/end-1920x1080.png"   1.5
+  "$here/../video-cards.sh" "${CARDS_DIR:-/tmp/ntts-w3-out/cards}"
 fi
 
 # Legibility proofs: the store downscales screenshots to 640x400; YouTube lists thumbnails at about 320x180.
