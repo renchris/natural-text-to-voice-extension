@@ -135,9 +135,10 @@ Escape does not dismiss the menu; close the capture browser (`kill $CHROME_PID`)
 ### Hero video (README MP4, GIF, YouTube master)
 
 The story that matches `hero.wav` (paragraph 2 of the demo article, right-click, "Speak selected text") is
-`GUI_PASS.md` § "Hero video": `demo.mjs --menu-only` on `'article .lede + p'`, then a native click. `demo.mjs` without
-`--menu-only` drives the older story (selection → popup → speed ×3 → context menu), which speaks at 1.3× and so
-matches no committed clip. The encode steps, for either:
+`GUI_PASS.md` § "Hero video". The committed take is `hero.mjs --mode full --cursor`: real OS gestures with the pointer
+recorded. `demo.mjs --menu-only` on `'article .lede + p'` plus a native click is the CDP-gesture alternative for a
+take without the pointer. `demo.mjs` without `--menu-only` drives the older story (selection → popup → speed ×3 →
+context menu), which speaks at 1.3× and so matches no committed clip. The encode steps, for any of them:
 
 ```bash
 ffmpeg -i "$OUT/hero-raw.mov" -vf "scale=1280:800:flags=lanczos,tpad=stop_mode=clone:stop_duration=1,fps=30" \
