@@ -343,6 +343,21 @@ describe('popup voice list (IN-10)', () => {
     await until(() => el<HTMLParagraphElement>('helperUpdateNotice').hidden === true, 'notice hidden');
   });
 
+  test('a helper whose engine gave up (/health status "error") is offline with a restart hint, not warming', async () => {
+    const saved = { ...healthPayload };
+    healthPayload.status = 'error';
+    healthPayload.model_loaded = false;
+    const retry = el<HTMLButtonElement>('retryButton');
+    retry.click();
+    await until(() => !retry.disabled, 'retry finished');
+    expect(el('statusLabel').textContent).toBe('Offline');
+    expect(el('messageContainer').textContent).toContain('Restart the helper');
+    Object.assign(healthPayload, saved);
+    retry.click();
+    await until(() => el('statusLabel').textContent === 'Connected', 'reconnected');
+    await until(() => !retry.disabled, 'second retry finished');
+  });
+
   test('every request went to the mocked 127.0.0.1:18249', () => {
     const urls = fetchMock.mock.calls.map(call => String(call[0]));
     expect(urls.length).toBeGreaterThan(0);

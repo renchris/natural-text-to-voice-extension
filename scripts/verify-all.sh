@@ -229,6 +229,32 @@ section_swift() {
   if grep -q "$sentinel" "$hlog"; then fail "text absent from helper log" "sentinel found in $hlog"
   else pass "text absent from helper log" "$(wc -l <"$hlog" | tr -d ' ') log lines checked"; fi
 
+  # A dead worker is restarted, and the helper does not spin on the closed stderr pipe while it waits.
+  # Only OUR worker child is killed; the new child becomes WORKER_PID so cleanup still owns it.
+  if [[ -n "$WORKER_PID" ]] && kill -0 "$WORKER_PID" 2>/dev/null; then
+    cputime() { ps -o time= -p "$1" 2>/dev/null | awk -F: '{ n = split($0, a, ":"); s = 0; for (i = 1; i <= n; i++) s = s * 60 + a[i]; print s }'; }
+    local old="$WORKER_PID" t0 t1 new="" rstatus=""
+    kill -KILL "$old"; WORKER_PID=""
+    t0="$(cputime "$HELPER_PID")"; sleep 3; t1="$(cputime "$HELPER_PID")"
+    if awk -v a="$t0" -v b="$t1" 'BEGIN{exit !(b - a < 1.0)}'; then pass "no spin after worker death" "helper CPU +$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b - a}')s in 3s"
+    else fail "no spin after worker death" "helper CPU +$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b - a}')s in 3s"; fi
+    waited=0
+    while (( waited < READY_TIMEOUT * 2 )); do
+      rstatus="$(curl -s --max-time 2 "$base/health" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status"))' 2>/dev/null || true)"
+      [[ "$rstatus" == ok ]] && break
+      sleep 0.5; waited=$((waited + 1))
+    done
+    new="$(pgrep -P "$HELPER_PID" -f tts_worker.py || true)"
+    [[ "$new" =~ ^[0-9]+$ ]] && WORKER_PID="$new"
+    c="$(curl -s --max-time 60 -o /dev/null -w '%{http_code}' -X POST "$base/speak" -H 'Content-Type: application/json' \
+        -d '{"text":"Back again.","voice":"af_bella"}' || echo 000)"
+    if [[ "$rstatus" == ok && -n "$WORKER_PID" && "$WORKER_PID" != "$old" && "$c" == 200 ]]; then
+      pass "worker restarted after death" "worker $old -> $WORKER_PID, /speak HTTP $c"
+    else fail "worker restarted after death" "status=$rstatus worker=${new:-none} /speak HTTP $c"; fi
+  else
+    fail "worker restarted after death" "no worker pid of ours to kill"
+  fi
+
   # The machine-wide config.json is untouched (the sandbox also denies the write).
   local cfg_after="absent"
   [[ -f "$CONFIG_JSON" ]] && cfg_after="$(shasum -a 256 "$CONFIG_JSON" | cut -d' ' -f1)"

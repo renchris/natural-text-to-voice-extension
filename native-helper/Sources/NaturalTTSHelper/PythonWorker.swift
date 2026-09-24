@@ -2,6 +2,17 @@ import Foundation
 import Logging
 import os
 
+/// The worker's state as /health reports it.
+enum WorkerHealth: Sendable {
+    /// Loading or reloading the model ("warming").
+    case starting
+    /// Warm and serving requests ("ok").
+    case ready
+    /// Died too often in a short time and was not restarted ("error"); only
+    /// restarting the helper recovers.
+    case failed
+}
+
 actor PythonWorker {
     private let logger = Logger(label: "com.naturaltts.helper.worker")
     private let config: Config
@@ -13,17 +24,27 @@ actor PythonWorker {
 
     private var isWarm = false
 
-    /// Readiness mirror readable WITHOUT entering the actor. generate() holds
+    /// Health mirror readable WITHOUT entering the actor. generate() holds
     /// the actor through a blocking read of the worker's stdout, so an
     /// actor-isolated isReady made /health wait for the whole synthesis
-    /// (measured 6.6 s behind a /speak). Set in markWarm(), cleared in
-    /// handleTermination() and shutdown().
-    nonisolated let readiness = OSAllocatedUnfairLock(initialState: false)
+    /// (measured 6.6 s behind a /speak). Set in markWarm(), handleTermination(),
+    /// recycle() and shutdown().
+    nonisolated let health = OSAllocatedUnfairLock(initialState: WorkerHealth.starting)
 
     /// Scrubs request text out of anything the helper logs on the worker's behalf.
     nonisolated let redactor = TextRedactor()
-    private var restartCount = 0
+
+    /// Bumped by every start(). Callbacks from a worker process carry the
+    /// generation they were started with, so a worker this actor replaced on
+    /// purpose (recycle) cannot mark the new one warm or trigger a restart.
+    private var generation = 0
+    private var shuttingDown = false
+
+    /// Crash-loop bound: an unexpected worker exit is restarted unless this
+    /// many exits already happened within crashWindow (then health = failed).
     private let maxRestarts = 3
+    private let crashWindow: TimeInterval = 120
+    private var crashTimes: [Date] = []
 
     private let warmupTimeout: TimeInterval = 60.0 // 60 seconds for model load
 
@@ -36,6 +57,10 @@ actor PythonWorker {
 
     func start() async throws {
         logger.info("Starting Python worker subprocess")
+        generation += 1
+        let generation = self.generation
+        isWarm = false
+        health.withLock { $0 = .starting }
 
         let process = Process()
         let stdinPipe = Pipe()
@@ -64,9 +89,14 @@ actor PythonWorker {
         let logger = self.logger
         let redactor = self.redactor
         let lines = LineSplitter()
-        stderrPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            guard !data.isEmpty else { return }
+            // EOF: the worker is gone. Clear the handler, or Foundation keeps
+            // calling it with empty Data and the helper spins a core at 100%.
+            guard !data.isEmpty else {
+                handle.readabilityHandler = nil
+                return
+            }
 
             for line in lines.feed(data) {
                 let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -78,8 +108,8 @@ actor PythonWorker {
                 }
 
                 if trimmed.contains("Model loaded, ready for requests") {
-                    Task {
-                        await self?.markWarm()
+                    Task { [weak self] in
+                        await self?.markWarm(generation: generation)
                     }
                 }
             }
@@ -88,7 +118,7 @@ actor PythonWorker {
         // Monitor process termination
         process.terminationHandler = { [weak self] process in
             Task {
-                await self?.handleTermination(exitCode: process.terminationStatus)
+                await self?.handleTermination(exitCode: process.terminationStatus, generation: generation)
             }
         }
 
@@ -111,10 +141,14 @@ actor PythonWorker {
 
         let deadline = Date().addingTimeInterval(timeout)
 
-        while !isWarm && Date() < deadline {
+        while !isWarm && healthState != .failed && Date() < deadline {
             try await Task.sleep(for: .milliseconds(100))
         }
 
+        if healthState == .failed {
+            logger.error("Python worker failed to start")
+            throw WorkerError.processNotRunning
+        }
         guard isWarm else {
             logger.error("Model warmup timed out after \(Int(timeout))s")
             throw WorkerError.warmupTimeout
@@ -168,12 +202,17 @@ actor PythonWorker {
         )
     }
 
+    nonisolated var healthState: WorkerHealth {
+        health.withLock { $0 }
+    }
+
     nonisolated var isReady: Bool {
-        readiness.withLock { $0 }
+        healthState == .ready
     }
 
     func shutdown() async {
         logger.info("Shutting down Python worker")
+        shuttingDown = true
 
         // Send shutdown signal (empty message)
         if let stdin = stdin {
@@ -199,14 +238,15 @@ actor PythonWorker {
         self.stdout = nil
         self.stderr = nil
         self.isWarm = false
-        readiness.withLock { $0 = false }
+        health.withLock { $0 = .starting }
     }
 
     // MARK: - Private Methods
 
-    private func markWarm() {
+    private func markWarm(generation: Int) {
+        guard generation == self.generation, !shuttingDown else { return }
         isWarm = true
-        readiness.withLock { $0 = true }
+        health.withLock { $0 = .ready }
         logger.info("Python worker marked as warm")
     }
 
@@ -222,11 +262,35 @@ actor PythonWorker {
         }
     }
 
-    private func handleTermination(exitCode: Int32) {
+    /// An unexpected worker exit (crash, Metal OOM, a bad frame) restarts the
+    /// worker, bounded by maxRestarts per crashWindow. Past the bound /health
+    /// reports "error" instead of an eternal "warming".
+    private func handleTermination(exitCode: Int32, generation: Int) async {
+        // A worker replaced by recycle(), or one that exits during shutdown.
+        guard generation == self.generation, !shuttingDown else { return }
+
         logger.error("Python worker terminated unexpectedly (exit code: \(exitCode))")
         isWarm = false
-        readiness.withLock { $0 = false }
-        // Could implement auto-restart here if needed
+        process = nil
+        try? stdin?.fileHandleForWriting.close()
+        stdin = nil
+        stdout = nil
+
+        let now = Date()
+        crashTimes = crashTimes.filter { now.timeIntervalSince($0) < crashWindow } + [now]
+        guard crashTimes.count <= maxRestarts else {
+            logger.error("Python worker exited \(crashTimes.count) times in \(Int(crashWindow))s; not restarting it. Restart the helper.")
+            health.withLock { $0 = .failed }
+            return
+        }
+
+        logger.warning("Restarting Python worker (restart \(crashTimes.count) of \(maxRestarts) allowed in \(Int(crashWindow))s)")
+        do {
+            try await start()
+        } catch {
+            logger.error("Could not restart the Python worker: \(error)")
+            health.withLock { $0 = .failed }
+        }
     }
 
     private func sendMessage<T: Encodable>(_ message: T) async throws {

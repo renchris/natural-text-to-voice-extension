@@ -133,13 +133,22 @@ actor HTTPServer {
     }
 
     private func handleHealth(origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
-        let isReady = worker.isReady
+        let state = worker.healthState
         let uptime = Date().timeIntervalSince(startTime)
 
+        // "error": the worker died too often and was not restarted; unlike
+        // "warming" it will not clear without restarting the helper.
+        let status: String
+        switch state {
+        case .ready: status = "ok"
+        case .starting: status = "warming"
+        case .failed: status = "error"
+        }
+
         let response = HealthResponse(
-            status: isReady ? "ok" : "warming",
+            status: status,
             model: "kokoro-82m",
-            modelLoaded: isReady,
+            modelLoaded: state == .ready,
             uptimeSeconds: uptime,
             requestsServed: requestCount,
             version: HelperInfo.version,

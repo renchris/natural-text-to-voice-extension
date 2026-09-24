@@ -23,6 +23,8 @@ interface PopupState {
   selectedVoice: string;
   selectedSpeed: number;
   helperStatus: 'connected' | 'disconnected' | 'warming' | 'checking';
+  /** The helper answers but its voice engine died and will not come back (/health status "error"). */
+  engineFailed: boolean;
   isGenerating: boolean;
   currentAudio: HTMLAudioElement | null;
   warmupPollTimer: ReturnType<typeof setTimeout> | null;
@@ -31,6 +33,9 @@ interface PopupState {
 type MessageType = 'success' | 'error' | 'warning' | 'info';
 
 const PLAYING_MESSAGE = 'Playing audio…';
+const NOT_RUNNING_MESSAGE = 'Native helper not running. Please start the helper and click Retry.';
+const ENGINE_FAILED_MESSAGE = 'The helper’s voice engine stopped. Restart the helper, then click Retry.';
+const disconnectedMessage = (): string => (state.engineFailed ? ENGINE_FAILED_MESSAGE : NOT_RUNNING_MESSAGE);
 
 // =================================================================================
 // DOM ELEMENTS
@@ -61,6 +66,7 @@ const state: PopupState = {
   selectedVoice: DEFAULT_VOICE,
   selectedSpeed: 1.0,
   helperStatus: 'checking',
+  engineFailed: false,
   isGenerating: false,
   currentAudio: null,
   warmupPollTimer: null,
@@ -108,7 +114,7 @@ async function init(): Promise<void> {
     elements.retryButton.style.display = 'none';
     schedulePollWhileWarming();
   } else {
-    showMessage('Native helper not running. Please start the helper and click Retry.', 'error');
+    showMessage(disconnectedMessage(), 'error');
     elements.speakButton.disabled = true;
     // Update voice dropdown to show error state
     setPlaceholderOption('Helper not connected - Start helper to load voices');
@@ -143,7 +149,7 @@ function schedulePollWhileWarming(): void {
     } else if (state.helperStatus === 'warming') {
       schedulePollWhileWarming();
     } else {
-      showMessage('Native helper not running. Please start the helper and click Retry.', 'error');
+      showMessage(disconnectedMessage(), 'error');
       elements.retryButton.style.display = 'block';
     }
   }, 2000);
@@ -197,10 +203,16 @@ async function checkHelperStatus(): Promise<void> {
 
     // An older helper still works (with the voices it reports); say how to update it.
     showUpdateNotice(helperNeedsUpdate(health));
+    state.engineFailed = health.status === 'error';
 
     if (health.status === 'ok' && health.model_loaded) {
       state.helperStatus = 'connected';
       updateStatusIndicator('connected', `Helper is running (${health.model})`);
+    } else if (state.engineFailed) {
+      // The worker died repeatedly and the helper gave up restarting it: not
+      // "warming", which would poll forever.
+      state.helperStatus = 'disconnected';
+      updateStatusIndicator('disconnected', 'The helper’s voice engine stopped - restart the helper');
     } else {
       // Helper is reachable but the MLX model hasn't finished loading
       // (status === 'warming' OR model_loaded === false). This is distinct
@@ -210,6 +222,7 @@ async function checkHelperStatus(): Promise<void> {
     }
   } catch (error) {
     state.helperStatus = 'disconnected';
+    state.engineFailed = false;
     showUpdateNotice(false);
 
     if (error instanceof HelperNotFoundError) {
@@ -276,7 +289,7 @@ async function handleRetryConnection(): Promise<void> {
       elements.speakButton.disabled = false;
       elements.voiceSelect.disabled = false;
     } else {
-      showMessage('Still unable to connect. Ensure the helper is running.', 'error');
+      showMessage(state.engineFailed ? ENGINE_FAILED_MESSAGE : 'Still unable to connect. Ensure the helper is running.', 'error');
     }
   } catch (error) {
     console.error('Error during retry:', error);
