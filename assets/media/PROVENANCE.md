@@ -143,6 +143,22 @@ Not made in this step, and why: `voices.webp` (a voice switch needs the native `
 closed box only changes its one-word label, which would not show the accent groups) and the hero video, poster
 and preview (they need the native context menu). Both are in `scripts/capture/GUI_PASS.md`. (The hero set was made in the GUI pass: see "Hero video" above.)
 
+## Voices loop (GUI pass, 2026-09-24)
+
+| File | Size | Bytes | What it is |
+|---|---|---|---|
+| `voices.webp` | 720×1290, 6.4 s loop | 1,380,484 | The anchored toolbar popup on Heart; its voice box opened as the native macOS list with the four real groups (American Female 11, American Male 9, British Female 4, British Male 4); the highlight walks down to Emma; Emma is picked and the box reads "Emma". Silent |
+
+Same capture browser, helper and guard as the hero. The window was made 1280×969 (`Browser.setWindowBounds`) so the
+open list stays inside the browser window and nothing of another app is recorded. `scripts/capture/voices.mjs`
+opened the real anchored popup (`chrome.action.openPopup()`), then clicked the voice box with a **real** OS click
+(that is what opens the native list), walked the real cursor down the rows one by one (each row located through the
+Accessibility API) and clicked Emma for real. Recorded with `sckrec` (app-only filter, cursor hidden), 480×860 pt at
+2x; cut from 6.3 s to the box's repaint at 10.65 s at 20 fps constant frame rate, scaled to 720 px wide with Lanczos,
+the last frame held 2 s, `img2webp -near_lossless 40`. Two earlier takes were discarded: one recorder window ended
+before the pick, and in the other the display switched to another Space right after the pick, so the box's repaint
+was never recorded. A contact sheet of this take shows the highlight moving row by row, nothing else moving.
+
 ## Store images (capture step 3, headless, 2026-09-24)
 
 Web Store screenshots 2–5, the small tile, the marquee, the YouTube thumbnail and `assets/brand/social-preview.png`
