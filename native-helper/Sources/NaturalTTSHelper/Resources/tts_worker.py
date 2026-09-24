@@ -21,15 +21,15 @@ from io import BytesIO
 # the helper log, and libraries write text-derived data there: mlx-audio's KokoroPipeline logs the full
 # phoneme transcription of any chunk over 510 phonemes through the ROOT logger, whose handler keeps the
 # stderr object it was created with, so redirect_stderr() around generate() never silenced it. So the
-# worker's own logger is the only writer that can reach the helper: it gets a private duplicate of fd 2,
-# and fd 2 and sys.stderr are pointed at /dev/null for everything else (library loggers, warnings, C
-# libraries such as espeak-ng). Every line it writes starts with "[worker] " and is one physical line, so
-# the helper can forward exactly these lines and drop anything else.
-_log_stream = os.fdopen(os.dup(2), "w", buffering=1, encoding="utf-8", errors="replace")
-_devnull_fd = os.open(os.devnull, os.O_WRONLY)
-os.dup2(_devnull_fd, 2)
-os.close(_devnull_fd)
-sys.stderr = open(os.devnull, "w")
+# worker's own logger is the only writer that can reach the helper: route_logs_privately() (run by main(),
+# so importing this module for tests has no side effects) gives it a private duplicate of fd 2 and points
+# fd 2 and sys.stderr at /dev/null for everything else (library loggers, warnings, C libraries such as
+# espeak-ng). Every line it writes starts with "[worker] " and is one physical line, so the helper can
+# forward exactly these lines and drop anything else.
+logger = logging.getLogger("tts_worker")
+logger.setLevel(logging.INFO)
+logger.propagate = False
+logger.addHandler(logging.NullHandler())
 
 
 class _OneLineFormatter(logging.Formatter):
@@ -37,22 +37,24 @@ class _OneLineFormatter(logging.Formatter):
         return super().format(record).replace("\n", " | ")
 
 
-_handler = logging.StreamHandler(_log_stream)
-_handler.setFormatter(_OneLineFormatter("[worker] [%(levelname)s] %(message)s"))
-logger = logging.getLogger("tts_worker")
-logger.addHandler(_handler)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-# Library records stop at the root logger, which only has a NullHandler (and so never falls back to
-# logging.lastResort either).
-logging.getLogger().handlers[:] = [logging.NullHandler()]
+def route_logs_privately():
+    log_stream = os.fdopen(os.dup(2), "w", buffering=1, encoding="utf-8", errors="replace")
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull_fd, 2)
+    os.close(devnull_fd)
+    sys.stderr = open(os.devnull, "w")
 
+    handler = logging.StreamHandler(log_stream)
+    handler.setFormatter(_OneLineFormatter("[worker] [%(levelname)s] %(message)s"))
+    logger.handlers[:] = [handler]
+    # Library records stop at the root logger, which only has a NullHandler (and so never falls back to
+    # logging.lastResort either).
+    logging.getLogger().handlers[:] = [logging.NullHandler()]
 
-def _log_uncaught(exc_type, exc, tb):
-    logger.critical(f"Uncaught {exc_type.__name__}", exc_info=(exc_type, exc, tb))
+    def log_uncaught(exc_type, exc, tb):
+        logger.critical(f"Uncaught {exc_type.__name__}", exc_info=(exc_type, exc, tb))
 
-
-sys.excepthook = _log_uncaught
+    sys.excepthook = log_uncaught
 
 
 def describe_exception(e):
@@ -346,6 +348,7 @@ def generate_audio_mlx(text, voice, speed):
 
 def main():
     """Main event loop"""
+    route_logs_privately()
     logger.info("Natural TTS Helper - Python Worker starting")
 
     # Load model
