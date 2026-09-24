@@ -49,6 +49,7 @@ const PALETTE = {
     'warn-bg': '#2b2410', 'warn-fg': '#e3b341',
     'red-bg': '#2b1618', 'red-fg': '#ff7b72',
     'gray-bg': '#161b22', 'gray-fg': '#6e7681',
+    series: '#8f9cff',
   },
   light: {
     text: '#1f2328',
@@ -58,6 +59,7 @@ const PALETTE = {
     'warn-bg': '#fff8c5', 'warn-fg': '#9a6700',
     'red-bg': '#ffebe9', 'red-fg': '#cf222e',
     'gray-bg': '#f6f8fa', 'gray-fg': '#59636e',
+    series: '#3d4ed7',
   },
 }
 
@@ -136,7 +138,10 @@ for (const file of sources) {
   const src = readFileSync(join(DIR, file), 'utf8')
   for (const [variant, theme] of VARIANTS) {
     const out = file.replace(/\.mmd$/, `-${variant}.svg`)
-    const svg = githubReady(renderMermaidSVG(applyPalette(src, variant), { ...theme, transparent: true }))
+    // An xychart colours its series with the theme accent, which is GitHub blue; use the brand indigo.
+    // Only charts get it: in flowcharts the accent also colours every arrow head.
+    const chart = /^\s*xychart/.test(src) ? { accent: PALETTE[variant].series } : {}
+    const svg = githubReady(renderMermaidSVG(applyPalette(src, variant), { ...theme, ...chart, transparent: true }))
     const width = svgWidth(svg)
     if (!(width <= MAX_WIDTH)) {
       console.error(`TOO WIDE: ${out} is ${width} px; the README column is ${MAX_WIDTH} px`)
