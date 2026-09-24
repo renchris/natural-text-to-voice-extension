@@ -22,7 +22,7 @@ import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
 import { buildVoiceOptionNodes } from '../shared/voice-options';
 import { clearErrorBadge } from '../shared/error-badge';
 import { errorSummary } from '../shared/helper-errors';
-import { HELPER_INSTALL_COMMAND, HELPER_SOURCE_URL, HELPER_UPDATE_COMMAND, helperNeedsUpdate } from '../shared/helper-version';
+import { HELPER_INSTALL_COMMAND, helperNeedsUpdate, helperUpdate, type HelperUpdate } from '../shared/helper-version';
 import { ENGINE_STOPPED_STATUS, WARMING_STATUS, helperHealthState } from '../shared/helper-status';
 import {
   DEFAULT_HELPER_UNAVAILABLE_ACTION,
@@ -88,6 +88,7 @@ const elements = {
   retryButton: document.getElementById('retryButton') as HTMLButtonElement,
   statusLabel: document.getElementById('statusLabel') as HTMLSpanElement,
   updateNotice: document.getElementById('helperUpdateNotice') as HTMLParagraphElement | null,
+  updateText: document.getElementById('helperUpdateText') as HTMLElement | null,
   updateCommand: document.getElementById('helperUpdateCommand') as HTMLElement | null,
   updateSourceLink: document.getElementById('helperUpdateSourceLink') as HTMLAnchorElement | null,
   installCommand: document.getElementById('helperInstallCommand') as HTMLElement | null,
@@ -316,7 +317,7 @@ async function probeHelper(): Promise<void> {
     const health: HealthResponse = await client.checkHealth();
 
     // An older helper still works (with the voices it reports); say how to update it.
-    showUpdateNotice(helperNeedsUpdate(health));
+    showUpdateNotice(helperNeedsUpdate(health) ? helperUpdate(health) : null);
     const healthState = helperHealthState(health);
     state.engineFailed = healthState === 'engine-stopped';
 
@@ -338,7 +339,7 @@ async function probeHelper(): Promise<void> {
   } catch (error) {
     state.helperStatus = 'disconnected';
     state.engineFailed = false;
-    showUpdateNotice(false);
+    showUpdateNotice(null);
 
     if (error instanceof HelperNotFoundError) {
       updateStatusIndicator('disconnected', 'Helper not found - please start the helper');
@@ -354,13 +355,24 @@ async function probeHelper(): Promise<void> {
 }
 
 /**
- * Show or hide the one-line "Update the Natural TTS helper" notice.
+ * Show the one-line "Update the Natural TTS helper" notice with the command
+ * for how that helper was installed, or hide it (null).
  */
-function showUpdateNotice(visible: boolean): void {
+function showUpdateNotice(update: HelperUpdate | null): void {
   if (!elements.updateNotice) return;
-  if (elements.updateCommand) elements.updateCommand.textContent = HELPER_UPDATE_COMMAND;
-  if (elements.updateSourceLink) elements.updateSourceLink.href = HELPER_SOURCE_URL;
-  elements.updateNotice.hidden = !visible;
+  if (update) {
+    if (elements.updateText) {
+      elements.updateText.textContent = update.fromSource
+        ? 'Update the Natural TTS helper. In your source checkout, run:'
+        : 'Update the Natural TTS helper:';
+    }
+    if (elements.updateCommand) elements.updateCommand.textContent = update.command;
+    if (elements.updateSourceLink) {
+      elements.updateSourceLink.href = update.url;
+      elements.updateSourceLink.textContent = update.fromSource ? 'How to update' : 'Installed from source?';
+    }
+  }
+  elements.updateNotice.hidden = !update;
 }
 
 /**
@@ -631,7 +643,7 @@ async function speakWithSystemVoice(text: string): Promise<void> {
     // It was up when the popup opened and is gone now.
     state.helperStatus = 'disconnected';
     state.engineFailed = false;
-    showUpdateNotice(false);
+    showUpdateNotice(null);
     updateStatusIndicator('disconnected', 'Helper not found - speaking with a system voice');
     elements.retryButton.style.display = 'block';
     setPlaceholderOption('System voice (Kokoro voices need the helper)');

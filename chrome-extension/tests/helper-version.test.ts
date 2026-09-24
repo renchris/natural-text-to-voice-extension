@@ -6,11 +6,14 @@ import { describe, test, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  HELPER_BREW_UPDATE_COMMAND,
   HELPER_INSTALL_COMMAND,
+  HELPER_SOURCE_UPDATE_COMMAND,
+  HELPER_SOURCE_UPDATE_URL,
   HELPER_SOURCE_URL,
-  HELPER_UPDATE_COMMAND,
   MIN_HELPER_API_VERSION,
   helperNeedsUpdate,
+  helperUpdate,
 } from '../src/shared/helper-version';
 
 describe('helperNeedsUpdate', () => {
@@ -35,10 +38,29 @@ describe('helperNeedsUpdate', () => {
     expect(helperNeedsUpdate({ apiVersion: '2' as unknown as number })).toBe(true);
   });
 
-  test('install and update go through Homebrew (OD-1), with the README for source installs', () => {
+  test('install goes through Homebrew (OD-1), with the README for source installs', () => {
     expect(HELPER_INSTALL_COMMAND).toBe('brew install renchris/tap/natural-tts && brew services start natural-tts');
-    expect(HELPER_UPDATE_COMMAND).toBe('brew upgrade natural-tts && brew services restart natural-tts');
     expect(HELPER_SOURCE_URL).toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
+  });
+});
+
+describe('helperUpdate', () => {
+  test('a pre-1.5 helper (no apiVersion) was installed from source: the source update, never brew upgrade', () => {
+    for (const health of [{}, { apiVersion: undefined }, { apiVersion: Number.NaN }]) {
+      const update = helperUpdate(health);
+      expect(update).toEqual({ fromSource: true, command: HELPER_SOURCE_UPDATE_COMMAND, url: HELPER_SOURCE_UPDATE_URL });
+      expect(update.command).not.toContain('brew');
+    }
+    expect(HELPER_SOURCE_UPDATE_COMMAND).toBe('git pull && native-helper/Scripts/quickstart.sh');
+  });
+
+  test('a helper reporting an older apiVersion can be a Homebrew install: brew upgrade', () => {
+    expect(helperUpdate({ apiVersion: 1 })).toEqual({
+      fromSource: false,
+      command: HELPER_BREW_UPDATE_COMMAND,
+      url: HELPER_SOURCE_URL,
+    });
+    expect(HELPER_BREW_UPDATE_COMMAND).toBe('brew upgrade natural-tts && brew services restart natural-tts');
   });
 });
 
@@ -68,12 +90,15 @@ function headingAnchors(markdown: string): Set<string> {
 describe('the source-install link', () => {
   const repoRoot = join(import.meta.dir, '..', '..');
 
-  test('HELPER_SOURCE_URL points at a heading the root README has', () => {
-    const url = new URL(HELPER_SOURCE_URL);
-    expect(url.pathname).toBe('/renchris/natural-text-to-voice-extension');
-    const anchor = decodeURIComponent(url.hash.slice(1));
-    expect(anchor.length).toBeGreaterThan(0);
-    expect(headingAnchors(readFileSync(join(repoRoot, 'README.md'), 'utf8')).has(anchor)).toBe(true);
+  test('HELPER_SOURCE_URL and HELPER_SOURCE_UPDATE_URL point at headings the root README has', () => {
+    const anchors = headingAnchors(readFileSync(join(repoRoot, 'README.md'), 'utf8'));
+    for (const link of [HELPER_SOURCE_URL, HELPER_SOURCE_UPDATE_URL]) {
+      const url = new URL(link);
+      expect(url.pathname).toBe('/renchris/natural-text-to-voice-extension');
+      const anchor = decodeURIComponent(url.hash.slice(1));
+      expect(anchor.length).toBeGreaterThan(0);
+      expect(anchors.has(anchor)).toBe(true);
+    }
   });
 
   test('popup.html links to the same URL before popup.ts sets it', () => {

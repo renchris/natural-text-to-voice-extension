@@ -370,12 +370,12 @@ describe('popup voice list (IN-10)', () => {
 
     const notice = el<HTMLParagraphElement>('helperUpdateNotice');
     expect(notice.hidden).toBe(false);
+    // Every pre-1.5 helper was installed from source, where `brew upgrade` fails: the source update.
     expect(notice.textContent!.replace(/\s+/g, ' ').trim()).toBe(
-      'Update the Natural TTS helper: brew upgrade natural-tts && brew services restart natural-tts Installed from source?'
+      'Update the Natural TTS helper. In your source checkout, run: git pull && native-helper/Scripts/quickstart.sh How to update'
     );
-    // Every pre-1.5 helper was installed from source: the README says how to update it.
     expect(el<HTMLAnchorElement>('helperUpdateSourceLink').getAttribute('href'))
-      .toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
+      .toBe('https://github.com/renchris/natural-text-to-voice-extension#updating-a-helper-installed-from-source');
     expect(el('statusLabel').textContent).toBe('Connected');
 
     const before = speakCalls();

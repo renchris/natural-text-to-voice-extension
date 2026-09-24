@@ -222,11 +222,14 @@ Keep this terminal window open. Helper must run in background.
 #### Popup says "Update the Natural TTS helper"
 **Cause**: The running helper predates this extension (its `/health` has no
 `apiVersion` 2). Speech still works with the voices that helper offers.
-**Solution**: run `brew upgrade natural-tts && brew services restart natural-tts`,
-then reopen the popup. A helper older than 1.5 was installed from source, not
-Homebrew: update that one from the repository root with
-`cd native-helper && ./Scripts/quickstart.sh`, or switch to Homebrew with
-`brew install renchris/tap/natural-tts && brew services start natural-tts`.
+**Solution**: the notice shows the command for how that helper was installed.
+A helper older than 1.5 was installed from source, not Homebrew (`brew upgrade`
+fails for it): in your checkout run `git pull && native-helper/Scripts/quickstart.sh`,
+then reopen the popup. To switch to Homebrew instead, stop the old helper first
+(`tmux kill-session -t natural-tts-helper`), then
+`brew install renchris/tap/natural-tts && brew services start natural-tts`; while
+the old helper still answers on port 8249 the extension keeps using it. A
+Homebrew helper updates with `brew upgrade natural-tts && brew services restart natural-tts`.
 
 #### "Extension not loading" in Chrome
 **Cause**: Wrong folder selected or build not complete
