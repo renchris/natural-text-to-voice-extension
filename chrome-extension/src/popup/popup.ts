@@ -48,6 +48,11 @@ interface PopupState {
   helperStatus: 'connected' | 'disconnected' | 'warming' | 'checking';
   /** The helper answers but its voice engine died and will not come back (/health status "error"). */
   engineFailed: boolean;
+  /**
+   * The last probe found no helper at all (HelperNotFoundError), as opposed to
+   * one that timed out or answered garbage: only then does Speak fall back.
+   */
+  helperUnreachable: boolean;
   isGenerating: boolean;
   currentAudio: HTMLAudioElement | null;
   /** The offscreen document is speaking a right-click or shortcut request; the button stops it. */
@@ -108,6 +113,7 @@ const state: PopupState = {
   selectedSpeed: 1.0,
   helperStatus: 'checking',
   engineFailed: false,
+  helperUnreachable: false,
   isGenerating: false,
   currentAudio: null,
   offscreenSpeaking: false,
@@ -117,11 +123,18 @@ const state: PopupState = {
 };
 
 /**
- * The helper cannot be reached and the user wants system voices then: the
- * popup still speaks, through the service worker's chrome.tts (OD-2).
+ * The helper cannot be reached (or its engine stopped) and the user wants
+ * system voices then: the popup still speaks, through the service worker's
+ * chrome.tts (OD-2). These are exactly the failures handleSpeak falls back on
+ * (isHelperUnavailable); a helper that timed out or answered garbage keeps the
+ * error state and Retry, as Speak would report the same error.
  */
 function onFallback(): boolean {
-  return state.helperStatus === 'disconnected' && state.whenHelperUnavailable === 'system-voice';
+  return (
+    state.helperStatus === 'disconnected' &&
+    (state.helperUnreachable || state.engineFailed) &&
+    state.whenHelperUnavailable === 'system-voice'
+  );
 }
 
 // =================================================================================
@@ -211,7 +224,8 @@ function enterFallbackState(): void {
 
 /**
  * Show the one-line "Install the free Natural TTS helper" notice while speech
- * falls back to the system voice, or would.
+ * falls back to the system voice, or would. Not when the helper is installed
+ * and only its engine stopped: the message says to restart it instead.
  */
 function refreshFallbackNotice(): void {
   if (!elements.fallbackNotice) return;
@@ -221,7 +235,7 @@ function refreshFallbackNotice(): void {
     elements.fallbackNoticeLink.href = HELPER_SETUP_URL;
     elements.fallbackNoticeLink.textContent = HELPER_SOURCE_LINK_TEXT;
   }
-  elements.fallbackNotice.hidden = !(onFallback() || state.speakingEngine === 'system');
+  elements.fallbackNotice.hidden = state.engineFailed || !(onFallback() || state.speakingEngine === 'system');
 }
 
 /** Show which engine is speaking ("Kokoro · Bella (US)", "System voice"), or nothing. */
@@ -320,6 +334,7 @@ async function probeHelper(): Promise<void> {
     showUpdateNotice(helperNeedsUpdate(health) ? helperUpdate(health) : null);
     const healthState = helperHealthState(health);
     state.engineFailed = healthState === 'engine-stopped';
+    state.helperUnreachable = false;
 
     if (healthState === 'ready') {
       state.helperStatus = 'connected';
@@ -339,6 +354,7 @@ async function probeHelper(): Promise<void> {
   } catch (error) {
     state.helperStatus = 'disconnected';
     state.engineFailed = false;
+    state.helperUnreachable = error instanceof HelperNotFoundError;
     showUpdateNotice(null);
 
     if (error instanceof HelperNotFoundError) {
@@ -643,6 +659,7 @@ async function speakWithSystemVoice(text: string): Promise<void> {
     // It was up when the popup opened and is gone now.
     state.helperStatus = 'disconnected';
     state.engineFailed = false;
+    state.helperUnreachable = true;
     showUpdateNotice(null);
     updateStatusIndicator('disconnected', 'Helper not found - speaking with a system voice');
     elements.retryButton.style.display = 'block';

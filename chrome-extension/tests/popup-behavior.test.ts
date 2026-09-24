@@ -32,9 +32,12 @@ const healthPayload: Record<string, unknown> = { status: 'ok', model: 'kokoro-82
 
 // helperDown: every request is refused, as when no helper is installed or running.
 let helperDown = false;
+// healthScript: how the next /health requests go, one entry each ('abort' = the request times out).
+let healthScript: Array<'ok' | 'abort'> = [];
 const fetchMock = mock(async (input: RequestInfo | URL, _init?: RequestInit) => {
   const url = String(input);
   if (helperDown) throw new TypeError('Failed to fetch');
+  if (url.endsWith('/health') && healthScript.shift() === 'abort') throw new DOMException('timed out', 'AbortError');
   if (url.endsWith('/health')) return new Response(JSON.stringify(healthPayload), { status: 200 });
   if (url.endsWith('/voices')) return new Response(JSON.stringify(voicesPayload), { status: 200 });
   if (url.endsWith('/speak')) {
@@ -447,6 +450,36 @@ describe('system-voice fallback in the popup (OD-2)', () => {
   const sent = (type: string) => runtimeSendMessage.mock.calls.map(call => call[0] as any).filter(m => m?.type === type);
   const notice = () => el<HTMLParagraphElement>('fallbackNotice');
   const engine = () => el<HTMLParagraphElement>('engineStatus');
+
+  test('a helper that answers its identity probe but then times out keeps the error state: no fallback promise', async () => {
+    healthScript = ['ok', 'abort'];
+    try {
+      await retry();
+      expect(el('statusLabel').textContent).toBe('Offline');
+      expect(el('messageContainer').className).toBe('message message-error');
+      expect(el('messageContainer').textContent).not.toContain('system voice');
+      expect(el<HTMLButtonElement>('speakButton').disabled).toBe(true);
+      expect(notice().hidden).toBe(true);
+    } finally {
+      healthScript = [];
+    }
+  });
+
+  test('an installed helper whose engine stopped: system voice with a restart hint, no install notice', async () => {
+    const savedHealth = { ...healthPayload };
+    healthPayload.status = 'error';
+    healthPayload.model_loaded = false;
+    try {
+      await retry();
+      expect(el('statusLabel').textContent).toBe('Offline');
+      expect(el('messageContainer').className).toBe('message message-info');
+      expect(el('messageContainer').textContent).toContain('Restart the helper');
+      expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
+      expect(notice().hidden).toBe(true);
+    } finally {
+      Object.assign(healthPayload, savedHealth);
+    }
+  });
 
   test('helper unreachable: Offline, an info message (not an error), Speak enabled, the install notice with its link', async () => {
     helperDown = true;
