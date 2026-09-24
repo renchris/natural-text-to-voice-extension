@@ -3,6 +3,9 @@
   /* === BRAND — refined indigo === */
   --color-primary: #3D4ED7;
   --color-primary-hover: #2E3FC4;
+  /* Deep ink (assets/brand/README.md): the Stop button. White on it is 14:1. */
+  --color-ink: #1B2060;
+  --color-ink-hover: #2A3180;
 
   /* === SEMANTIC STATUS — split bg vs text for WCAG === */
   --color-success: #0F9D58;

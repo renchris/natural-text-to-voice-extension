@@ -120,6 +120,7 @@ override that rendered `#076BE3` was removed in 1.5.0, so the popup matches the 
 | Primary text `#202124` on `#FAFAFA` | 13-16px | 15.42 | ✅ |
 | Secondary text `#5F6368` on `#FAFAFA` (slider labels, footer) | 11px | 5.80 | ✅ |
 | White on primary `#3D4ED7` (Speak button) | 14px | 6.42 | ✅ |
+| White on deep ink `#1B2060` (Stop button, while speaking) | 14px | 14.77 | ✅ |
 | **Warming** pill: `#A05000` on 15% `#F9AB00` | 11px | 5.01 | ✅ |
 | **Offline** pill: `#B71C1C` on 12% `#D93025` | 11px | 5.27 | ✅ |
 | **Connected** pill: `#0A7A42` on 15% `#0F9D58` | 11px | **4.38** | ❌ (by 0.12) |

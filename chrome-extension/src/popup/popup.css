@@ -345,8 +345,9 @@ body {
 }
 
   .button-stop-icon { display: none; flex-shrink: 0; }
-  .primary-button.is-playing { background: var(--color-success); }
-  .primary-button.is-playing:hover { background: #0c7e47; }
+  /* Stop, not "go": the brand deep ink, white on it 14:1 (a green stop was 3.51:1 and read as "go"). */
+  .primary-button.is-playing { background: var(--color-ink); }
+  .primary-button.is-playing:hover { background: var(--color-ink-hover); }
   .primary-button.is-playing .button-icon { display: none; }
   .primary-button.is-playing .button-stop-icon { display: inline-block; }
 
