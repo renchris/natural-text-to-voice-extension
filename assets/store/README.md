@@ -46,8 +46,13 @@ The check was run headless on 2026-09-24, with CfT 153.0.8010.12 and the extensi
 - **"With ligatures fixed" cannot be shown.** The selected text had **0** code points in U+FB00–FB06. Skia's ToUnicode
   map already turns the fi/fl/ffi glyphs back into plain letters, so the extension's ligature cleanup has nothing to do
   on this PDF. The headline would claim a fix the image cannot demonstrate.
-- **Not verified (needs a display):** that the native menu shows "Speak selected text" inside the PDF viewer, and that
-  clicking it speaks. This is in `scripts/capture/GUI_PASS.md`.
+- **The native menu, checked with a display (GUI pass, 2026-09-24): PASS.** In headed CfT 153, paragraph 2 of
+  `article.pdf` was drag-selected in Chrome's PDF viewer and right-clicked. The viewer's own native menu (it carries
+  "Rotate Clockwise" and "Rotate Counterclockwise") lists **"Speak selected text"**. A real click on it made the
+  extension's offscreen document send `GET /health` and `POST /speak` to the capture helper on 127.0.0.1:8251 (the port
+  guard's log; nothing else left the browser), and a live-audio recording of the take (`sckrec --exclude-others`) has
+  speech starting 2.28 s after the click frame and still playing when the 21 s take ended (paragraph 2 is 15.6 s of
+  audio). The 2.28 s includes a cold start: the extension's service worker had idled out and was restarted by the click.
 
 Screenshot 4 therefore shows the system-voice fallback (OD-2), a behaviour the image *can* prove. Screenshot 2 covers
 the "28 voices, American and British" story.
