@@ -91,12 +91,15 @@ const NOVELTY_VOICES = new Set(
 );
 
 /**
- * A voice that speaks on this computer: not remote (a remote voice sends the
- * text to a server, which PRIVACY.md rules out) and not a novelty voice.
+ * A voice that speaks on this computer: a platform voice, not remote (a remote
+ * voice sends the text to a server, which PRIVACY.md rules out), not provided
+ * by another extension (a chrome.ttsEngine extension declares `remote` itself,
+ * so a cloud engine that omits it would pass as local), and not a novelty voice.
  */
 function isLocalSpeechVoice(v: chrome.tts.TtsVoice): v is chrome.tts.TtsVoice & { voiceName: string } {
   return (
     v.remote !== true &&
+    !v.extensionId &&
     typeof v.voiceName === 'string' &&
     v.voiceName.length > 0 &&
     !NOVELTY_VOICES.has(v.voiceName.toLowerCase())
@@ -121,11 +124,11 @@ export function pickSystemVoice(
 /**
  * The chrome.tts options for speaking with the given Kokoro voice and speed:
  * a local voice of the Kokoro voice's accent, else the default voice, taken
- * as the first local voice listed (the system default) so that Chrome is
- * never left to choose a remote one. Null when voices were listed and none of
- * them is local: speaking would send the text off this computer, so the
- * fallback fails instead. An empty or unreadable list leaves the choice to
- * chrome.tts (on macOS its voices are the system's own).
+ * as the first local voice listed (the system default). A voiceName is always
+ * named, so Chrome is never left to choose one itself (its matcher may pick a
+ * network voice or another extension's engine). Null when no listed voice is
+ * local, including an empty or unreadable list: speaking could send the text
+ * off this computer, so the fallback fails instead (fail closed).
  */
 export function systemVoiceOptions(
   kokoroVoice: string,
@@ -142,6 +145,5 @@ export function systemVoiceOptions(
   if (accentVoice) return { ...base, voiceName: accentVoice, lang };
   const defaultVoice = (voices ?? []).find(isLocalSpeechVoice)?.voiceName;
   if (defaultVoice) return { ...base, voiceName: defaultVoice };
-  if (voices && voices.length > 0) return null;
-  return base;
+  return null;
 }

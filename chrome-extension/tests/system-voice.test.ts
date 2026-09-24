@@ -136,9 +136,19 @@ describe('voice choice', () => {
     expect(systemVoiceOptions('af_heart', 1, [{ voiceName: 'Google US English', lang: 'en-US', remote: true }])).toBeNull();
   });
 
-  test('an empty or unreadable voice list leaves the choice to chrome.tts', () => {
-    expect(systemVoiceOptions('af_heart', 0.5, [])).toEqual({ rate: 0.5, enqueue: false });
-    expect(systemVoiceOptions('af_heart', 0.5, undefined)).toEqual({ rate: 0.5, enqueue: false });
+  test('another extension\'s voice is never chosen, even when it does not say it is remote', () => {
+    const voices = [
+      { voiceName: 'Google UK English Female', lang: 'en-GB', remote: true, extensionId: 'google-tts' },
+      { voiceName: 'CloudReader UK', lang: 'en-GB', extensionId: 'cloud-reader' },
+      { voiceName: 'Samantha', lang: 'en-US', remote: false },
+    ];
+    expect(systemVoiceOptions('bf_emma', 1, voices)).toEqual({ rate: 1, enqueue: false, voiceName: 'Samantha' });
+    expect(systemVoiceOptions('bf_emma', 1, voices.slice(0, 2))).toBeNull();
+  });
+
+  test('an empty or unreadable voice list: no options, never Chrome\'s own pick (fail closed)', () => {
+    expect(systemVoiceOptions('af_heart', 0.5, [])).toBeNull();
+    expect(systemVoiceOptions('af_heart', 0.5, undefined)).toBeNull();
   });
 
   test('labels for the popup', () => {
@@ -246,11 +256,11 @@ describe('system-voice engine (chrome.tts)', () => {
     expect(speak).not.toHaveBeenCalled();
   });
 
-  test('getVoices failing still speaks, with the default voice', async () => {
+  test('getVoices failing is an error, and nothing is spoken (no voice could be checked as local)', async () => {
     getVoices.mockImplementationOnce(async () => { throw new Error('no voices'); });
-    expect((await speakWithSystemVoice('Hello', 'af_heart', 1)).type).toBe('SPEAK_STARTED');
-    expect(speak.mock.calls[0]![1].voiceName).toBeUndefined();
-    lastOnEvent!({ type: 'end' });
+    const response = await speakWithSystemVoice('Hello', 'af_heart', 1);
+    expect(response).toEqual({ type: 'SPEAK_ERROR', success: false, error: SYSTEM_VOICE_ERROR, engine: 'system' });
+    expect(speak).not.toHaveBeenCalled();
   });
 
   test('a voice that never sends "start" still counts as started once speak() accepted it', async () => {

@@ -92,7 +92,7 @@ Before sending any text, the extension checks that the port answers `/health` as
 
 ### When the helper isn't running
 
-By default the extension then reads the selection with a voice built into your Mac, through Chrome's `chrome.tts`. It only picks voices that speak on this computer: a remote (network) voice is never chosen, and if only remote voices are available the extension shows an error instead of speaking. Choose **Show an error** under "When the helper isn't running" in Settings to turn the system voice off. Adding the `tts` permission adds no install-time warning (measured with `bun run verify:permissions`).
+By default the extension then reads the selection with a voice built into your Mac, through Chrome's `chrome.tts`. It only picks voices built into the system that speak on this computer, and always names the voice itself: a remote (network) voice, or a voice another extension provides, is never chosen. If no such voice is available, or the list of voices cannot be read, the extension shows an error instead of speaking. Choose **Show an error** under "When the helper isn't running" in Settings to turn the system voice off. Adding the `tts` permission adds no install-time warning (measured with `bun run verify:permissions`).
 
 ### No External Servers
 

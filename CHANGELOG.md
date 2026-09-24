@@ -28,9 +28,10 @@ permission to the local helper only, and it turns every silent failure into a vi
 - **New name: "Natural TTS: Private Kokoro Voices for Mac"** (OD-7). The toolbar tooltip and short name stay
   "Natural TTS", and the store description fits the 132-character limit.
 - **System voices when the helper is not running** (OD-2). Selections are spoken with Chrome's `chrome.tts`, using
-  local voices only (never a network voice, never a macOS sound-effect voice), and the popup explains how to install
-  the helper for Kokoro voices. Options → "When the helper isn't running" chooses "Use system voices" (the default)
-  or "Show an error". The new `tts` permission adds no install warning.
+  local platform voices only (never a network voice, never another extension's voice, never a macOS sound-effect
+  voice; with no such voice, or an unreadable voice list, it reports an error rather than speak), and the popup
+  explains how to install the helper for Kokoro voices. Options → "When the helper isn't running" chooses "Use
+  system voices" (the default) or "Show an error". The new `tts` permission adds no install warning.
 - **af_heart is the default voice for new installs** (OD-5), in the helper and the extension. A voice already
   chosen and stored is left as it is, and an install updated from an earlier release that never stored a voice
   keeps af_bella, the default it was using.

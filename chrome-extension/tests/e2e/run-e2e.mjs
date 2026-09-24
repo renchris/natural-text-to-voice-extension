@@ -532,6 +532,17 @@ async function run() {
           mock.speakRequests().length === speaksBefore,
         `tts ${call ? `${call.text.length} chars, rate ${call.options.rate}, voice ${JSON.stringify(call.options.voiceName ?? 'default')}, events [${call.events}]` : 'not called'}, isSpeaking ${speaking}, badge ${JSON.stringify(b.text)}, ${refused} refused request(s)`
       );
+      // PRIVACY.md: the fallback names a platform voice itself, never leaving the choice to Chrome, and that
+      // voice is neither remote nor another extension's engine.
+      const voiceName = call?.options?.voiceName;
+      const chosen = typeof voiceName === 'string'
+        ? await sw(h, `chrome.tts.getVoices().then(vs => { const v = vs.find(v => v.voiceName === ${JSON.stringify(voiceName)}); return v ? { remote: v.remote === true, extensionId: v.extensionId ?? null } : null; })`)
+        : null;
+      check(
+        'the system voice is a named local platform voice',
+        !!chosen && !chosen.remote && !chosen.extensionId,
+        `voiceName ${JSON.stringify(voiceName ?? null)}, listed as ${JSON.stringify(chosen)}`
+      );
 
       await sw(h, `globalThis.__e2e.listeners['commands.onCommand'][0]('stop-speaking', undefined)`);
       const events = await waitFor(

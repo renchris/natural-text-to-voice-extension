@@ -77,7 +77,7 @@ async function listVoices(): Promise<chrome.tts.TtsVoice[]> {
   try {
     return (await chrome.tts.getVoices()) ?? [];
   } catch (error) {
-    console.warn('[SystemVoice] getVoices failed; using the default voice:', error);
+    console.warn('[SystemVoice] getVoices failed; no voice can be checked as local:', error);
     return [];
   }
 }
@@ -107,7 +107,7 @@ export async function speakWithSystemVoice(
   if (stopped()) return STOPPED;
   const options = systemVoiceOptions(kokoroVoice, speed, voices);
   if (!options) {
-    console.warn('[SystemVoice] Only remote voices are available; not sending the text off this computer');
+    console.warn('[SystemVoice] No local platform voice is available; not sending the text off this computer');
     return { type: 'SPEAK_ERROR', success: false, error: SYSTEM_VOICE_ERROR, engine: 'system' };
   }
 
