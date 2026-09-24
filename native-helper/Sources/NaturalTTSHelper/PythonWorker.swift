@@ -199,6 +199,12 @@ actor PythonWorker {
         } onCancel: { [cancelURL] in
             Self.cancel(request.id, via: cancelURL)
         }
+        // The worker has answered: a cancel file for this request has done its
+        // job. Removed here, not at shutdown, so a helper that is killed (or
+        // hangs in shutdown) leaves nothing behind in $TMPDIR.
+        if Task.isCancelled {
+            try? FileManager.default.removeItem(at: cancelURL)
+        }
 
         if response.error == "cancelled" {
             logger.info("Synthesis cancelled: the client went away")
