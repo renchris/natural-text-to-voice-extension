@@ -1,6 +1,9 @@
 # Quick Start Guide
 
-Get the Natural TTS Helper running in 5 minutes.
+Get the Natural TTS Helper running by hand, step by step. `Scripts/quickstart.sh` does all of this in one command
+(and runs the helper in a background tmux session); Homebrew users run
+`brew install renchris/tap/natural-tts && brew services start natural-tts` instead (the tap is published together
+with the store listing).
 
 ---
 
@@ -39,7 +42,6 @@ brew install espeak-ng
 
 # Verify installation
 espeak-ng --version
-# Expected: eSpeak NG text-to-speech: 1.52.0
 ```
 
 **Don't have Homebrew?** Install it first:
@@ -52,7 +54,8 @@ espeak-ng --version
 ## Step 2: Setup Python Environment
 
 ```bash
-cd /path/to/natural-text-to-voice-extension/native-helper
+git clone https://github.com/renchris/natural-text-to-voice-extension.git
+cd natural-text-to-voice-extension/native-helper
 ./Scripts/setup-python-env.sh
 ```
 
@@ -63,13 +66,21 @@ cd /path/to/natural-text-to-voice-extension/native-helper
 - Verifies the worker end to end (`Scripts/verify_worker.py`)
 - Moves a pre-1.5 environment to `native-helper/.python-env.pre-1.5` as a rollback
 
-**Expected output**:
+**Expected output** (abridged):
 ```
-Setting up Python environment for Natural TTS Helper...
-Creating virtual environment...
-Installing dependencies...
-Successfully installed mlx-0.29.3 mlx-audio-0.2.6 ...
-Setup complete!
+===================================
+Natural TTS Helper - Python Setup
+===================================
+Syncing the locked environment into:
+  .../Sources/NaturalTTSHelper/Resources/python-env
+Verifying the installation...
+Fetching the Kokoro model once (weights + voices, ~360 MB on first run)...
+Model revision: e02c9eada7ce7416798af36b190a8a2dd2ecd566
+Verifying the worker end to end (Scripts/verify_worker.py)...
+Environment size: 655M
+===================================
+Python environment setup complete
+===================================
 ```
 
 ---
@@ -80,16 +91,8 @@ Setup complete!
 swift build -c release
 ```
 
-**Time**: ~30-60 seconds
-
-**Expected output**:
-```
-Building for production...
-[1/8] Compiling NaturalTTSHelper main.swift
-[2/8] Compiling NaturalTTSHelper HTTPServer.swift
-...
-Build complete! (30.45s)
-```
+The first build also fetches and compiles SwiftNIO; later builds are incremental. It needs a Swift 6.0 toolchain
+(Xcode 16.2 or later, or its Command Line Tools).
 
 Binary will be at: `.build/release/natural-tts-helper`
 
@@ -101,32 +104,28 @@ Binary will be at: `.build/release/natural-tts-helper`
 .build/release/natural-tts-helper
 ```
 
-**First run** (~35s):
-- Downloads Kokoro-82M model (~200MB from HuggingFace)
-- Downloads spaCy model (~13MB)
-- Loads and warms up model
+Nothing is downloaded here: Step 2 fetched the model. The helper loads it, runs one short warm-up sentence per
+English pipeline, and only then opens its port, so the first request is as fast as later ones. About 2 s on an
+idle M1 Max.
 
-**Expected output**:
+**Expected output** (abridged; timestamps and logger labels trimmed):
 ```
-[info] Natural TTS Helper starting...
-[info] Loading configuration...
-[info] Starting Python MLX worker...
-[info] Waiting for Kokoro model to warm up...
-[Python] [INFO] Loading Kokoro-82M model...
-[Python] Fetching model from HuggingFace... (first time only)
-[Python] [INFO] Model loaded, ready for requests
-[info] Kokoro model loaded and ready
-[info] Starting HTTP server...
-================================
-Natural TTS Helper is ready!
-Listening on: http://127.0.0.1:8249
-Model: Kokoro-82M (MLX Metal)
-================================
+info: Natural TTS Helper 1.5.0 (API 2) starting...
+info: Starting Python MLX worker...
+info: Waiting for Kokoro model to warm up...
+info: [worker] [INFO] Eagerly loading Kokoro weights at startup (revision e02c9ea)...
+info: [worker] [INFO] Warming up (one short generation per English pipeline)...
+info: Kokoro model loaded and ready
+info: Starting HTTP server...
+info: ================================
+info: Natural TTS Helper is ready!
+info: Listening on: http://127.0.0.1:8249
+info: Model: Kokoro-82M (MLX Metal)
+info: ================================
 ```
 
-**Note the port number** (8249 in this example) — you'll need it for testing.
-
-**Subsequent runs** (~2.5s): Models are cached, much faster startup.
+**The port** is 8249 unless something already holds it; then the helper takes the next free port up to 8260 and
+the "Listening on" line says which. The extension searches the same range.
 
 ---
 
@@ -135,7 +134,7 @@ Model: Kokoro-82M (MLX Metal)
 Open a new terminal and run:
 
 ```bash
-# Replace 8249 with your port from Step 4
+# 8249, or the port from Step 4
 curl -X POST http://127.0.0.1:8249/speak \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello from Metal GPU!"}' \
@@ -150,30 +149,19 @@ You should hear "Hello from Metal GPU!" in a natural voice.
 
 ## Step 6 (Optional): Check Performance
 
-Run 3 quick requests to see the performance:
+The helper reports its own timing in response headers:
 
 ```bash
-# Replace 8249 with your port
 for i in 1 2 3; do
-  echo -n "Request $i: "
-  echo '{"text":"Hello world"}' | \
-    curl -X POST http://127.0.0.1:8249/speak \
-      -H "Content-Type: application/json" \
-      --data-binary @- \
-      -o /tmp/test_$i.wav \
-      -w "%{time_total}s\n" \
-      -s
+  curl -s -o /dev/null -D - -X POST http://127.0.0.1:8249/speak \
+    -H "Content-Type: application/json" \
+    -d '{"text":"The quick brown fox jumps over the lazy dog, then naps in the afternoon sun."}' \
+    | grep -i '^x-' | tr -d '\r' | paste -sd' ' -
 done
 ```
 
-**Expected output**:
-```
-Request 1: 0.31s  (cold start, model loading)
-Request 2: 0.19s  (warm, 8.3x RTF)
-Request 3: 0.18s  (warm, 8.7x RTF)
-```
-
-**RTF (Real-Time Factor)**: The helper generates audio ~8x faster than playback time.
+Each line shows `X-Audio-Duration` (seconds of audio), `X-Generation-Time` and `X-Real-Time-Factor`. On an idle
+M1 Max, expect about 26× faster than real time; other GPU work lowers it.
 
 ---
 
@@ -188,10 +176,11 @@ Run the interactive demo for a menu-driven experience:
 ```
 
 **Interactive menu**:
-- Test all voices (hear 6 different voices)
+- Test all voices (every voice `/voices` lists: 28)
 - Test different speeds (0.5x to 2.0x)
 - Custom text (enter your own text)
-- Performance test (benchmark RTF)
+- Performance test (it assumes ~2.5 s of audio per request rather than reading it, so treat its RTF as a rough
+  guide; Step 6 above uses the helper's own numbers)
 - View helper status
 
 The demo automatically plays audio and shows performance metrics!
@@ -206,13 +195,14 @@ The demo automatically plays audio and shows performance metrics!
 curl http://127.0.0.1:8249/voices | jq
 ```
 
-**Returns**: 6 voices (af_bella, af_sarah, am_adam, am_michael, etc.)
+**Returns**: 28 voices, 20 American (`af_*`, `am_*`) and 8 British (`bf_*`, `bm_*`), each with a label such as
+"Heart (US)", its language, accent, gender and grade
 
 #### 2. Test Different Voices
 
 ```bash
 # Try all voices
-for voice in af_bella af_sarah am_adam am_michael; do
+for voice in af_heart am_michael bf_emma bm_george; do
   curl -X POST http://127.0.0.1:8249/speak \
     -H "Content-Type: application/json" \
     -d '{"text":"Hello, this is voice '$voice'","voice":"'$voice'"}' \
@@ -237,12 +227,12 @@ curl -X POST http://127.0.0.1:8249/speak \
   --output test_fast.wav && afplay test_fast.wav
 ```
 
-#### 4. Longer Text (Best Performance)
+#### 4. Longer Text
 
 ```bash
 curl -X POST http://127.0.0.1:8249/speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"The Natural TTS Helper uses MLX Kokoro-82M to generate speech on Apple Silicon with Metal GPU acceleration, achieving eight point three times real-time factor for short text and twenty-five times for longer text."}' \
+  -d '{"text":"The Natural TTS Helper uses MLX Kokoro-82M to generate speech on Apple silicon, entirely on your Mac, about twenty-six times faster than real time."}' \
   --output test_long.wav && afplay test_long.wav
 ```
 
@@ -250,21 +240,9 @@ curl -X POST http://127.0.0.1:8249/speak \
 
 ### Performance Testing Scripts
 
-#### Short Text Test (8.3x RTF expected)
-
-```bash
-./Scripts/test-performance-short.sh
-```
-
-Runs 10 consecutive requests with short text (~1.57s audio).
-
-#### Long Text Test (25x RTF expected)
-
-```bash
-./Scripts/test-performance-long.sh
-```
-
-Runs 10 consecutive requests with longer text (~21.7s audio).
+`./Scripts/test-performance-short.sh` and `./Scripts/test-performance-long.sh` run 10 requests each. They date from
+2025 and compute their "RTF" from hard-coded audio durations (1.57 s and 21.7 s), so the long script's figure is
+about three times too high; use their timings, not their RTF lines, or the header loop in Step 6.
 
 ---
 
@@ -320,44 +298,43 @@ For comprehensive testing and API details, see:
 ### "espeak not found"
 
 ```bash
-# Install espeak-ng
 brew install espeak-ng
 ```
 
-### "Python worker process not running"
+### The helper exits at startup (missing model or module)
 
 ```bash
-# Re-run Python setup
 cd native-helper
-./Scripts/setup-python-env.sh
+./Scripts/setup-python-env.sh   # rebuilds the environment, fetches the model, verifies the worker
 ```
 
-### "Port already in use"
+### "All ports 8249..8260 are in use", or the wrong helper answers
+
+Another copy of the helper is usually running. Stop it (`./Scripts/teardown.sh` for the tmux one,
+`brew services stop natural-tts` for the Homebrew one) and start again:
 
 ```bash
-# Kill existing helper
-pkill -f natural-tts-helper
-sleep 2
-.build/release/natural-tts-helper
+lsof -nP -iTCP:8249 -sTCP:LISTEN   # who holds 8249
 ```
 
-### "Model warmup timed out"
+### "Model warmup timed out after 60s"
 
-Check your internet connection — first run downloads ~215MB of models from HuggingFace.
+The worker did not finish its warm-up. Look at the `[worker]` lines above the error; if the environment is
+damaged, re-run `./Scripts/setup-python-env.sh`.
 
 ---
 
 ## Summary
 
 You now have:
-- ✅ Native TTS Helper running on `http://127.0.0.1:<port>`
-- ✅ Kokoro-82M model loaded and cached
-- ✅ 8.3x-25x real-time performance
-- ✅ 100% local, privacy-first TTS
+- ✅ The Natural TTS helper on `http://127.0.0.1:8249` (or the next free port up to 8260)
+- ✅ Kokoro-82M loaded, warmed up and cached; the helper runs offline
+- ✅ About 26× faster than real time on an idle M1 Max
+- ✅ Speech generated entirely on your Mac
 
 **Config saved to**: `~/Library/Application Support/NaturalTTS/config.json`
 
-**Next time**: Just run `.build/release/natural-tts-helper` — models are cached, startup is ~2.5s.
+**Next time**: run `.build/release/natural-tts-helper` (or `Scripts/quickstart.sh`); startup takes about 2 s.
 
 ---
 
