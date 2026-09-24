@@ -405,6 +405,11 @@ afplay /tmp/test_1.wav
 | **Memory** | ~2GB (model cached) | ~2GB | <3GB | ✅ |
 | **Reliability** | 100% (10/10) | 100% (10/10) | 100% | ✅ |
 
+Memory, re-measured 2026-09-23 for 1.5 with `footprint`: the worker holds 0.6–0.7 GB between requests, and peaks at
+~3.6 GB on a 5,000-character request. It peaked at 7.9 GB before the MLX buffer cache was capped at 256 MB. Set
+`NTTS_MLX_CACHE_LIMIT_MB` to change the cap. Details:
+`docs/research/2026-09-upgrade/W2-integration-measurements.md` §9.
+
 ### Real-Time Factor (RTF) Explained
 
 **RTF = Audio Duration / Generation Time**

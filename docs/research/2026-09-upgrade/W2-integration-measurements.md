@@ -21,6 +21,9 @@ On the same M1 Max with the GPU otherwise idle:
 Peak unified memory is unchanged at ~7.8 GB, because the MLX buffer cache is still not bounded. Time to first audio
 still equals the full synthesis time, because streaming is a W2 item.
 
+**Update (HELPER2, same day):** the MLX buffer cache is now bounded at 256 MB. The worker's peak physical
+footprint on X4985 falls from 7.9 GB to 3.6 GB, with no measurable RTF cost and the same audio. See §9.
+
 ## 1. Conditions
 
 | Item | Value |
@@ -104,3 +107,83 @@ connection to huggingface.co, plus a per-request `hf_hub_download` of about 72 m
 - The first British-voice request still builds the `lang_code b` pipeline, which takes about 1.1–1.2 s. The warm-up
   covers only the American pipeline (H-PY observation). The gate's `bf_emma` check passed.
 - Contended-GPU behaviour (C2 run3off/run4) was not re-measured.
+
+## 9. Bounding the MLX buffer cache (HELPER2, measured 2026-09-23)
+
+**Result.** The worker now calls `mx.set_cache_limit(256 MB)` before it loads the model, and `mx.clear_cache()` after
+the warm-up and after every request. On the X4985 text the worker's peak physical footprint falls from **7,909 MB to
+3,605 MB (−54%)**. RTF shows no measurable cost, and the audio matches within GPU rounding. The limit can be overridden
+with `NTTS_MLX_CACHE_LIMIT_MB`.
+
+**API in mlx 0.32.2.** The top-level functions are current: `mx.set_cache_limit`, `mx.set_memory_limit`,
+`mx.set_wired_limit`, `mx.clear_cache`, `mx.get_cache_memory`, `mx.get_active_memory`, `mx.get_peak_memory` and
+`mx.reset_peak_memory`. The `mx.metal.*` versions still exist, but each call warns "deprecated ... Use mx.<name>
+instead". `set_memory_limit` is not used. It is a guideline for graph evaluation, and the peak is live arrays, which
+it cannot shrink. Past it, MLX waits or raises. The cache limit defaults to the memory limit, 1.5× the recommended
+working set: 72 GB on this 64 GB M1 Max, so in effect unbounded.
+
+**Where the 7.9 GB came from.** The worker read MLX's own counters around each request. Active arrays peak at
+**2,437 MB (S15), 3,154 MB (M60) and 3,236 MB (L400, X4985)**, with 313 MB of that being the model. At the end of a
+request the cache holds only 1.7–57 MB, because mlx-audio already calls `mx.clear_cache()` after every segment
+(`mlx_audio/tts/models/kokoro/kokoro.py:370`). So the extra ~4.2 GB in the footprint peak is buffers that were freed
+and cached *inside* one segment's forward pass. A clear after the request cannot reach them; only a cache limit can.
+The footprint returns to 0.6–0.7 GB after every request, with or without a limit.
+
+**Method.** A harness drove the worker directly with its stdin frames (no helper), using the texts from
+`/tmp/ntts-c2/texts.json`, voice `af_bella` at 1.0×. Each run used a fresh worker and sent
+S15, M60, L400, X4985, S15, M60, L400. After each request the harness read `phys_footprint_peak` (lifetime peak) with
+`footprint -p <pid> -j`. A wrapper applied the cache policy and seeded `mx.random` (1234) before each request, so the
+audio can be compared across configs. Kokoro's iSTFTNet draws random phase and noise, so unseeded runs differ. Each
+config ran 3 times, round-robin, alternating the order. Other lanes had the GPU at 36–93% `ioreg` utilization
+throughout, so absolute RTF is below §3 and noisy. RTF was therefore also measured **paired**: one warm worker, the
+limit switched before each request in shuffled order, 6 reps × 4 texts × 5 limits, so the contention hits every
+limit alike. Harness and raw JSON lines: `/tmp/ntts-h2mem/` (`bench.py`, `wrap.py`, `paired.py`, `raw.jsonl`,
+`paired.jsonl`, `final.jsonl`). These files are ephemeral.
+
+Sweep (median of 3 fresh workers; footprint in MB, the lifetime peak after each request):
+
+| Cache policy | Load + warm-up peak | Peak after S15 | after M60 | after L400 | after X4985 | Warm RTF S15 / M60 / L400 / X | Pooled RTF (21 req) |
+|---|---|---|---|---|---|---|---|
+| unbounded (1.5.0) | 1,498 | 4,420 | 7,699 | 7,727 | **7,921** | 26.1 / 26.5 / 26.9 / 26.0 | 26.2× |
+| unbounded + clear after request | 1,500 | 4,416 | 7,700 | 7,724 | 7,916 | 26.6 / 27.0 / 26.7 / 26.8 | 25.4× (−3.1%) |
+| 0 (cache off) | 810 | 1,674 | 3,558 | 3,563 | 3,610 | 23.9 / 22.2 / 22.0 / 22.2 | 19.0× (**−27.7%**) |
+| 128 MB | 939 | 1,937 | 3,417 | 3,706 | 3,709 | 26.7 / 26.1 / 26.9 / 26.6 | 23.8× (−9.3%) |
+| **256 MB** | 1,124 | 2,090 | 3,514 | 3,580 | **3,680** | 27.7 / 27.9 / 27.3 / 28.1 | 25.9× (−1.4%) |
+| 512 MB | 1,393 | 2,341 | 3,667 | 3,800 | 3,850 | 26.5 / 26.7 / 27.1 / 26.8 | 27.1× (+3.4%) |
+| 1 GB | 1,503 | 3,050 | 4,200 | 4,287 | 4,462 | 28.0 / 28.0 / 27.9 / 28.2 | 26.1× (−0.6%) |
+| 2 GB | 1,498 | 4,030 | 5,213 | 5,330 | 5,495 | 27.2 / 27.9 / 27.8 / 26.9 | 24.8× (−5.4%) |
+
+The pooled column includes each size's first request in a fresh worker. The "clear" and "2 GB" rows show the noise
+band: neither can slow synthesis by 3–5%.
+
+Paired RTF against unbounded (24 pairs per limit; unbounded median 20.7× under contention):
+
+| Limit | Geometric-mean ratio | 95% CI | Median ratio |
+|---|---|---|---|
+| 128 MB | −3.2% | −10.1% … +4.4% | +0.8% |
+| **256 MB** | −1.5% | −10.6% … +8.4% | +2.0% |
+| 512 MB | −1.7% | −9.1% … +6.4% | +1.9% |
+| 1 GB | +0.0% | −6.3% … +6.8% | +3.3% |
+
+**Why 256 MB.** Cache off and 128 MB reach the same floor, about 3.6 GB. That is the 3.2 GB active peak plus the
+worker's ~0.5 GB baseline. They cost 28% and ~9% RTF in the sweep. 256 MB sits on that floor (3,680 vs 3,610 MB) with
+no measurable cost in either design. 512 MB adds ~170 MB and gains nothing that could be measured.
+
+**The shipped worker** was measured the same way, interleaved with the unbounded 1.5.0 worker, 3 fresh workers each:
+
+| | Unbounded (1.5.0) | Shipped (256 MB + clear) |
+|---|---|---|
+| Footprint peak after load + warm-up | 1,494 MB | 1,115 MB |
+| Peak after S15 / M60 / L400 / X4985 | 4,409 / 7,699 / 7,717 / **7,909 MB** | 2,046 / 3,482 / 3,584 / **3,605 MB** |
+| Footprint after the last request | 690 MB | 680 MB |
+| RTF median S15 / M60 / L400 / X4985 (contended GPU) | 21.6 / 22.7 / 20.4 / 20.2 | 25.3 / 24.9 / 23.8 / 23.1 |
+| Audio vs unbounded (seeded) | — | max \|Δ\| 1 LSB on 0.006–0.008% of samples |
+
+Two runs of the unchanged worker with the same seed differ in the same way: 1 LSB on 0.01% of samples. This is GPU
+rounding, not the cache policy. `Scripts/verify-python.sh`: PASS 7/7, fidelity level −0.2 dB, log-mel L1 0.1152
+(0.1156 before; gate ≤ 0.13). Helper smoke test on :18249 (real helper, unseeded): X4985 with `af_heart` → 200 in
+14.8 s; `bf_emma` S15 → 200 in 0.29 s. Worker footprint peak 3,555 MB, current 676 MB. SIGTERM left no worker behind.
+
+**What is left.** The ~3.2 GB floor is live arrays in one segment's decoder pass. Even S15 reaches 2.4 GB active. A
+cache setting cannot lower it; that would take shorter segments or a chunked decoder. On an 8 GB Mac the worker now
+peaks at ~3.6 GB instead of ~7.9 GB.

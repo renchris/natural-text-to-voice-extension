@@ -98,6 +98,31 @@ MAX_AUDIO_SECONDS = float(os.environ.get("NTTS_MAX_AUDIO_SECONDS", "1200"))
 # selection superseding it); generation stops at the next chunk and answers "cancelled", so the discarded
 # synthesis does not hold the worker while the next request waits.
 CANCEL_FILE = os.environ.get("NTTS_CANCEL_FILE")
+# Bound on MLX's buffer cache (freed GPU buffers kept for reuse). Unbounded, the cache defaults to the memory
+# limit (1.5x the GPU's recommended working set), and inside one segment's forward pass it grew to ~4.2 GB on
+# top of ~3.2 GB of live arrays: the worker's physical footprint peaked at 7.9 GB, enough to push an 8 GB Mac
+# into swap. mlx-audio already clears the cache after every segment, so only this limit bounds that growth.
+# The value is measured (docs/research/2026-09-upgrade/W2-integration-measurements.md §9): the smallest
+# limit that costs <= 5% real-time factor. Set with MLX's top-level API (mx.metal.* is deprecated in 0.32).
+MLX_CACHE_LIMIT_MB = int(os.environ.get("NTTS_MLX_CACHE_LIMIT_MB", "256"))
+
+
+def bound_mlx_memory():
+    import mlx.core as mx
+
+    mx.set_cache_limit(MLX_CACHE_LIMIT_MB * 1024 * 1024)
+    logger.info(f"MLX buffer cache limit: {MLX_CACHE_LIMIT_MB} MB")
+
+
+def release_mlx_cache():
+    """Give the cache back once a request is answered, so an idle worker holds only the model. A failure
+    here never turns into a failed request."""
+    try:
+        import mlx.core as mx
+
+        mx.clear_cache()
+    except Exception as e:
+        logger.error(f"Could not clear the MLX cache: {describe_exception(e)}")
 
 
 def is_cancelled(request_id):
@@ -213,6 +238,7 @@ def load_mlx_model():
     try:
         from contextlib import redirect_stdout, redirect_stderr
 
+        bound_mlx_memory()
         logger.info(f"Eagerly loading Kokoro weights at startup (revision {MODEL_REVISION[:7]})...")
         _model_cache = load_pinned_model()
 
@@ -228,6 +254,7 @@ def load_mlx_model():
                         "Ready.", voice=voice_file(voice), speed=1.0, lang_code=lang_code
                     ):
                         pass
+        release_mlx_cache()
 
         # PythonWorker.swift matches this exact line; do not reword it.
         logger.info("Model loaded, ready for requests")
@@ -464,6 +491,9 @@ def generate_audio_mlx(text, voice, speed, request_id=None):
         # Neither the message nor the traceback: both can carry the request text (see describe_exception).
         logger.error(f"Error generating audio: {describe_exception(e)}")
         return {"error": f"internal_error: {type(e).__name__}"}
+    finally:
+        # Every exit, including cancelled and audio_too_long, which return mid-generation.
+        release_mlx_cache()
 
 
 def main():
