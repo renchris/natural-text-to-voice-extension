@@ -33,7 +33,7 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `youtube-meta.mjs` | The YouTube chapter list and `youtube-master.srt` (the exact text of each clip, plus live speech) from the assembler's timeline, refusing a chapter list YouTube would ignore |
 | `video-cards.sh` | Renders the promo video's silent title and end cards (`cws/titlecard.html`, `cws/endcard.html`) and its lower-third captions (`cws/caption.html`) at 1920×1080 |
 | `hero-preview.sh` | The README hero preview: the take's opening from the 2x raw at 20 fps, the payoff frame held with a "Watch with sound" pill (`cws/pill.html`), `img2webp -near_lossless 40` with forced key frames |
-| `voices-loop.sh` | The README voices loop from the voices take: the popup-and-list crop, a left-edge fade over the page only, 720 px wide, forced key frames |
+| `voices-loop.sh` | The README voices loop from the voices take: the popup-and-list crop, a left-edge fade over the page only, 720 px wide, lossless |
 | `cws/*.html`, `cws/base.css`, `cws/arcs.js`, `cws/glyph.svg` | Store-image templates: screenshots 1–5, small tile, marquee, YouTube thumbnail, GitHub social preview |
 | `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |

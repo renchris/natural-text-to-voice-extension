@@ -270,7 +270,7 @@ leaves out (b), whose right-click the README hero already shows.
 
 | File | Size | Bytes | What it is |
 |---|---|---|---|
-| `voices.webp` | 720×1518, 6.4 s loop | 2,049,952 | The anchored toolbar popup on Heart; its voice box opened as the native macOS list with the four real groups (American Female 11, American Male 9, British Female 4, British Male 4); the highlight walks down to Emma; Emma is picked and the box reads "Emma". Silent. Embed it at `width="360"` (it is 2x) |
+| `voices.webp` | 720×1518, 6.4 s loop | 2,904,724 | The anchored toolbar popup on Heart; its voice box opened as the native macOS list with the four real groups (American Female 11, American Male 9, British Female 4, British Male 4); the highlight walks down to Emma; Emma is picked and the box reads "Emma". Silent. Embed it at `width="360"` (it is 2x) |
 
 Same capture browser, helper and guard as the hero. The window was made 1280×969 (`Browser.setWindowBounds`) so the
 open list stays inside the browser window and nothing of another app is recorded. `scripts/capture/voices.mjs`
@@ -287,8 +287,10 @@ half the profile icon top right. The crop now starts 12 CSS px left of the popup
 button (816×1720 px from x = 69), and the left edge fades to the page colour over the page only: 24 px beside the popup
 (to the toolbar's white above the page) and, below the popup, 150 px while the list is closed but only up to the list's
 own edge while it is open, so the list's pixels are untouched. Cut from 6.3 s to 10.7 s at 20 fps constant rate,
-Lanczos to 720 px wide, the last frame (Emma) held 2 s, `img2webp -near_lossless 40` with a key frame at least every
-10 frames.
+Lanczos to 720 px wide, the last frame (Emma) held 2 s. **Re-encoded lossless at integration** (`img2webp -m 6`,
+2,904,724 bytes, under the 3 MB loop budget): the `-near_lossless 40` encode, even with a key frame every 10 frames,
+left a ghost of the closed list ("American Female", "Heart", "Bella", "Nicole"…) in the held Emma frame, 21.6% of its
+pixels off the source. Now all 35 stored frames equal a source frame pixel for pixel.
 
 ## Store images (capture step 3, headless, 2026-09-24; re-shot in the retake round)
 

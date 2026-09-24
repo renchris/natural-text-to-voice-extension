@@ -194,8 +194,8 @@ other image from them byte for byte.
 ### Voices loop
 
 The native `<select>` list, opened in the anchored popup, recorded without audio. The committed loop is cut from the
-raw take by `voices-loop.sh` (the popup-and-list crop, a left-edge fade over the page only, 720 px wide,
-`-near_lossless 40` with forced key frames); the `img2webp` line below is the plain lossless fallback.
+raw take by `voices-loop.sh` (the popup-and-list crop, a left-edge fade over the page only, 720 px wide, lossless);
+the `img2webp` line below is the same encode without the crop.
 
 ```bash
 node scripts/capture/cdp.mjs "$WS" "chrome-extension://$EXT_ID/background" 'chrome.action.openPopup().then(()=>"ok")'
@@ -328,9 +328,10 @@ Learned in the retake round (2026-09-24):
 - **Mono clips go on both channels with `pan=stereo|c0=c0|c1=c0`**, never `aformat=channel_layouts=stereo` (−3 dB).
 - **`-use_editlist 0` shifts the picture 66.7 ms (2 B-frames) but the audio only by its 21.3 ms AAC priming**:
   `promo-assemble.py` delays the master's mix by the 45.3 ms difference; re-measure click flash to clip in the file.
-- **Near-lossless inter frames leave ghosts** of closed menus and replaced text: force key frames (`KMAX` in
-  `hero-preview.sh`, `--kmax` in `assemble-loop.mjs`, every 10 frames in `voices-loop.sh`) and measure the difference
-  against the source frames.
+- **Near-lossless inter frames leave ghosts** of closed menus and replaced text, and forced key frames only clear them
+  where a key frame lands: `voices-loop.sh` kept a key frame every 10 frames and still held a ghost of the closed list
+  in its last frame for 2 s. UI loops are lossless now (`assemble-loop.mjs`, `voices-loop.sh`); where a loop must stay
+  near-lossless (`hero-preview.sh`, `KMAX`), decode it and compare every held frame with its source.
 - **Never post a key to "close" something**: the Space may already have switched, and the key lands in the operator's
   app. Close popups with a click on the capture page instead.
 - **The lag depends on the machine's load**: with another capture run using the GPU it was 1.25–2.47 s where the first

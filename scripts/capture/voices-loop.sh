@@ -8,8 +8,9 @@
 #   words cut by the frame's edge read as a vignette: 24 px beside the popup (the toolbar's colour above the page),
 #   and below the popup 150 px while the voice list is closed but only up to the list's own edge while it is open.
 #   The popup, the list and every other UI pixel are untouched. Then Lanczos to 720 px wide (embed at width="360"),
-#   20 fps constant rate, the last frame held, img2webp -near_lossless 40 with a key frame at least every 10 frames
-#   (inter frames otherwise keep a faint ghost of the closed list).
+#   20 fps constant rate, the last frame held, lossless img2webp -m 6 (~2.9 MB): every stored frame is a source frame
+#   pixel for pixel. The earlier -near_lossless 40, even with a key frame every 10 frames, left a ghost of the closed
+#   list ("American Female", "Heart", "Bella"…) in the held Emma frame, 21.6% of its pixels off the source.
 set -euo pipefail
 raw=$1; from=$2; to=$3; out=$4; crop=${5:-816x1720+69+0}; hold=${6:-2000}
 work="$(mktemp -d "${TMPDIR:-/tmp}/ntts-voices.XXXXXX")"; trap 'rm -rf "$work"' EXIT
@@ -50,7 +51,7 @@ for f in "$work"/f/*.png; do
 done
 echo "list open in $(grep -c ' open' "$work/lists.txt") of $(wc -l <"$work/lists.txt" | tr -d ' ') frames: $(awk '$2=="open"{print $1}' "$work/lists.txt" | sed -n '1p;$p' | tr '\n' ' ')"
 last="$(ls "$work"/f/*.png | tail -1)"
-args=(-loop 0 -near_lossless 40 -kmin 9 -kmax 10)
+args=(-loop 0 -m 6)
 for f in "$work"/f/*.png; do [ "$f" = "$last" ] || args+=(-d 50 "$f"); done
 args+=(-d "$hold" "$last")
 img2webp "${args[@]}" -o "$out" >/dev/null 2>&1
