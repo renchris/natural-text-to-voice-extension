@@ -24,7 +24,36 @@ permission to the local helper only, and it turns every silent failure into a vi
 - **The extension needs Chromium 148 or later** (`minimum_chrome_version`). Every current Chrome, Edge, Brave,
   Opera, Vivaldi, Arc and Dia build is at 152 or later.
 
+### Product (operator rulings of 2026-09-23)
+- **New name: "Natural TTS: Private Kokoro Voices for Mac"** (OD-7). The toolbar tooltip and short name stay
+  "Natural TTS", and the store description fits the 132-character limit.
+- **System voices when the helper is not running** (OD-2). Selections are spoken with Chrome's `chrome.tts`, using
+  local voices only (never a network voice, never a macOS sound-effect voice), and the popup explains how to install
+  the helper for Kokoro voices. Options → "When the helper isn't running" chooses "Use system voices" (the default)
+  or "Show an error". The new `tts` permission adds no install warning.
+- **af_heart is the default voice for new installs** (OD-5), in the helper and the extension. A voice already
+  chosen and stored is left as it is.
+- **Homebrew install** (OD-1). `packaging/homebrew/Formula/natural-tts.rb` builds the helper from source, installs
+  the uv-locked worker environment on python@3.12, prefetches the pinned Kokoro snapshot for offline use, and runs
+  as `brew services start natural-tts`. `packaging/homebrew/publish-tap.sh` publishes it to `renchris/tap`, and
+  only with explicit `--confirm` flags. The popup's install and update notices show the `brew` commands, with a
+  link for users who built from source. The tap is not published yet.
+- **New icon** (OD-10): a speaker with waveform arcs on an indigo tile, from vector masters in `assets/brand/`
+  and rendered by the deterministic `assets/brand/render-icons.sh`. The 16 and 48 px sizes are drawn separately,
+  a 32 px icon now serves Retina toolbars, and a 512 px listing icon is included.
+
 ### Changed: helper
+- **`/speak` status codes say whose fault it was.** A bad request answers 400 with a code (`invalid_speed` for
+  speeds outside 0.25–4.0, `empty_text`, `text_too_long`, `unknown_voice`, `audio_too_long`, `bad_request`).
+  While the engine is down or restarting it answers 503 with `retry_after_seconds: 5`. Everything else is 500.
+- **British voices are warm on the first request.** The worker also warms the British pipeline at startup, so the
+  first `bf_`/`bm_` request takes 0.17 s instead of 1.1–2.6 s. Launch to ready takes about 1–2 s longer.
+- **Long numbers, URLs and hashes are spoken whole.** A run of 16 or more digits is read in groups of three, and
+  an unbroken token longer than 40 characters is split, so a 320-digit number and a 600-character URL are spoken
+  in full (they used to fail or be cut off at 510 phonemes).
+- **Peak memory halved.** The worker caps the MLX buffer cache at 256 MB (`NTTS_MLX_CACHE_LIMIT_MB`). A
+  ~5,000-character request now peaks at ~3.6 GB instead of ~7.9 GB, with no measurable speed cost.
+- **SIGTERM and SIGINT exit cleanly** within 2 s with status 0, and stop the worker first.
 - **Hash-locked Python environment** (`native-helper/python/pyproject.toml` + `uv.lock`). It pins Python 3.12,
   mlx 0.32.2 and mlx-audio 0.5.5. misaki, spaCy and `en_core_web_sm` are declared explicitly, and torch is not
   installed. The old script pinned 3 packages, let ~178 float, and deleted every `*.dist-info`, which broke a fresh
@@ -69,6 +98,12 @@ permission to the local helper only, and it turns every silent failure into a vi
   again after a successful retry.
 - **One voice catalogue** (`src/shared/voices.ts`, 28 voices) is the single source of voice ids and labels.
 - **Production build hygiene.** `console.log`/`info`/`debug` are dropped from `dist`, and no test hooks ship.
+- **The offscreen document starts at the stored helper port**, and the port the helper actually answered on is
+  saved back, so a new offscreen document does not rediscover the helper every time.
+- **Options names a stopped engine** ("The helper's voice engine stopped - restart the helper") and a warming one,
+  instead of "Model not loaded".
+- **Tests.** 60 tests that restated string literals without importing any code are replaced by tests against the
+  real modules.
 - **Toolchain.** The unused vite chain is removed, and the project moves to TypeScript 6, @types/chrome 0.3.0 and
   happy-dom 20. `bun audit` goes from 45 advisories to 0.
 
@@ -97,7 +132,10 @@ permission to the local helper only, and it turns every silent failure into a vi
 - MIT `LICENSE` and `THIRD_PARTY_NOTICES.md`. The GPL/LGPL components (espeak-ng, phonemizer-fork, num2words,
   libsndfile) are installed into the user's own environment and are not redistributed.
 - Verification tooling:
-  - `scripts/verify-all.sh`: the fail-closed integration gate.
+  - `scripts/verify-all.sh`: the fail-closed integration gate. It also asserts this release's product rulings:
+    af_heart as the default on both sides, the warm British first request, the 400 codes, long tokens spoken
+    whole, the run-on pace, the worker's peak memory, a clean SIGTERM, the `tts` permission and store name, the
+    icon's transparent border, the Homebrew formula (`ruby -c`, `brew style`), and the headless end-to-end suite.
   - `native-helper/Scripts/verify-python.sh`, `verify_worker.py`, `kokoro_probe.py`, `verify_g2p.py`, plus
     fidelity reference audio.
   - `chrome-extension/scripts/verify-permissions.cjs` and a headed end-to-end suite (`bun run test:e2e`).
@@ -105,7 +143,8 @@ permission to the local helper only, and it turns every silent failure into a vi
 
 ### Removed
 - The dangling `TTS.cpp` gitlink and its ignore rules.
-- The helper's config `secret`, which was generated but never checked.
+- The helper's config `secret`, which was generated but never checked, and the extension's `X-Secret` header that
+  sent it. A secret left in a 1.4 stored config is dropped on the next save.
 
 ### Previously unlogged: 2026-05-25 (30 commits after the `v1.4.0` tag)
 - Helper: pinned the port to 8249 with fallback and an atomic config write. CORS is restricted to extension
