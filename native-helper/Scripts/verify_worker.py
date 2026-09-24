@@ -5,9 +5,13 @@ Spawns the worker exactly as PythonWorker.swift does (4-byte little-endian lengt
 stdin/stdout, logs on stderr) and asserts:
 
   * an OK response, each a 24 kHz / mono / 16-bit WAV, for every request expected "ok" (af_bella,
-    bf_emma, af_heart, and a 64-digit number that crosses mlx-audio's 510-phoneme warning);
-  * the `empty_text` error for "" and the `invalid_speed` error for speed 0, and an `internal_error:`
-    code (never the exception message) for a 320-digit number that makes num2words raise;
+    bf_emma, af_heart, a 64-digit card number, and the long-token set below);
+  * long tokens (normalize_text's break_long_tokens): a 320-digit number (num2words used to raise
+    OverflowError on it) and a 600-character URL (one token cut at 510 phonemes) are spoken whole, at
+    the same seconds-per-character as a tenth of them; a 250-word run-on sentence with no punctuation
+    is spoken at a normal words-per-second rate, not truncated;
+  * the `empty_text` error for "" and the `invalid_speed` error for speed 0, and (in-process, stub
+    model) an `internal_error:` code that never carries the exception message;
   * privacy: every stderr line comes from the worker's own "[worker] " logger, with no phoneme dump
     and no request text;
   * no stray bytes on stdout after the last frame, and exit code 0 on stdin EOF;
@@ -43,10 +47,24 @@ SENTINEL = (
 # bundled libespeak-ng falls back to its compiled-in CI path and the first request kills the worker.
 ESPEAK_DATA_PATH = "/opt/homebrew/opt/espeak-ng/share/espeak-ng-data"
 
-LONG_TOKEN = "4111" * 16  # 64 digits: ~950 phonemes, one chunk
+LONG_TOKEN = "4111" * 16  # 64 digits: ~977 phonemes as one misaki token before break_long_tokens
 LONG_TOKEN_TEXT = f"My card number is {LONG_TOKEN} and my PIN is 9876."
 OVERFLOW_TOKEN = "7" * 320
 OVERFLOW_TEXT = f"The modulus is {OVERFLOW_TOKEN} and that is all."
+# Long-token set: each long text is paired with a tenth of it, read the same way, so seconds per character
+# must match; a token cut at 510 phonemes (or dropped) reads the long one far faster.
+DIGITS_LONG = "7" * 320
+DIGITS_SHORT = "7" * 32
+URL_LONG = ("https://docs.example.com/" + "chapter-7/section-42/item-913?view=full&lang=en/" * 13)[:600]
+URL_SHORT = URL_LONG[:60]
+RUN_ON_WORDS = 250
+RUN_ON = " ".join(
+    ("the quick brown fox jumps over the lazy dog while seven " "tired painters carry heavy ladders home").split()
+    * 20
+)
+RUN_ON = " ".join(RUN_ON.split()[:RUN_ON_WORDS])
+RATE_BAND = (0.6, 1.6)  # long/short seconds-per-character ratio
+WPS_BAND = (1.8, 4.5)  # words per second at speed 1.0
 WORKER_LINE_PREFIX = "[worker] "  # PythonWorker.swift logs only lines with this prefix at info
 
 REQUESTS = [
@@ -79,10 +97,45 @@ REQUESTS = [
     # Privacy: one token over 510 phonemes made mlx-audio log the whole phoneme string (the number,
     # spelled out) through the root logger, which reached the helper log.
     ({"text": LONG_TOKEN_TEXT, "voice": "af_bella", "speed": 1.0}, "ok"),
-    # Privacy: a 320-digit number makes num2words raise OverflowError quoting the number. The worker
-    # must answer with a code, never str(e).
-    ({"text": OVERFLOW_TEXT, "voice": "af_bella", "speed": 1.0}, "internal_error"),
+    # A 320-digit number used to make num2words raise OverflowError quoting the number; it is now read in
+    # groups of three. Privacy still holds: no digit run reaches stderr.
+    ({"text": OVERFLOW_TEXT, "voice": "af_bella", "speed": 1.0}, "ok"),
+    ({"text": DIGITS_SHORT, "voice": "af_heart", "speed": 1.0}, "ok"),
+    ({"text": DIGITS_LONG, "voice": "af_heart", "speed": 1.0}, "ok"),
+    ({"text": URL_SHORT, "voice": "af_heart", "speed": 1.0}, "ok"),
+    ({"text": URL_LONG, "voice": "af_heart", "speed": 1.0}, "ok"),
+    ({"text": RUN_ON, "voice": "af_heart", "speed": 1.0}, "ok"),
 ]
+
+
+def long_token_checks(durations, check):
+    """Seconds per character of each long text against a tenth of it, and words per second of the run-on."""
+
+    def rate(text):
+        return durations[text] / len(text)
+
+    for label, long_text, short_text in (
+        ("320-digit number", DIGITS_LONG, DIGITS_SHORT),
+        ("600-char URL", URL_LONG, URL_SHORT),
+    ):
+        if long_text not in durations or short_text not in durations:
+            check(False, f"{label}: no audio to measure")
+            continue
+        ratio = rate(long_text) / rate(short_text)
+        print(
+            f"LONG {label}: {durations[long_text]:.1f}s for {len(long_text)} chars vs "
+            f"{durations[short_text]:.1f}s for {len(short_text)} -> per-char ratio {ratio:.2f}"
+        )
+        check(
+            RATE_BAND[0] <= ratio <= RATE_BAND[1],
+            f"{label}: per-character duration ratio {ratio:.2f} outside {RATE_BAND} (truncated or dropped?)",
+        )
+    if RUN_ON not in durations:
+        check(False, "run-on sentence: no audio to measure")
+        return
+    wps = RUN_ON_WORDS / durations[RUN_ON]
+    print(f"LONG run-on: {RUN_ON_WORDS} words in {durations[RUN_ON]:.1f}s -> {wps:.2f} words/s")
+    check(WPS_BAND[0] <= wps <= WPS_BAND[1], f"run-on sentence: {wps:.2f} words/s outside {WPS_BAND}")
 
 
 def bounds_phase(py, worker, env, check):
@@ -165,6 +218,19 @@ def guard_phase(worker, check):
 
         def generate(self, text, **kwargs):
             yield Chunk(self.audio)
+
+    # Privacy: an exception whose message quotes the input (num2words' OverflowError did) is answered with
+    # its type only, never str(e).
+    class RaisingModel:
+        def generate(self, text, **kwargs):
+            raise OverflowError(f"abs({OVERFLOW_TOKEN}) must be less than 10**3003")
+            yield
+
+    mod._model_cache = RaisingModel()
+    r = mod.generate_audio_mlx("Guard test.", "af_bella", 1.0)
+    print(f"GUARD raise -> {r}")
+    check(r == {"error": "internal_error: OverflowError"}, f"a raising model gave {r!r}, want internal_error: OverflowError")
+    check(OVERFLOW_TOKEN[:16] not in json.dumps(r), "an internal_error response quotes the exception message")
 
     tone = (0.3 * np.sin(np.linspace(0, 200, 24000))).astype(np.float32)
     for label, buf, want in (
@@ -313,6 +379,7 @@ def main():
             return json.loads(p.stdout.read(n))
 
         ok_voices = []
+        durations = {}
         for req, expect in REQUESTS:
             t = time.time()
             try:
@@ -349,6 +416,7 @@ def main():
                 check(frames > 0, f"voice={req['voice']} returned 0 frames")
                 if expect == "ok":
                     ok_voices.append(req["voice"])
+                    durations[req["text"]] = frames / sr
             else:
                 shown = {k: (v[:80] + "…" if isinstance(v, str) and len(v) > 80 else v) for k, v in resp.items()}
                 print(f"ERR voice={req.get('voice')} -> {shown}  latency={dt:.2f}s")
@@ -378,6 +446,7 @@ def main():
 
     want_ok = [req["voice"] for req, expect in REQUESTS if expect == "ok"]
     check(ok_voices == want_ok, f"OK voices {ok_voices}, want {want_ok}")
+    long_token_checks(durations, check)
     # Privacy: stderr is what the helper forwards to its log. Every line must come from the worker's own
     # logger, and none may carry the request text or its phoneme transcription.
     lines = [line for line in stderr.splitlines() if line.strip()]

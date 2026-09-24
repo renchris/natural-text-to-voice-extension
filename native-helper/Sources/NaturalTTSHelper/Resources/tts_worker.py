@@ -16,6 +16,7 @@ os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 import sys
 import json
 import math
+import re
 import base64
 import logging
 from io import BytesIO
@@ -243,16 +244,67 @@ def load_mlx_model():
 PROTECTED_PUNCTUATION = "’‘“”—–…"
 
 
+# Long-token budget. Kokoro reads at most 510 phonemes per chunk, and mlx-audio's English chunker
+# (kokoro/pipeline.py en_tokenize) only breaks BETWEEN misaki tokens, so one token over 510 phonemes was cut
+# at 510 (the rest silently dropped) or, for a number past num2words' range, raised OverflowError (HTTP 500).
+# Measured with misaki as mlx-audio builds it: a digit run costs up to ~13.5 phonemes per digit (16 digits =
+# 159, 24 = 324, 64 = 977; 320 raises), any other character at most ~8 ("W" = "double-u", "%" = "percent"),
+# so a 40-character run stays under ~450 phonemes whatever it holds once its digit runs are grouped.
+# Digit runs this long or longer are read in groups of three (a quantity past the quadrillions is not
+# read as one number anyway: 32 digits came out as "... ENONILLION ...").
+DIGIT_GROUP_MIN = 16
+# Whitespace-free runs longer than this are broken at their punctuation ...
+LONG_RUN = 40
+# ... and letter/digit stretches still longer than this, every PIECE characters.
+PIECE = 20
+
+
+def _group_digits(match):
+    """"4111111111111111" -> "411 111 111 111 111 1". A group's leading zeros are spoken one by one ("012" alone
+    reads "twelve", "000" reads "zero"): "100000007" -> "100 0 0 0 0 0 7". Every digit is still spoken."""
+    words = []
+    digits = match.group(0)
+    for i in range(0, len(digits), 3):
+        group = digits[i : i + 3]
+        rest = group.lstrip("0")
+        words.extend("0" * (len(group) - len(rest)))
+        if rest:
+            words.append(rest)
+    return " ".join(words)
+
+
+def _break_long_run(match):
+    """Split an over-long whitespace-free run (a URL, a hash, a base64 blob) into short tokens. Each
+    punctuation character stands alone, where misaki still reads it ("/" -> slash, "=" -> equals, "&" ->
+    and; "." and "-" become a pause, as they already were inside a URL). No letter or digit is dropped."""
+    run = match.group(0)
+    words = []
+    for part in re.split(r"([^A-Za-z0-9])", run):
+        if len(part) > PIECE:
+            words.extend(part[i : i + PIECE] for i in range(0, len(part), PIECE))
+        elif part:
+            words.append(part)
+    return " ".join(words)
+
+
+def break_long_tokens(text):
+    """Keep every misaki token under Kokoro's 510-phoneme chunk budget without dropping content: digit runs
+    of DIGIT_GROUP_MIN or more are grouped in threes, then runs over LONG_RUN characters are broken at
+    punctuation and every PIECE characters. Ordinary words, numbers and short URLs are untouched."""
+    text = re.sub(r"\d{%d,}" % DIGIT_GROUP_MIN, _group_digits, text)
+    return re.sub(r"\S{%d,}" % (LONG_RUN + 1), _break_long_run, text)
+
+
 def normalize_text(text):
     """Normalize Unicode text for better TTS pronunciation.
 
     The 7 PROTECTED_PUNCTUATION characters pass through unchanged. Every other segment gets the
     NFKD + ASCII fold, which turns formatted/mathematical Unicode into ASCII (𝚟𝚒𝚝𝚎 -> vite) and still
     drops emoji, CJK, Cyrillic and Arabic. Whitespace, including newlines (PDF selections break every
-    line), collapses to single spaces.
+    line), collapses to single spaces. Finally break_long_tokens() splits any token that would overflow
+    Kokoro's 510-phoneme chunk (a very long number, URL or hash).
     """
     import unicodedata
-    import re
 
     parts = re.split("([" + PROTECTED_PUNCTUATION + "])", text)
     folded = "".join(
@@ -265,7 +317,7 @@ def normalize_text(text):
     )
 
     # Clean up any excessive whitespace
-    return re.sub(r"\s+", " ", folded).strip()
+    return break_long_tokens(re.sub(r"\s+", " ", folded).strip())
 
 
 def parse_speed(value):
