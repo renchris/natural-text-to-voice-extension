@@ -1,0 +1,73 @@
+# Media provenance
+
+Every sound in the Natural TTS README and store media is real output of the Natural TTS helper, for the exact
+text shown on screen, in the voice and at the speed shown on screen. Nothing is re-voiced, edited or
+synthesised any other way. This file records how each clip was made, so anyone can check it and remake it.
+
+## Demo content
+
+| File | What it is |
+|---|---|
+| `src/article.html` | The demo web page, "The Long Habit of Reading Aloud". Original prose written for this project, byline "Natural TTS demo". No third-party text, images, trademarks or web fonts (system fonts only: Iowan Old Style for the body, the system sans for labels), so it renders the same offline |
+| `src/article.pdf` | The same article as a one-page US Letter PDF, printed by Chrome's own PDF printer (`src/render-pdf.sh`: chrome-headless-shell 153, Skia/PDF m153). The body text is set with real ligature glyphs: "fl" in *flicker* and *flows*, "fi" in *finishing* and *fills*, "ffi" in *difficult* (5 in all, counted by the script). Skia's text layer maps each glyph back to plain letters |
+| `src/selections.json` | The exact text of every clip, with its voice, speed and the scene it is for |
+| `src/make-audio.mjs` | Launches its own helper, speaks every selection through `POST /speak`, saves each response body unmodified, and writes `src/audio/manifest.json` (duration, format, sha256, identity). `--check` confirms, with no helper, that every text is still verbatim in the article and every WAV still matches the manifest |
+
+## Clips
+
+Common to every clip:
+
+- **Model:** `prince-canuma/Kokoro-82M` at pinned revision `e02c9eada7ce7416798af36b190a8a2dd2ecd566` (MLX, Apache-2.0)
+- **Runtime:** Natural TTS helper 1.5.0, built from git `9186b17fac62b0a35faee148b99c4a7874d178a3` with
+  `swift build -c release`, clean tree; Python worker with mlx 0.32.2 and mlx-audio 0.5.5
+- **Machine:** Apple M1 Max, macOS 15.7.9
+- **Date:** 2026-09-24 04:54 UTC (2026-09-23 local)
+- **Format:** WAV, 24 kHz, mono, 16-bit PCM, exactly as the helper returned it
+- **Request:** `POST http://127.0.0.1:<port>/speak` with `{"text", "voice", "speed"}`, one clip per request
+
+| Clip | Voice | Speed | Length | Exact text | Used in |
+|---|---|---|---|---|---|
+| `src/audio/hero.wav` | `af_heart` (Heart, US) | 1.0× | 15.58 s | Reading aloud never really left us. It moved into kitchens and classrooms, into the flicker of a bedside lamp, into the patient voice of a parent finishing one more chapter. A story spoken is a story shared, and the listener fills in the rest. | README hero video: the whole second paragraph is selected, right-click, "Speak selected text" |
+| `src/audio/s1-rightclick.wav` | `af_heart` | 1.0× | 5.78 s | The silent reader, eyes moving and lips still, was once rare enough to be remarked upon. | Store video, scene 2 (right-click on the article) |
+| `src/audio/s2-british.wav` | `bf_emma` (Emma, UK) | 1.0× | 7.13 s | Scribes murmured as they copied, and a letter that arrived in a village was often read to everyone who gathered to hear it. | Store video, scene 3a (a British voice chosen in the popup) |
+| `src/audio/s3-speed.wav` | `bf_emma` | 1.3× | 3.78 s | Listening turned long shifts into something closer to a shared education. | Store video, scene 3b (speed raised to 1.3× in the popup) |
+| `src/audio/s4-pdf.wav` | `af_heart` | 1.0× | 7.65 s | A voice gives a page its pace, lets tired eyes rest, and turns a difficult paragraph into one that simply flows. | Store video, scene 4 (the same sentence selected in `article.pdf`; the selection crosses the "ffi" and "fl" ligatures, and this is the text the extension sends once ligatures are expanded) |
+| `src/audio/s5-offline.wav` | `af_heart` | 1.0× | 6.98 s | The tools keep changing, from the lectern to the radio to the speaker on a desk, but the pleasure stays the same. | Store video, scene 5 (speaking again with no network connection) |
+
+The sha256 of each committed file is in `src/audio/manifest.json`. Kokoro draws random phase, so a re-run
+sounds the same but is not byte-identical; the manifest identifies these particular takes.
+
+**Checked after generation.** A local speech recogniser (Parakeet TDT 0.6B v3 in whisper.cpp 1.9.1)
+transcribed all six clips back to their exact text, word for word and with the same punctuation. Peak levels
+are −5.1 to −8.7 dBFS (no clipping); each clip ends in 0.44–0.74 s of silence.
+
+## How each video's audio is produced
+
+The screen is recorded without its audio track (`scripts/capture/sckrec`, inclusion filter). The clip above
+for that scene is then muxed in at the moment the driver clicked "Speak selected text", with the offset set by
+cross-correlating the clip against a live recording of the same take (research measured a constant lag of
++0.93–1.00 s between click and sound). The audio stream is re-encoded to AAC for MP4 and never otherwise
+changed: no music, no gain edits, no cuts inside a clip. See `scripts/capture/README.md` and
+`docs/research/2026-09-upgrade/UPGRADE_RESEARCH.md` §12.
+
+- **README hero MP4:** `hero.wav` only.
+- **Store / YouTube video:** `s1-rightclick.wav`, `s2-british.wav`, `s3-speed.wav`, `s4-pdf.wav`,
+  `s5-offline.wav` in that order, each under its own scene; title and end cards are silent.
+- **Silent GIF loops and still images:** no audio.
+
+When a finished video is produced, add a line here naming the video file, the clips it uses and their
+offsets.
+
+## Remaking the clips
+
+```bash
+cd native-helper && swift build -c release && cd ..
+node assets/media/src/make-audio.mjs --port 18249          # a free port; the script starts and stops its own helper
+node assets/media/src/make-audio.mjs --check
+assets/media/src/render-pdf.sh                              # only if article.html changed
+```
+
+`make-audio.mjs` always passes `--port`, `--python` and `--worker` to the helper, so it never reads or writes
+the shared `~/Library/Application Support/NaturalTTS/config.json`, and it refuses a port that is already in use.
+If you change a sentence in `article.html`, change it in `selections.json` too, then remake the clips and update
+this file.
