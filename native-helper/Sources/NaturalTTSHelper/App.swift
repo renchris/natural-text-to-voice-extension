@@ -32,6 +32,10 @@ struct NaturalTTSHelper {
             exit(2)
         }
 
+        // SIGTERM/SIGINT from here on: a bounded, clean exit (Shutdown.swift).
+        let shutdown = ShutdownController(logger: logger)
+        shutdown.install()
+
         logger.info("Natural TTS Helper \(HelperInfo.version) (API \(HelperInfo.apiVersion)) starting...")
         logger.info("Metal GPU-accelerated TTS with MLX Kokoro-82M")
 
@@ -69,6 +73,7 @@ struct NaturalTTSHelper {
             // 2. Start Python worker subprocess
             logger.info("Starting Python MLX worker...")
             let worker = PythonWorker(config: config)
+            shutdown.register(worker: worker)
             try await worker.start()
 
             // 3. Wait for model to load (with timeout)
@@ -79,6 +84,7 @@ struct NaturalTTSHelper {
             // 4. Start HTTP server
             logger.info("Starting HTTP server...")
             let server = HTTPServer(config: config, worker: worker)
+            shutdown.register(server: server)
             try await server.start()
 
             // 5. Save config for extension discovery (never the shared file when
@@ -97,36 +103,13 @@ struct NaturalTTSHelper {
             logger.info("Model: Kokoro-82M (MLX Metal)")
             logger.info("================================")
 
-            // 7. Set up signal handling for graceful shutdown
-            let signalSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-            signalSource.setEventHandler {
-                logger.info("Received SIGTERM, shutting down gracefully...")
-                Task {
-                    await server.shutdown()
-                    await worker.shutdown()
-                    exit(0)
-                }
-            }
-            signalSource.resume()
-            signal(SIGTERM, SIG_IGN)
-
-            // Handle SIGINT (Ctrl+C)
-            let intSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
-            intSource.setEventHandler {
-                logger.info("Received SIGINT, shutting down gracefully...")
-                Task {
-                    await server.shutdown()
-                    await worker.shutdown()
-                    exit(0)
-                }
-            }
-            intSource.resume()
-            signal(SIGINT, SIG_IGN)
-
-            // 8. Run server (blocks until shutdown)
+            // 7. Run server (blocks until the listener closes). On a signal the
+            //    controller finishes stopping the worker and exits the process.
             try await server.run()
+            if shutdown.inProgress { await shutdown.parkUntilExit() }
 
         } catch {
+            if shutdown.inProgress { await shutdown.parkUntilExit() }
             logger.error("Fatal error: \(error)")
             logger.error("Helper failed to start")
             exit(1)

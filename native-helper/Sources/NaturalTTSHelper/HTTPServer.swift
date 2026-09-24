@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Logging
 import NIOCore
 import NIOPosix
@@ -25,7 +26,11 @@ actor HTTPServer {
     static let speedRange: ClosedRange<Double> = 0.25...4.0
 
     private var channel: Channel?
-    private var eventLoopGroup: MultiThreadedEventLoopGroup?
+    /// The listening channel and the event loops, reachable without entering
+    /// the actor so the signal path can stop them (stopListening,
+    /// shutdownEventLoops) whatever the actor is doing.
+    private nonisolated let listener = OSAllocatedUnfairLock<Channel?>(initialState: nil)
+    private nonisolated let loops = OSAllocatedUnfairLock<MultiThreadedEventLoopGroup?>(initialState: nil)
     private var requestCount = 0
     private let startTime = Date()
 
@@ -39,7 +44,7 @@ actor HTTPServer {
         logger.info("Starting HTTP server on 127.0.0.1:\(config.port)")
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-        self.eventLoopGroup = group
+        loops.withLock { $0 = group }
 
         let bootstrap = ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
@@ -59,9 +64,11 @@ actor HTTPServer {
         do {
             let channel = try await bootstrap.bind(host: "127.0.0.1", port: config.port).get()
             self.channel = channel
+            listener.withLock { $0 = channel }
             logger.info("HTTP server started successfully")
         } catch {
             logger.error("Failed to start HTTP server: \(error)")
+            loops.withLock { $0 = nil }
             try await group.shutdownGracefully()
             throw error
         }
@@ -78,18 +85,25 @@ actor HTTPServer {
         try await channel.closeFuture.get()
     }
 
-    func shutdown() async {
+    /// Stops accepting connections. Does not wait; run() returns once the
+    /// listener has closed. Nonisolated: callable from the signal path.
+    nonisolated func stopListening() {
         logger.info("Shutting down HTTP server")
+        listener.withLock { $0 }?.close(promise: nil)
+    }
 
-        if let channel = channel {
-            try? await channel.close()
+    /// Shuts the event loops down, waiting at most `timeout`. Blocking; call
+    /// it from the exit path, never from an event loop. The old async
+    /// shutdown awaited this without a bound.
+    nonisolated func shutdownEventLoops(timeout: TimeInterval) {
+        guard let group = loops.withLock({ $0 }) else { return }
+        let done = DispatchSemaphore(value: 0)
+        group.shutdownGracefully(queue: .global()) { _ in done.signal() }
+        if done.wait(timeout: .now() + timeout) == .success {
+            logger.info("HTTP server shut down")
+        } else {
+            logger.warning("HTTP event loops still busy after \(timeout)s; exiting anyway")
         }
-
-        if let group = eventLoopGroup {
-            try? await group.shutdownGracefully()
-        }
-
-        logger.info("HTTP server shut down")
     }
 
     // MARK: - Request Handling

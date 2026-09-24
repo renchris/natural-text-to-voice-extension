@@ -2,6 +2,13 @@ import Foundation
 import Logging
 import os
 
+/// The running worker process as the exit path sees it, without entering
+/// the actor (which can sit in a blocking read for a whole synthesis).
+struct LiveWorkerProcess: @unchecked Sendable {
+    let pid: pid_t
+    let stdin: FileHandle
+}
+
 /// The worker's state as /health reports it.
 enum WorkerHealth: Sendable {
     /// Loading or reloading the model ("warming").
@@ -38,7 +45,16 @@ actor PythonWorker {
     /// generation they were started with, so a worker this actor replaced on
     /// purpose (recycle) cannot mark the new one warm or trigger a restart.
     private var generation = 0
-    private var shuttingDown = false
+
+    /// Set once the helper is exiting (stopForExit). Nonisolated so the
+    /// signal path can set it while generate() holds the actor: from then on
+    /// neither a worker exit nor a broken pipe starts a new worker.
+    nonisolated let stopping = OSAllocatedUnfairLock(initialState: false)
+    private var shuttingDown: Bool { stopping.withLock { $0 } }
+
+    /// The current worker process (nil when none runs). Set by start(),
+    /// cleared by that process's terminationHandler.
+    nonisolated let live = OSAllocatedUnfairLock<LiveWorkerProcess?>(initialState: nil)
 
     /// Crash-loop bound: an unexpected worker exit is restarted unless this
     /// many exits already happened within crashWindow (then health = failed).
@@ -68,6 +84,7 @@ actor PythonWorker {
     }
 
     func start() async throws {
+        guard !shuttingDown else { throw WorkerError.processNotRunning }
         logger.info("Starting Python worker subprocess")
         generation += 1
         let generation = self.generation
@@ -132,8 +149,13 @@ actor PythonWorker {
             }
         }
 
-        // Monitor process termination
+        // Monitor process termination. `live` is cleared here, outside the
+        // actor, so the exit path sees the worker gone even while the actor is
+        // blocked in a read.
+        let live = self.live
         process.terminationHandler = { [weak self] process in
+            let pid = process.processIdentifier
+            live.withLock { if $0?.pid == pid { $0 = nil } }
             Task {
                 await self?.handleTermination(exitCode: process.terminationStatus, generation: generation)
             }
@@ -141,6 +163,9 @@ actor PythonWorker {
 
         do {
             try process.run()
+            live.withLock {
+                $0 = LiveWorkerProcess(pid: process.processIdentifier, stdin: stdinPipe.fileHandleForWriting)
+            }
             self.process = process
             self.stdin = stdinPipe
             self.stdout = stdoutPipe
@@ -252,36 +277,59 @@ actor PythonWorker {
         healthState == .ready
     }
 
-    func shutdown() async {
-        logger.info("Shutting down Python worker")
-        shuttingDown = true
-
-        // Send shutdown signal (empty message)
-        if let stdin = stdin {
-            let zero: UInt32 = 0
-            withUnsafeBytes(of: zero.littleEndian) { bytes in
-                stdin.fileHandleForWriting.write(Data(bytes))
-            }
-            try? stdin.fileHandleForWriting.close()
+    /// Stops the worker for good, within ~1.5 s, without entering the actor:
+    /// generate() holds the actor through a blocking read for a whole
+    /// synthesis, so an actor-isolated shutdown waited behind it. Blocking;
+    /// call it from the exit path, never from the actor or an event loop.
+    ///
+    /// 1. The protocol's shutdown frame (length 0): an idle worker logs
+    ///    "Received shutdown signal" and exits 0 at once.
+    /// 2. A worker still synthesising gets SIGTERM, then SIGKILL.
+    /// Nothing restarts it afterwards (`stopping`).
+    nonisolated func stopForExit() {
+        stopping.withLock { $0 = true }
+        defer { try? FileManager.default.removeItem(at: cancelURL) }
+        guard let worker = live.withLock({ $0 }) else {
+            logger.info("Python worker already stopped")
+            return
         }
+        logger.info("Stopping Python worker (PID: \(worker.pid))")
 
-        // Wait for graceful shutdown
-        if let process = process, process.isRunning {
-            try? await Task.sleep(for: .seconds(2))
-
-            if process.isRunning {
-                process.terminate()
-                logger.warning("Forcefully terminated Python worker")
-            }
+        // Not closed: the actor may still hold this handle, and a write to a
+        // closed FileHandle raises instead of throwing.
+        try? worker.stdin.write(contentsOf: Data(count: 4))
+        if waitForExit(worker.pid, seconds: 0.8) {
+            logger.info("Python worker exited")
+            return
         }
+        kill(worker.pid, SIGTERM)
+        if waitForExit(worker.pid, seconds: 0.5) {
+            logger.warning("Python worker was busy; stopped it with SIGTERM")
+            return
+        }
+        kill(worker.pid, SIGKILL)
+        _ = waitForExit(worker.pid, seconds: 0.2)
+        logger.warning("Python worker did not stop on SIGTERM; killed it")
+    }
 
-        self.process = nil
-        self.stdin = nil
-        self.stdout = nil
-        self.stderr = nil
-        self.isWarm = false
-        health.withLock { $0 = .starting }
-        try? FileManager.default.removeItem(at: cancelURL)
+    /// Last resort for the exit watchdog: SIGKILL the worker, no waiting.
+    nonisolated func killForExit() {
+        stopping.withLock { $0 = true }
+        if let worker = live.withLock({ $0 }) {
+            kill(worker.pid, SIGKILL)
+        }
+    }
+
+    /// True once `pid` has exited: its terminationHandler cleared `live`, or
+    /// the process no longer exists.
+    private nonisolated func waitForExit(_ pid: pid_t, seconds: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        repeat {
+            if live.withLock({ $0?.pid != pid }) { return true }
+            if kill(pid, 0) != 0 && errno == ESRCH { return true }
+            usleep(20_000)
+        } while Date() < deadline
+        return false
     }
 
     // MARK: - Private Methods
@@ -294,7 +342,7 @@ actor PythonWorker {
     }
 
     private func ensureRunning() async throws {
-        guard let process = process, process.isRunning else {
+        guard !shuttingDown, let process = process, process.isRunning else {
             logger.error("Python worker process not running")
             throw WorkerError.processNotRunning
         }
@@ -309,6 +357,8 @@ actor PythonWorker {
     /// failed write). Not counted as a crash: the next request gets a fresh,
     /// in-sync worker once it has warmed up; until then /health says "warming".
     private func recycle(reason: String) async {
+        // Exiting: stopForExit owns the worker, and a broken pipe is expected.
+        guard !shuttingDown else { return }
         logger.error("Replacing the Python worker: \(reason)")
         let old = process
         generation += 1 // callbacks from the old worker are ignored from here on
