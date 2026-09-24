@@ -14,8 +14,8 @@ and zoom results have **not** been re-run on 1.5.0. Treat this as a self-assessm
 
 The popup and options pages use native controls, labelled form fields, visible focus rings, live regions whose
 urgency follows the message's severity, and `prefers-reduced-motion`. Two text colours fall just short of
-the 4.5:1 AA contrast ratio, and the popup's log-scale slider appears not to move with arrow keys; the − and +
-buttons beside it do the same job from the keyboard. See [Known issues](#known-issues).
+the 4.5:1 AA contrast ratio, and the popup's log-scale slider does not move with arrow keys (PageUp/PageDown and
+the − and + buttons beside it do the same job from the keyboard). See [Known issues](#known-issues).
 
 **Key Strengths**:
 - Native `<button>`, `<select>` and `<input type="range">` everywhere; no div-buttons
@@ -206,11 +206,12 @@ These are the open items for the next review; `TESTING_CHECKLIST.md` §6.2-6.3 l
    lowering the pill's background tint, would clear it.
 2. **Info message contrast, 4.21:1** with the `oklch()` primary (the `#3D4ED7` fallback would give a higher
    ratio). The info style also tints its background with `#1A73E8`, an older blue, rather than the primary.
-3. **Popup slider and arrow keys** (from reading the code; not yet confirmed in a browser). The slider's range
-   is a 0-1 position with `step="0.001"`, and `handleSpeedChange` snaps every input to the nearest 0.1×. One
-   arrow press moves the position by 0.001, which rounds back to the same speed, so the thumb is likely to stay
-   put. The − and + buttons step by 0.1× and are keyboard-operable, so speed remains adjustable (WCAG 2.1.1
-   still holds); the options page slider is linear and unaffected.
+3. **Popup slider and arrow keys** (confirmed in headless Chromium 153 against the built popup, 2026-09-24).
+   The slider's range is a 0-1 position with `step="0.001"`, and `handleSpeedChange` snaps every input to the
+   nearest 0.1×. An arrow press moves the position by 0.001, which rounds back to the same speed: five
+   ArrowRight presses left it at 1.0×. PageUp/PageDown (a tenth of the range) do move it, by about 0.1×, and the
+   − and + buttons step by 0.1× from the keyboard, so speed remains adjustable (WCAG 2.1.1 still holds). The
+   options page slider is linear and unaffected.
 4. **Options status dot** has an `aria-label` but no role, so the label is not exposed; the text beside it is.
 
 ---
