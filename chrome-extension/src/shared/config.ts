@@ -39,6 +39,43 @@ export async function isHelperHealth(response: { ok: boolean; json: () => Promis
   }
 }
 
+/** A TCP port number a helper could listen on. */
+export function isValidPort(port: unknown): port is number {
+  return typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65535;
+}
+
+/**
+ * The helper port saved in chrome.storage.local (by discovery, or by the
+ * service worker after the offscreen document found the helper), or
+ * undefined when none is saved or storage is unavailable. The service worker
+ * sends it with each speak request, because the offscreen document has no
+ * chrome.storage of its own.
+ */
+export async function getStoredPort(): Promise<number | undefined> {
+  try {
+    const result = await chrome.storage.local.get<Record<string, Partial<HelperConfig> | undefined>>(STORAGE_KEY);
+    const port = result[STORAGE_KEY]?.port;
+    return isValidPort(port) ? port : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Save a port the helper was found on, keeping the rest of the stored config.
+ */
+export async function saveHelperPort(port: number): Promise<void> {
+  if (!isValidPort(port)) return;
+  let stored: Partial<HelperConfig> | undefined;
+  try {
+    const result = await chrome.storage.local.get<Record<string, Partial<HelperConfig> | undefined>>(STORAGE_KEY);
+    stored = result[STORAGE_KEY];
+  } catch {
+    stored = undefined;
+  }
+  await saveConfig({ default_voice: DEFAULT_VOICE, ...stored, port });
+}
+
 /**
  * Get the config file path (macOS only for now)
  * Note: Chrome extensions cannot directly read files from the filesystem
@@ -153,16 +190,19 @@ export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Pr
 
 /**
  * Get configuration with auto-discovery fallback
- * 1. Tries to load from storage
- * 2. If no stored config or connection fails, attempts discovery
+ * 1. Tries the preferred port (the stored port the service worker passed to
+ *    the offscreen document), else the port stored in chrome.storage
+ * 2. Keeps it only if its /health identifies the helper (SEC-03); otherwise,
+ *    or if nothing answers, attempts discovery
  * 3. Throws ConfigNotFoundError if helper cannot be found
  */
-export async function getConfig(): Promise<Partial<HelperConfig>> {
-  // Try stored config first
-  const storedConfig = await getStoredConfig();
+export async function getConfig(preferredPort?: number): Promise<Partial<HelperConfig>> {
+  const storedConfig: Partial<HelperConfig> = isValidPort(preferredPort)
+    ? { port: preferredPort, secret: '', default_voice: DEFAULT_VOICE }
+    : await getStoredConfig();
 
   if (storedConfig.port) {
-    // Verify the stored port is still valid
+    // Verify the port still serves the helper, not some other local service
     try {
       const response = await fetch(`http://127.0.0.1:${storedConfig.port}/health`, {
         method: 'GET',

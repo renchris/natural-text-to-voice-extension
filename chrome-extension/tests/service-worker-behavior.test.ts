@@ -132,7 +132,7 @@ beforeEach(() => {
   storedSettings = { selectedVoice: 'af_nicole', selectedSpeed: 1.25 };
 });
 
-function speakMessages(): Array<{ type: string; text: string; voice: string; speed: number }> {
+function speakMessages(): Array<{ type: string; text: string; voice: string; speed: number; port?: number }> {
   return sendMessage.mock.calls
     .map(call => call[0] as any)
     .filter(message => message.type === 'SPEAK_IN_OFFSCREEN');
@@ -603,5 +603,49 @@ describe('system-voice fallback when the helper is unavailable (OD-2)', () => {
     const { response } = await onMessage({ type: 'SPEAK_WITH_SYSTEM_VOICE', text: 'From the popup', voice: 'af_heart', speed: 1 });
     expect((response as { type: string }).type).toBe('SPEAK_ERROR');
     expect(setBadgeText).not.toHaveBeenCalled();
+  });
+});
+
+describe('the helper port, passed to the offscreen document', () => {
+  const setCalls = () => (mockChrome.storage.local.set as any).mock.calls.map((call: unknown[]) => call[0]);
+  const click = () => listeners['contextMenus.onClicked'](
+    { menuItemId: 'natural-tts-speak-selection', selectionText: 'Read this', pageUrl: 'https://example.com/' },
+    { id: 7 }
+  );
+
+  beforeEach(() => {
+    (mockChrome.storage.local.set as any).mockClear();
+    pageSelection = 'Read this';
+  });
+
+  test('the stored port rides on the speak message (the offscreen document has no chrome.storage)', async () => {
+    storedSettings = { ...storedSettings, native_tts_helper_config: { port: 8251, default_voice: 'af_heart' } };
+    await click();
+    expect(speakMessages()).toEqual([
+      { type: 'SPEAK_IN_OFFSCREEN', text: 'Read this', voice: 'af_nicole', speed: 1.25, port: 8251 },
+    ]);
+    expect(setCalls()).toEqual([]);
+  });
+
+  test('no stored port: the message carries none, and the offscreen document discovers it', async () => {
+    await click();
+    expect(speakMessages()[0]).not.toHaveProperty('port');
+  });
+
+  test('a helper found on another port is saved for the next request', async () => {
+    storedSettings = { ...storedSettings, native_tts_helper_config: { port: 8251, default_voice: 'af_heart' } };
+    sendMessage.mockImplementation(async (message: { type: string }) =>
+      message.type === 'SPEAK_IN_OFFSCREEN' ? { type: 'SPEAK_STARTED', success: true, port: 8253 } : undefined
+    );
+    await click();
+    expect(setCalls()).toEqual([{ native_tts_helper_config: { port: 8253, default_voice: 'af_heart' } }]);
+  });
+
+  test('a failed request saves nothing', async () => {
+    sendMessage.mockImplementation(async (message: { type: string }) =>
+      message.type === 'SPEAK_IN_OFFSCREEN' ? { type: 'SPEAK_ERROR', success: false, error: 'x', port: 8253 } : undefined
+    );
+    await click();
+    expect(setCalls()).toEqual([]);
   });
 });

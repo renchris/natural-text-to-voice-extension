@@ -120,6 +120,12 @@ export interface SpeakInOffscreenMessage {
   text: string;
   voice: string;
   speed: number;
+  /**
+   * The helper port stored in chrome.storage, which the offscreen document
+   * cannot read: tried first, and kept only if its /health identifies the
+   * helper (SEC-03). Absent when none is stored; discovery then finds it.
+   */
+  port?: number;
 }
 
 /**
@@ -155,6 +161,11 @@ export interface OffscreenSpeakResponse {
   helperUnavailable?: boolean;
   /** Which engine served the request; absent means Kokoro (the helper). */
   engine?: 'kokoro' | 'system';
+  /**
+   * On SPEAK_STARTED / SPEAK_COMPLETE: the port the helper answered on, so the
+   * service worker can store it when discovery found it somewhere new.
+   */
+  port?: number;
 }
 
 /**

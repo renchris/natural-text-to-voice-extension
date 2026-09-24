@@ -24,6 +24,7 @@ import {
 import { readSelection, resolveContextMenuText } from '../shared/selection';
 import { showErrorBadge, clearErrorBadge } from '../shared/error-badge';
 import { userMessageForError } from '../shared/helper-errors';
+import { getStoredPort, saveHelperPort } from '../shared/config';
 
 const NOTHING_SELECTED_MENU = 'Could not read the selected text. Select it again and retry.';
 const NOTHING_SELECTED_SHORTCUT =
@@ -191,8 +192,12 @@ async function speakText(text: string, generation: number = stopGeneration): Pro
     // A new request replaces whatever the system voice is saying.
     stopSystemVoice();
 
-    // Get user preferences
-    const { voice, speed, whenHelperUnavailable } = await getPreferences();
+    // Get user preferences, and the helper port the offscreen document
+    // cannot read from chrome.storage itself
+    const [{ voice, speed, whenHelperUnavailable }, port] = await Promise.all([
+      getPreferences(),
+      getStoredPort(),
+    ]);
 
     // Ensure offscreen document exists
     if (!stopped()) await ensureOffscreenDocument();
@@ -200,7 +205,14 @@ async function speakText(text: string, generation: number = stopGeneration): Pro
     // Send text to offscreen document for speech generation
     let response = stopped()
       ? STOPPED_BEFORE_SEND
-      : await sendToOffscreen({ type: 'SPEAK_IN_OFFSCREEN', text, voice, speed }, stopped);
+      : await sendToOffscreen({ type: 'SPEAK_IN_OFFSCREEN', text, voice, speed, ...(port ? { port } : {}) }, stopped);
+
+    // The offscreen document found the helper on another port: remember it.
+    if (response.success && response.port && response.port !== port) {
+      await saveHelperPort(response.port).catch(error => {
+        console.warn('[Background] Could not save the helper port:', error);
+      });
+    }
 
     if (
       !response.success &&

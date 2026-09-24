@@ -8,6 +8,7 @@
 
 import { describe, test, expect, mock, beforeAll, beforeEach, afterAll } from 'bun:test';
 import type { OffscreenSpeakResponse, OffscreenStopResponse } from '../src/shared/types';
+import { resetApiClient } from '../src/shared/api-client';
 
 type Listener = (message: unknown, sender: unknown, sendResponse: (response: unknown) => void) => boolean;
 
@@ -22,7 +23,7 @@ function deferred(): Deferred {
   return { resolve, promise };
 }
 
-const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+const defaultFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const url = String(input);
   if (url.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', model: 'kokoro-82m', model_loaded: true }), { status: 200 });
@@ -45,7 +46,8 @@ const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
     return new Response(new Blob(['RIFF-fake-wav'], { type: 'audio/wav' }), { status: 200 });
   }
   return new Response('not found', { status: 404 });
-});
+};
+const fetchMock = mock(defaultFetch);
 
 // ---- Audio + object URLs
 class FakeAudio {
@@ -158,6 +160,9 @@ afterAll(() => {
   if (saved.Audio === undefined) delete (globalThis as any).Audio;
 });
 
+/** A started reply names the port the helper answered on (the stored 18249). */
+const STARTED: OffscreenSpeakResponse = { type: 'SPEAK_STARTED', success: true, port: 18249 };
+
 function send<T>(message: unknown): { returned: boolean; response: Promise<T> } {
   let resolve!: (value: T) => void;
   const response = new Promise<T>(r => { resolve = r; });
@@ -193,7 +198,7 @@ async function speakToEnd(text = 'Hello there'): Promise<unknown> {
   await until(() => pendingSpeaks.length > 0, '/speak request');
   pendingSpeaks.shift()!.resolve();
   await until(() => FakeAudio.instances.length > before, 'audio element');
-  expect(await response).toEqual({ type: 'SPEAK_STARTED', success: true });
+  expect(await response).toEqual(STARTED);
   lastAudio().finish();
   await until(() => finishedMessages().length > finishedBefore, 'SPEAK_FINISHED');
   return lastOf(finishedMessages());
@@ -285,7 +290,7 @@ describe('offscreen speak / stop', () => {
     expect(audio.play).toHaveBeenCalledTimes(1);
     // The service worker's message is answered now, not after the audio: a
     // reply held for the whole playback was lost past Chrome's ~5-minute cap.
-    expect(await settledWithin(response)).toEqual({ type: 'SPEAK_STARTED', success: true });
+    expect(await settledWithin(response)).toEqual(STARTED);
     expect(finishedMessages().length).toBe(finishedBefore);
 
     audio.finish();
@@ -301,7 +306,7 @@ describe('offscreen speak / stop', () => {
     await until(() => pendingSpeaks.length > 0, '/speak request');
     pendingSpeaks.shift()!.resolve();
     await until(() => FakeAudio.instances.length > before, 'audio element');
-    expect(await response).toEqual({ type: 'SPEAK_STARTED', success: true });
+    expect(await response).toEqual(STARTED);
 
     const audio = lastAudio();
     audio.error = { message: 'decode failed' };
@@ -321,7 +326,7 @@ describe('offscreen speak / stop', () => {
     const audio = lastAudio();
     expect(liveUrls.has(audio.src)).toBe(true);
 
-    expect(await response).toEqual({ type: 'SPEAK_STARTED', success: true });
+    expect(await response).toEqual(STARTED);
     const finishedBefore = finishedMessages().length;
     const stopped = stop();
     expect(await stopped.response).toEqual({ type: 'STOPPED', stopped: true });
@@ -386,7 +391,7 @@ describe('offscreen speak / stop', () => {
     await until(() => FakeAudio.instances.length > before, 'first audio');
     const firstAudio = lastAudio();
 
-    expect(await first.response).toEqual({ type: 'SPEAK_STARTED', success: true });
+    expect(await first.response).toEqual(STARTED);
     const finishedBefore = finishedMessages().length;
 
     const second = speak('second');
@@ -397,7 +402,7 @@ describe('offscreen speak / stop', () => {
     await until(() => pendingSpeaks.length > 0, 'second /speak');
     pendingSpeaks.shift()!.resolve();
     await until(() => FakeAudio.instances.length > before + 1, 'second audio');
-    expect(await second.response).toEqual({ type: 'SPEAK_STARTED', success: true });
+    expect(await second.response).toEqual(STARTED);
     lastAudio().finish();
     await until(() => finishedMessages().length > finishedBefore + 1, 'second SPEAK_FINISHED');
     expect(lastOf(finishedMessages())).toEqual({ type: 'SPEAK_FINISHED', success: true });
@@ -465,5 +470,66 @@ describe('offscreen speak / stop', () => {
     for (const url of urls) {
       expect(url.startsWith('http://127.0.0.1:18249/')).toBe(true);
     }
+  });
+});
+
+describe('the port the service worker passes (no chrome.storage here)', () => {
+  const helperHealth = () =>
+    new Response(JSON.stringify({ status: 'ok', model: 'kokoro-82m', model_loaded: true }), { status: 200 });
+  const urls = () => fetchMock.mock.calls.map(call => String(call[0]));
+  const posted = () => fetchMock.mock.calls.filter(call => call[1]?.method === 'POST').map(call => String(call[0]));
+
+  beforeEach(() => {
+    // A real offscreen document has chrome.runtime and nothing else.
+    delete (globalThis as any).chrome.storage;
+    fetchMock.mockClear();
+  });
+
+  afterAll(() => {
+    fetchMock.mockImplementation(defaultFetch);
+    // The client is a module singleton shared with later test files: drop the
+    // port these tests made it prefer.
+    resetApiClient();
+  });
+
+  async function speakOn(port: number) {
+    const before = FakeAudio.instances.length;
+    const { response } = send<OffscreenSpeakResponse>({ type: 'SPEAK_IN_OFFSCREEN', text: 'PRIVATE text', voice: 'af_heart', speed: 1, port });
+    await until(() => pendingSpeaks.length > 0, '/speak request');
+    pendingSpeaks.shift()!.resolve();
+    await until(() => FakeAudio.instances.length > before, 'audio element');
+    const reply = await response;
+    lastAudio().finish();
+    return reply;
+  }
+
+  test('is tried first, and the selection goes there once /health identifies the helper', async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === 'http://127.0.0.1:18251/health') return helperHealth();
+      if (url === 'http://127.0.0.1:18251/speak') return defaultFetch(input, init);
+      throw new TypeError('Failed to fetch');
+    });
+
+    expect(await speakOn(18251)).toEqual({ type: 'SPEAK_STARTED', success: true, port: 18251 });
+    expect(urls()[0]).toBe('http://127.0.0.1:18251/health');
+    expect(posted()).toEqual(['http://127.0.0.1:18251/speak']);
+  });
+
+  test('a passed port that is not the helper never receives the selection; discovery finds it (SEC-03)', async () => {
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      // Some other local service with a conventional /health on the passed port.
+      if (url.startsWith('http://127.0.0.1:18252/')) {
+        return new Response(JSON.stringify({ status: 'ok', service: 'some-dev-api' }), { status: 200 });
+      }
+      if (url === 'http://127.0.0.1:8250/health') return helperHealth();
+      if (url === 'http://127.0.0.1:8250/speak') return defaultFetch(input, init);
+      throw new TypeError('Failed to fetch');
+    });
+
+    expect(await speakOn(18252)).toEqual({ type: 'SPEAK_STARTED', success: true, port: 8250 });
+    expect(urls()[0]).toBe('http://127.0.0.1:18252/health');
+    expect(posted()).toEqual(['http://127.0.0.1:8250/speak']);
   });
 });

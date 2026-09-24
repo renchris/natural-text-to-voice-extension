@@ -463,6 +463,36 @@ describe('ApiClient', () => {
       expect(speaks).toEqual(['http://127.0.0.1:8250/speak']);
     });
 
+    test('a preferred port is verified by /health identity before the selection goes there', async () => {
+      (chrome.storage.local.get as any).mockImplementation(async () => {
+        throw new Error('chrome.storage is not available in this context');
+      });
+      const posted: string[] = [];
+      mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') posted.push(url);
+        if (url === 'http://127.0.0.1:18260/health') return { ok: true, json: async () => ({ status: 'ok', service: 'other' }) };
+        if (url === 'http://127.0.0.1:18261/health') return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m' }) };
+        if (url.endsWith('/speak')) return { ok: true, blob: async () => new Blob(['wav']) };
+        throw new TypeError('Failed to fetch');
+      });
+
+      await client.speak({ text: 'PRIVATE' }, undefined, { port: 18261 });
+      expect(posted).toEqual(['http://127.0.0.1:18261/speak']);
+      expect(client.port).toBe(18261);
+
+      // Same port again: the verified config is reused, no second /health.
+      mockFetch.mockClear();
+      await client.speak({ text: 'PRIVATE' }, undefined, { port: 18261 });
+      expect(mockFetch.mock.calls.map(c => String(c[0]))).toEqual(['http://127.0.0.1:18261/speak']);
+
+      // A port that is not the helper: never POSTed to; discovery runs instead.
+      await expect(client.speak({ text: 'PRIVATE' }, undefined, { port: 18260 })).rejects.toThrow(HelperNotFoundError);
+      expect(posted).toEqual(['http://127.0.0.1:18261/speak', 'http://127.0.0.1:18261/speak']);
+      const probed = mockFetch.mock.calls.map(c => String(c[0]));
+      expect(probed[1]).toBe('http://127.0.0.1:18260/health');
+      expect(probed).toContain('http://127.0.0.1:8249/health');
+    });
+
     test('isHelperHealth needs the helper\'s model and a status, from a 2xx', async () => {
       const res = (ok: boolean, body: unknown) => ({ ok, json: async () => body });
       expect(await isHelperHealth(res(true, { status: 'ok', model: 'kokoro-82m' }))).toBe(true);

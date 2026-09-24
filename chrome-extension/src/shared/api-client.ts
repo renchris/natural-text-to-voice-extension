@@ -9,7 +9,7 @@ import {
   InvalidResponseError,
   RequestAbortedError,
 } from './types';
-import { getConfig } from './config';
+import { getConfig, isValidPort } from './config';
 import { DEFAULT_VOICE } from './voices';
 import { errorFromResponse } from './helper-errors';
 
@@ -30,6 +30,25 @@ export function speakTimeoutMs(text: string): number {
 export class ApiClient implements NativeTTSClient {
   private config: Partial<HelperConfig> | null = null;
   private configPromise: Promise<Partial<HelperConfig>> | null = null;
+  /** The port to try before discovery (see preferPort); undefined = chrome.storage's */
+  private preferredPort: number | undefined;
+
+  /**
+   * Try this port first from now on. The offscreen document has no
+   * chrome.storage, so the service worker passes the stored port with each
+   * speak request. A different port drops the cached config, so the next
+   * request verifies it (/health identity, SEC-03) before discovery.
+   */
+  preferPort(port: number | undefined): void {
+    if (!isValidPort(port) || port === this.preferredPort) return;
+    this.preferredPort = port;
+    if (this.config?.port !== port) this.resetConfig();
+  }
+
+  /** The port of the helper this client last resolved, if any. */
+  get port(): number | undefined {
+    return this.config?.port;
+  }
 
   /**
    * Get configuration (lazy loaded and cached). A failed discovery is NOT
@@ -46,19 +65,22 @@ export class ApiClient implements NativeTTSClient {
     }
 
     if (!this.configPromise) {
-      this.configPromise = getConfig();
+      this.configPromise = getConfig(this.preferredPort);
     }
 
+    const pending = this.configPromise;
     try {
-      this.config = await this.configPromise;
+      const config = await pending;
+      // A preferPort() or reset while this was resolving supersedes it.
+      if (this.configPromise === pending) this.config = config;
+      return config;
     } catch (error) {
-      this.configPromise = null;
+      if (this.configPromise === pending) this.configPromise = null;
       if (error instanceof Error && error.name === 'ConfigNotFoundError') {
         throw new HelperNotFoundError(error.message);
       }
       throw error;
     }
-    return this.config;
   }
 
   /**
@@ -207,9 +229,10 @@ export class ApiClient implements NativeTTSClient {
    * @param request - Text and optional voice/speed parameters
    * @param signal - Aborts the request (RequestAbortedError); the helper then
    *   stops the synthesis at its next chunk
+   * @param options.port - The port to try first (see preferPort)
    * @returns Audio blob in WAV format
    */
-  async speak(request: SpeakRequest, signal?: AbortSignal): Promise<Blob> {
+  async speak(request: SpeakRequest, signal?: AbortSignal, options: { port?: number } = {}): Promise<Blob> {
     // Validate parameters BEFORE getting config
     if (!request.text || request.text.trim().length === 0) {
       throw new Error('Text is required for speech generation');
@@ -219,6 +242,7 @@ export class ApiClient implements NativeTTSClient {
       throw new Error('Speed must be between 0.5 and 2.0');
     }
 
+    this.preferPort(options.port);
     const config = await this.getConfig();
 
     // Apply defaults

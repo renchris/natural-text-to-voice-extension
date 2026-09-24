@@ -41,6 +41,8 @@ interface SpeakJob {
   abort: AbortController;
   /** The Kokoro voice requested, reported to an open popup */
   voice: string;
+  /** The port the helper answered on, once known */
+  port?: number;
   settle: (response: OffscreenSpeakResponse) => void;
 }
 
@@ -176,7 +178,7 @@ function handleSpeakRequest(
       start: () => {
         if (job.settled || job.started) return;
         job.started = true;
-        resolve({ type: 'SPEAK_STARTED', success: true });
+        resolve({ type: 'SPEAK_STARTED', success: true, ...(job.port ? { port: job.port } : {}) });
       },
       settle: (response) => {
         if (job.settled) return;
@@ -224,7 +226,8 @@ async function runSpeakJob(
     text: message.text,
     voice: message.voice,
     speed: message.speed,
-  }, job.abort.signal);
+  }, job.abort.signal, { port: message.port });
+  job.port = client.port;
 
   // Stopped (or superseded) while the helper was synthesising: do not play.
   if (job.settled) {
@@ -241,6 +244,7 @@ async function runSpeakJob(
   return {
     type: 'SPEAK_COMPLETE',
     success: true,
+    ...(job.port ? { port: job.port } : {}),
   };
 }
 
