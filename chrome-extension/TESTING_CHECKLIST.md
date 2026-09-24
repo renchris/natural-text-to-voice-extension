@@ -381,7 +381,7 @@ Check for errors in:
 Popup:
 - [ ] Tab through all elements (voice, speed, speak, settings)
 - [ ] Enter key triggers "Speak" button
-- [ ] Arrow keys adjust speed slider
+- [ ] Arrow keys adjust speed slider (known issue at 1.5.0: the popup slider moves only with PageUp/PageDown and the − and + buttons; see ACCESSIBILITY.md, Known issues)
 - [ ] Escape closes popup
 
 Options:
