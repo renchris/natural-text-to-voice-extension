@@ -40,6 +40,11 @@ profile="$work/profile"
 trap 'rm -rf "$work"' EXIT
 cp "$here"/*.html "$here"/base.css "$here"/arcs.js "$here"/glyph.svg "$work"/
 cp "$repo/assets/brand/icon.svg" "$work/icon.svg"
+# The promo images sit on the icon's own tile gradient, so they use the icon with a thin white ring around the tile
+# (derived from the master here, never a second copy of it).
+perl -0pe 's#(<path id="tile-shape"[^>]*d="([^"]+)"/>)#$1\n  <path fill="none" stroke="\#FFFFFF" stroke-opacity=".34" stroke-width="1.6" d="$2"/>#' \
+  "$repo/assets/brand/icon.svg" > "$work/icon-ring.svg"
+grep -q 'stroke-opacity=".34"' "$work/icon-ring.svg" || { echo "FAIL icon-ring.svg: tile-shape path not found in icon.svg" >&2; exit 1; }
 need() { [[ -f "$1" ]] || { echo "missing capture: $1" >&2; exit 1; }; cp "$1" "$work/$2"; }
 need "$caps/popup-emma-speaking.png"  popup-emma-speaking.png
 need "$caps/popup-heart-speaking.png" popup-heart-speaking.png

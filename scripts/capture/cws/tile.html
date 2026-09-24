@@ -1,8 +1,12 @@
 <!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css>
-<!-- Small promo tile 440x280 (required, no text): the icon's glyph, its three arcs continuing outward as sound. -->
+<!-- Small promo tile 440x280: the icon's glyph with its three arcs continuing outward as sound, and the wordmark, so
+     the tile still names the product in a store carousel. -->
 <style>body{width:440px;height:280px}
-.g{position:absolute;left:106px;top:62px;width:164px;height:154px;filter:drop-shadow(0 10px 18px rgba(8,10,48,.35))}</style>
+.g{position:absolute;left:58px;top:82px;width:124px;height:117px;filter:drop-shadow(0 10px 18px rgba(8,10,48,.35))}
+.word{position:absolute;left:204px;top:120px;font:600 36px/1 var(--sans);letter-spacing:-.025em;color:#fff;
+  text-shadow:0 6px 18px rgba(8,10,48,.25)}</style>
 <body class=promo>
-<svg class=arcs data-cx=184 data-cy=139 data-r=112 data-w=12 data-color="#FFFFFF" data-opacity=.13></svg>
+<svg class=arcs data-cx=117 data-cy=140 data-r=85 data-w=10 data-color="#FFFFFF" data-opacity=.12></svg>
 <img class=g src=glyph.svg alt="">
+<div class=word>Natural TTS</div>
 <script src=arcs.js></script>
