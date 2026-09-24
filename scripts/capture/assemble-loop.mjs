@@ -8,8 +8,11 @@
 //   the first and last frame), always showing the latest frame at or before each tick, exactly as the screen did.
 //   Consecutive identical frames are merged into one longer frame (webpinfo durations stay exact).
 //   --lead holds the first frame for <ms> extra; --hold holds the last frame for <ms> extra before the loop restarts.
-//   Encodes with `img2webp -near_lossless 40` (the demo-recording skill's recipe for live UI capture: plain lossy
-//   WebP seams flat regions). Needs img2webp and ImageMagick 7 on PATH.
+//   Encodes lossless (`img2webp -m 6`), so every decoded frame is the captured frame, pixel for pixel. The earlier
+//   `-near_lossless 40` let the animation encoder treat near-equal pixels as unchanged between sub-frames, and the
+//   drift left a ghost of an earlier frame on screen (measured: "…ing voices…" faint behind "Heart" in every
+//   Connected frame of status.webp). Flat UI captures are small lossless anyway (~23 KB for status.webp).
+//   Needs img2webp and ImageMagick 7 on PATH.
 import { readFileSync, mkdtempSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
@@ -65,7 +68,7 @@ for (const file of ticks) {
 }
 runs[0].ms += lead;
 runs.at(-1).ms += hold;
-const args = ['-loop', '0', '-near_lossless', '40'];
+const args = ['-loop', '0', '-m', '6'];
 for (const r of runs) args.push('-d', String(Math.round(r.ms)), r.path);
 args.push('-o', out);
 execFileSync('img2webp', args, { stdio: ['ignore', 'ignore', 'inherit'] });
