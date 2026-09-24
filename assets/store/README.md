@@ -81,9 +81,16 @@ scripts/capture/cws/render.sh
 
 Then stop only the pids in `/tmp/ntts-cap/env.txt` and the helper you started.
 
-`src/` holds the committed inputs: `popup-emma-speaking.png` and `popup-heart-speaking.png` (720×880, 360×440 CSS at
-2x), and `voice-groups.json`. **How the speaking state is made.** The service worker sends its offscreen document the
-same `SPEAK_IN_OFFSCREEN` message that the right-click handler sends. The text is the demo article's paragraph 2. The
+`src/` holds the committed inputs: the two popup captures below and `voice-groups.json`.
+
+| Input | File | Size |
+|---|---|---|
+| The popup with Emma (UK) speaking at 1.3× (360×440 CSS at 2x) | `src/popup-emma-speaking.png` | 720×880 |
+| The popup with Heart (US) speaking at 1.0× (360×440 CSS at 2x) | `src/popup-heart-speaking.png` | 720×880 |
+
+`scripts/verify-all.sh docs` checks every image in this directory against the Size column of these two tables.
+
+**How the speaking state is made.** The service worker sends its offscreen document the same `SPEAK_IN_OFFSCREEN` message that the right-click handler sends. The text is the demo article's paragraph 2. The
 offscreen document fetches real audio from the helper's `/speak` and plays it. The popup, opened during playback, shows
 what it reports. Only the native menu click is skipped, because it needs a display. Every request went to
 `127.0.0.1:8250` through `scripts/capture/port-guard.mjs`: 37 requests were logged, none to any other port.

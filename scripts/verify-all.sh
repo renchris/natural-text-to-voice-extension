@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # verify-all.sh — the fail-closed integration gate for the v1.5 upgrade (UPGRADE_RESEARCH.md §6).
 #
-# Usage: scripts/verify-all.sh [python] [swift] [extension] [consistency] [packaging]   (no argument = all five)
+# Usage: scripts/verify-all.sh [python] [swift] [extension] [consistency] [packaging] [docs]   (no argument = all six)
 #
 # Every check is an assertion. A missing prerequisite is a FAIL naming the missing path, never a skip.
 # Prints a PASS/FAIL table and exits non-zero if any check failed. Logs go to a fresh $TMPDIR/ntts-verify.* dir.
@@ -30,6 +30,9 @@ EXPECTED_WARNINGS='["Read and change your data on 127.0.0.1"]'
 EXPECTED_VOICES=28
 EXPECTED_DEFAULT_VOICE=af_heart                       # OD-5, both sides
 EXPECTED_NAME='Natural TTS: Private Kokoro Voices for Mac'   # OD-7
+EXPECTED_VERSION=1.5.0                                # the release: store zip and privacy policy
+MEDIA_MAX_BYTES=$((8 * 1024 * 1024))                  # any committed image, video, audio or PDF
+LOOP_MAX_BYTES=$((3 * 1024 * 1024))                   # a README loop: any GIF or animated WebP
 BRITISH_WARM_MAX="${VERIFY_BRITISH_WARM_MAX:-0.8}"
 FOOTPRINT_MAX_MB="${VERIFY_FOOTPRINT_MAX_MB:-4500}"
 RUN_E2E="${VERIFY_E2E:-1}"
@@ -545,12 +548,6 @@ section_consistency() {
   local dv; dv="$(cd "$EXT_DIR" && bun -e 'import { DEFAULT_VOICE } from "./src/shared/voices.ts"; console.log(DEFAULT_VOICE);' 2>/dev/null || echo '?')"
   if [[ "$dv" == "$EXPECTED_DEFAULT_VOICE" ]]; then pass "extension DEFAULT_VOICE" "$dv"
   else fail "extension DEFAULT_VOICE" "got $dv, want $EXPECTED_DEFAULT_VOICE"; fi
-  # OD-7: the old product name survives only in history (research, CHANGELOG, the original implementation plan).
-  # The pattern is split so this line does not match itself.
-  local oldname; oldname="$(git -C "$REPO" grep -n "Natural Text-to""-Speech" -- . ':!docs/research' ':!CHANGELOG.md' \
-    ':!chrome-extension/IMPLEMENTATION_PLAN.md' 2>/dev/null | cut -c1-120 | head -3 | tr '\n' ' ' || true)"
-  if [[ -z "$oldname" ]]; then pass "no old product name (OD-7)" "tracked files outside history"
-  else fail "no old product name (OD-7)" "$oldname"; fi
   local mf="$EXT_DIR/public/manifest.json" pj="$EXT_DIR/package.json"
   if need "$mf" "manifest version == package version" && need "$pj" "manifest version == package version"; then
     local mv pv
@@ -579,15 +576,73 @@ section_packaging() {
   fi
 }
 
+# ---------------------------------------------------------------- docs
+# The README, store and publishing artifacts: diagrams current, store images at their documented sizes, media inside
+# their byte budgets, the store zip well-formed, the privacy policy on this version, the old name gone.
+section_docs() {
+  SECTION=docs
+  local out
+  # Diagrams: every committed SVG and mermaid fence matches its .mmd (the CI guard, run here too).
+  if need "$REPO/package.json" "diagrams:check" && need "$REPO/bun.lock" "diagrams:check"; then
+    if logged diagrams-install bash -c 'cd "$1" && bun install --frozen-lockfile' _ "$REPO" \
+      && logged diagrams bash -c 'cd "$1" && bun run diagrams:check' _ "$REPO"; then
+      pass "diagrams:check" "$(grep -Eo 'all [0-9]+ SVGs.*' "$LOGDIR/docs-diagrams.log" | tail -1)"
+    else fail "diagrams:check" "$(logtail diagrams-install 2) $(logtail diagrams 3)"; fi
+  fi
+  # The performance chart is generated from bench/results.json. A contended run is allowed only because the chart
+  # title then says "busy machine" (bench/chart.mjs refuses otherwise).
+  if need "$REPO/bench/chart.mjs" "performance chart == bench"; then
+    if logged chart node "$REPO/bench/chart.mjs" --check --allow-contended; then
+      local clean; clean="$(json "$REPO/bench/results.json" "d.get('clean')" 2>/dev/null || echo '?')"
+      if [[ "$clean" == True ]]; then pass "performance chart == bench" "results.json clean=True"
+      else pass "performance chart == bench" "results.json clean=$clean; the chart title says busy machine"; fi
+    else fail "performance chart == bench" "$(logtail chart)"; fi
+  fi
+  # Demo audio fixtures: texts verbatim in the article, sha256s as in the manifest (no helper needed).
+  if need "$REPO/assets/media/src/make-audio.mjs" "demo audio fixtures"; then
+    if logged audio node "$REPO/assets/media/src/make-audio.mjs" --check; then pass "demo audio fixtures" "$(logtail audio 1)"
+    else fail "demo audio fixtures" "$(logtail audio)"; fi
+  fi
+  # Store images: every image under assets/store/ has the exact size its README documents, in sRGB with no alpha;
+  # a documented image may be absent only while its row says it is waiting for the GUI pass.
+  if need "$REPO/assets/store/README.md" "store images: documented sizes"; then
+    if out="$(python3 "$REPO/scripts/verify/store-images.py" "$REPO" 2>&1)"; then pass "store images: documented sizes" "$out"
+    else fail "store images: documented sizes" "$(echo "$out" | tail -1 | cut -c1-220)"; fi
+  fi
+  # Media budgets: a README loop (animated WebP, any GIF) <= 3 MB; any other committed media file <= 8 MB.
+  if out="$(python3 "$REPO/scripts/verify/media-budget.py" "$REPO" "$MEDIA_MAX_BYTES" "$LOOP_MAX_BYTES" 2>&1)"; then
+    pass "media size budgets" "$out"
+  else fail "media size budgets" "$(echo "$out" | tail -1 | cut -c1-220)"; fi
+  # Store package: the zip the listing uploads has manifest.json at its root, no "key", and this version.
+  if need "$EXT_DIR/scripts/package.mjs" "store zip"; then
+    local zip="$EXT_DIR/release/natural-tts-$EXPECTED_VERSION.zip"
+    if ! logged package bash -c 'cd "$1" && bun run package' _ "$EXT_DIR"; then fail "store zip" "bun run package failed: $(logtail package)"
+    elif [[ ! -f "$zip" ]]; then fail "store zip" "package ran but ${zip#"$REPO"/} is missing"
+    elif out="$(python3 "$REPO/scripts/verify/store-zip.py" "$zip" "$EXPECTED_VERSION" 2>&1)"; then pass "store zip" "$out"
+    else fail "store zip" "$(echo "$out" | tail -1 | cut -c1-220)"; fi
+  fi
+  # Privacy policy: states this version.
+  if need "$EXT_DIR/PRIVACY.md" "PRIVACY.md version"; then
+    if grep -qF "Version $EXPECTED_VERSION" "$EXT_DIR/PRIVACY.md"; then pass "PRIVACY.md version" "Version $EXPECTED_VERSION"
+    else fail "PRIVACY.md version" "no 'Version $EXPECTED_VERSION' in chrome-extension/PRIVACY.md"; fi
+  fi
+  # OD-7: the old product name survives only in history (research, CHANGELOG, the original implementation plan).
+  # The pattern is split so this line does not match itself.
+  local oldname; oldname="$(git -C "$REPO" grep -n "Natural Text-to""-Speech" -- . ':!docs/research' ':!CHANGELOG.md' \
+    ':!chrome-extension/IMPLEMENTATION_PLAN.md' 2>/dev/null | cut -c1-120 | head -3 | tr '\n' ' ' || true)"
+  if [[ -z "$oldname" ]]; then pass "no old product name (OD-7)" "tracked files outside history"
+  else fail "no old product name (OD-7)" "$oldname"; fi
+}
+
 # ---------------------------------------------------------------- main
 sections=("$@")
-(( ${#sections[@]} )) || sections=(python swift extension consistency packaging)
+(( ${#sections[@]} )) || sections=(python swift extension consistency packaging docs)
 echo "ntts verify-all — repo $REPO @ $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?') — logs $LOGDIR"
 for s in "${sections[@]}"; do
   case "$s" in
     python) section_python ;; swift) section_swift ;; extension) section_extension ;; consistency) section_consistency ;;
-    packaging) section_packaging ;;
-    *) SECTION=args; fail "section '$s'" "unknown (use python|swift|extension|consistency|packaging)" ;;
+    packaging) section_packaging ;; docs) section_docs ;;
+    *) SECTION=args; fail "section '$s'" "unknown (use python|swift|extension|consistency|packaging|docs)" ;;
   esac
 done
 cleanup; HELPER_PID=""; WORKER_PID=""
