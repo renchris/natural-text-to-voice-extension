@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 715.6299999999999 950.8000000000001" width="715.6299999999999" height="950.8000000000001" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="chrome" data-label="Chrome extension · MV3 · no content script">
+  <rect x="40" y="40" width="635.6299999999999" height="283.90000000000003" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="40" y="40" width="635.6299999999999" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="52" y="54" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Chrome extension · MV3 · no content script</text>
+</g>
+<g class="subgraph" data-id="mac" data-label="Your Mac · offline">
+  <rect x="142.48149999999995" y="525.1" width="215.481" height="385.70000000000005" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="142.48149999999995" y="525.1" width="215.481" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="154.48149999999995" y="539.1" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Your Mac · offline</text>
+</g>
+<polyline class="edge" data-from="POP" data-to="NET" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="/health · /voices · /speak" points="142.92399999999998,137.8 142.92399999999998,323.90000000000003 142.92399999999998,428.20000000000005 222.4823333333333,428.20000000000005 222.4823333333333,440.20000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="OFF" data-to="NET" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST /speak" points="357.5199999999999,307.90000000000003 357.5199999999999,323.90000000000003 357.5199999999999,428.20000000000005 277.96166666666664,428.20000000000005 277.96166666666664,440.20000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="NET" data-to="HELPER" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="250.22199999999995,477.1 250.22199999999995,525.1 250.22199999999995,569.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="SW" data-to="OFF" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="text" points="438.8553333333332,137.8 438.85533333333325,149.8 357.5199999999999,149.8 357.5199999999999,254.10000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="SW" data-to="TTS" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="no helper" points="495.07566666666656,137.8 495.0756666666666,149.8 576.411,149.8 576.411,254.10000000000002" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="HELPER" data-to="PY" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="JSON frames · stdio" points="250.22199999999995,622.9000000000001 250.22199999999995,739.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="PY" data-to="GPU" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="250.22199999999995,793 250.22199999999995,841" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="POP" data-to="NET" data-label="/health · /voices · /speak">
+  <rect x="74.92399999999998" y="366.90000000000003" width="135.856" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="142.85199999999998" y="382.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">/health · /voices · /speak</text>
+</g>
+<g class="edge-label" data-from="OFF" data-to="NET" data-label="POST /speak">
+  <rect x="317.0199999999999" y="366.90000000000003" width="80.614" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="357.32699999999994" y="382.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">POST /speak</text>
+</g>
+<g class="edge-label" data-from="SW" data-to="OFF" data-label="text">
+  <rect x="340.0199999999999" y="180.8" width="34.282" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="357.16099999999994" y="195.95000000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">text</text>
+</g>
+<g class="edge-label" data-from="SW" data-to="TTS" data-label="no helper">
+  <rect x="544.911" y="180.8" width="62.2" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="576.011" y="195.95000000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">no helper</text>
+</g>
+<g class="edge-label" data-from="HELPER" data-to="PY" data-label="JSON frames · stdio">
+  <rect x="193.72199999999998" y="665.9000000000001" width="112.09600000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="249.76999999999998" y="681.0500000000001" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">JSON frames · stdio</text>
+</g>
+<g class="node" data-id="NET" data-label="HTTP · 127.0.0.1:8249" data-shape="stadium">
+  <rect x="167.00299999999993" y="440.20000000000005" width="166.43800000000005" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="#f6f8fa" stroke="#59636e" stroke-width="0.75" />
+  <text x="250.22199999999995" y="458.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328" dy="4.55">HTTP · 127.0.0.1:8249</text>
+</g>
+<g class="node" data-id="SW" data-label="Service worker
+right-click · shortcuts" data-shape="rectangle">
+  <rect x="382.6349999999999" y="84" width="168.661" height="53.800000000000004" rx="0" ry="0" fill="#f4f5fe" stroke="#3d4ed7" stroke-width="0.75" />
+  <text x="466.9654999999999" y="110.9" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="466.9654999999999" dy="-3.9000000000000012">Service worker</tspan><tspan x="466.9654999999999" dy="16.900000000000002">right-click · shortcuts</tspan></text>
+</g>
+<g class="node" data-id="OFF" data-label="Offscreen document
+AUDIO_PLAYBACK + BLOBS" data-shape="rectangle">
+  <rect x="249.84799999999998" y="254.10000000000002" width="215.3439999999999" height="53.800000000000004" rx="0" ry="0" fill="#f4f5fe" stroke="#3d4ed7" stroke-width="0.75" />
+  <text x="357.5199999999999" y="281" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="357.5199999999999" dy="-3.9000000000000012">Offscreen document</tspan><tspan x="357.5199999999999" dy="16.900000000000002">AUDIO_PLAYBACK + BLOBS</tspan></text>
+</g>
+<g class="node" data-id="TTS" data-label="chrome.tts
+system voice fallback" data-shape="rectangle">
+  <rect x="493.1919999999999" y="254.10000000000002" width="166.43800000000005" height="53.800000000000004" rx="0" ry="0" fill="#fff8c5" stroke="#9a6700" stroke-width="0.75" />
+  <text x="576.411" y="281" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="576.411" dy="-3.9000000000000012">chrome.tts</tspan><tspan x="576.411" dy="16.900000000000002">system voice fallback</tspan></text>
+</g>
+<g class="node" data-id="POP" data-label="Popup
+voice · speed · Speak" data-shape="rectangle">
+  <rect x="56" y="84" width="173.84799999999998" height="53.800000000000004" rx="0" ry="0" fill="#f4f5fe" stroke="#3d4ed7" stroke-width="0.75" />
+  <text x="142.92399999999998" y="110.9" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="142.92399999999998" dy="-3.9000000000000012">Popup</tspan><tspan x="142.92399999999998" dy="16.900000000000002">voice · speed · Speak</tspan></text>
+</g>
+<g class="node" data-id="HELPER" data-label="Swift helper · SwiftNIO
+Host + Origin checks" data-shape="rectangle">
+  <rect x="165.89149999999995" y="569.1" width="168.661" height="53.800000000000004" rx="0" ry="0" fill="#dafbe1" stroke="#1a7f37" stroke-width="0.75" />
+  <text x="250.22199999999995" y="596" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="250.22199999999995" dy="-3.9000000000000012">Swift helper · SwiftNIO</tspan><tspan x="250.22199999999995" dy="16.900000000000002">Host + Origin checks</tspan></text>
+</g>
+<g class="node" data-id="PY" data-label="Python worker
+mlx-audio · Kokoro-82M" data-shape="rectangle">
+  <rect x="158.48149999999995" y="739.2" width="183.481" height="53.800000000000004" rx="0" ry="0" fill="#dafbe1" stroke="#1a7f37" stroke-width="0.75" />
+  <text x="250.22199999999995" y="766.1" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="250.22199999999995" dy="-3.9000000000000012">Python worker</tspan><tspan x="250.22199999999995" dy="16.900000000000002">mlx-audio · Kokoro-82M</tspan></text>
+</g>
+<g class="node" data-id="GPU" data-label="Apple GPU
+MLX · Metal" data-shape="rectangle">
+  <rect x="192.93799999999996" y="841" width="114.568" height="53.800000000000004" rx="0" ry="0" fill="#dafbe1" stroke="#1a7f37" stroke-width="0.75" />
+  <text x="250.22199999999995" y="867.9" text-anchor="middle" font-size="13" font-weight="500" fill="#1f2328"><tspan x="250.22199999999995" dy="-3.9000000000000012">Apple GPU</tspan><tspan x="250.22199999999995" dy="16.900000000000002">MLX · Metal</tspan></text>
+</g>
+</svg>

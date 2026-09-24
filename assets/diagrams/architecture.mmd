@@ -1,0 +1,30 @@
+flowchart TB
+    subgraph chrome["Chrome extension · MV3 · no content script"]
+        direction TB
+        SW["Service worker<br/>right-click · shortcuts"]
+        OFF["Offscreen document<br/>AUDIO_PLAYBACK + BLOBS"]
+        TTS["chrome.tts<br/>system voice fallback"]
+        POP["Popup<br/>voice · speed · Speak"]
+        SW -->|"text"| OFF
+        SW -.->|"no helper"| TTS
+    end
+    NET(["HTTP · 127.0.0.1:8249"])
+    subgraph mac["Your Mac · offline"]
+        direction TB
+        HELPER["Swift helper · SwiftNIO<br/>Host + Origin checks"]
+        PY["Python worker<br/>mlx-audio · Kokoro-82M"]
+        GPU["Apple GPU<br/>MLX · Metal"]
+        HELPER -->|"JSON frames · stdio"| PY
+        PY --> GPU
+    end
+    POP -->|"/health · /voices · /speak"| NET
+    OFF -->|"POST /speak"| NET
+    NET --> HELPER
+    classDef ext fill:@chrome-bg,stroke:@chrome-fg,color:@text
+    classDef local fill:@mac-bg,stroke:@mac-fg,color:@text
+    classDef fallback fill:@warn-bg,stroke:@warn-fg,color:@text
+    classDef hop fill:@gray-bg,stroke:@gray-fg,color:@text
+    class POP,SW,OFF ext
+    class TTS fallback
+    class HELPER,PY,GPU local
+    class NET hop

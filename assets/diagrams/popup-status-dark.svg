@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660.2850000000001 684.8" width="660.2850000000001" height="684.8" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="_start" data-to="Checking" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="popup opens" points="361.40399999999994,68 361.40399999999994,184.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Checking" data-to="Connected" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="model loaded" points="326.30899999999997,221.2 326.30899999999997,233.2 75.5,233.2 75.5,466.70000000000005 119.1833333333333,466.70000000000005 119.1833333333333,478.70000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Checking" data-to="Warming" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="helper answers" points="340.347,221.2 340.347,245.2 230.94299999999998,245.2 230.94299999999998,331.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Checking" data-to="Fallback" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="no helper" points="354.38499999999993,221.2 354.38499999999993,527.6 333.0539999999999,527.6 333.0539999999999,595.9 321.84520833333323,595.9 321.84520833333323,607.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Checking" data-to="Error" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="engine stopped · no reply" points="382.46099999999996,221.2 382.46099999999996,257.2 465.75399999999996,257.2 465.75399999999996,325.5 485.3333333333333,325.5 485.3333333333333,331.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Warming" data-to="Connected" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="/health every 2 s" points="230.94299999999998,368.4 230.94299999999998,466.70000000000005 187.25966666666665,466.70000000000005 187.25966666666665,478.70000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Connected" data-to="Fallback" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Speak finds no helper" points="153.22149999999996,515.6 153.2215,595.9 280.42095833333326,595.9 280.42095833333326,607.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Fallback" data-to="Checking" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Retry" points="363.26945833333326,607.9 363.26945833333326,595.9 389.75399999999996,595.9 389.75399999999996,527.6 368.42299999999994,527.6 368.42299999999994,221.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Error" data-to="Checking" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Retry" points="540.8126666666667,331.5 540.8126666666667,325.5 560.392,325.5 560.392,245.2 396.49899999999997,245.2 396.49899999999997,221.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="_start" data-to="Checking" data-label="popup opens">
+  <rect x="321.90399999999994" y="111" width="78.83200000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="361.31999999999994" y="126.15" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">popup opens</text>
+</g>
+<g class="edge-label" data-from="Checking" data-to="Connected" data-label="model loaded">
+  <rect x="35.99999999999999" y="405.40000000000003" width="78.83200000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="75.416" y="420.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">model loaded</text>
+</g>
+<g class="edge-label" data-from="Checking" data-to="Warming" data-label="helper answers">
+  <rect x="184.94299999999998" y="252.19999999999996" width="91.9" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="230.89299999999997" y="267.34999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">helper answers</text>
+</g>
+<g class="edge-label" data-from="Checking" data-to="Fallback" data-label="no helper">
+  <rect x="301.5539999999999" y="534.6" width="62.2" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="332.65399999999994" y="549.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">no helper</text>
+</g>
+<g class="edge-label" data-from="Checking" data-to="Error" data-label="engine stopped · no reply">
+  <rect x="396.75399999999996" y="264.2" width="137.63800000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="465.573" y="279.34999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">engine stopped · no reply</text>
+</g>
+<g class="edge-label" data-from="Warming" data-to="Connected" data-label="/health every 2 s">
+  <rect x="183.44299999999998" y="405.40000000000003" width="94.87000000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="230.878" y="420.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">/health every 2 s</text>
+</g>
+<g class="edge-label" data-from="Connected" data-to="Fallback" data-label="Speak finds no helper">
+  <rect x="93.22149999999999" y="558.6" width="119.22400000000005" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="152.83350000000002" y="573.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Speak finds no helper</text>
+</g>
+<g class="edge-label" data-from="Fallback" data-to="Checking" data-label="Retry">
+  <rect x="367.7539999999999" y="534.6" width="43.786" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="389.64699999999993" y="549.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Retry</text>
+</g>
+<g class="edge-label" data-from="Error" data-to="Checking" data-label="Retry">
+  <rect x="538.392" y="264.2" width="43.786" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="560.2850000000001" y="279.34999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Retry</text>
+</g>
+<g class="node" data-id="Checking" data-label="Checking" data-shape="rounded">
+  <rect x="312.27099999999996" y="184.3" width="98.266" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="361.40399999999994" y="202.75" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Checking</text>
+</g>
+<g class="node" data-id="Warming" data-label="Warming · model loading" data-shape="rounded">
+  <rect x="138.832" y="331.5" width="184.22199999999998" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="230.94299999999998" y="349.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Warming · model loading</text>
+</g>
+<g class="node" data-id="Connected" data-label="Connected · Kokoro voices" data-shape="rounded">
+  <rect x="51.10699999999996" y="478.70000000000005" width="204.229" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="153.22149999999996" y="497.15000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Connected · Kokoro voices</text>
+</g>
+<g class="node" data-id="Fallback" data-label="Offline · system voice" data-shape="rounded">
+  <rect x="238.99670833333323" y="607.9" width="165.697" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="321.84520833333323" y="626.35" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Offline · system voice</text>
+</g>
+<g class="node" data-id="Error" data-label="Offline · error + Retry" data-shape="rounded">
+  <rect x="429.854" y="331.5" width="166.43800000000005" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="513.073" y="349.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Offline · error + Retry</text>
+</g>
+<g class="node" data-id="_start" data-label="" data-shape="state-start">
+  <circle cx="361.40399999999994" cy="54" r="12" fill="var(--_text)" stroke="none" />
+</g>
+</svg>

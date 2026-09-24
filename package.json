@@ -1,0 +1,13 @@
+{
+  "name": "natural-tts-docs",
+  "private": true,
+  "type": "module",
+  "description": "Renders the README diagrams (assets/diagrams/*.mmd) with beautiful-mermaid. The extension has its own package.json in chrome-extension/.",
+  "scripts": {
+    "diagrams": "bun scripts/render-diagrams.mjs",
+    "diagrams:check": "bun scripts/render-diagrams.mjs --check"
+  },
+  "devDependencies": {
+    "beautiful-mermaid": "1.1.3"
+  }
+}

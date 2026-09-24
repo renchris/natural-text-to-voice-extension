@@ -1,0 +1,16 @@
+stateDiagram-v2
+    direction TB
+    state "Checking" as Checking
+    state "Warming · model loading" as Warming
+    state "Connected · Kokoro voices" as Connected
+    state "Offline · system voice" as Fallback
+    state "Offline · error + Retry" as Error
+    [*] --> Checking : popup opens
+    Checking --> Connected : model loaded
+    Checking --> Warming : helper answers
+    Checking --> Fallback : no helper
+    Checking --> Error : engine stopped · no reply
+    Warming --> Connected : /health every 2 s
+    Connected --> Fallback : Speak finds no helper
+    Fallback --> Checking : Retry
+    Error --> Checking : Retry
