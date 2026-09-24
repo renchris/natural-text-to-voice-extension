@@ -25,8 +25,8 @@ permission to the local helper only, and it turns every silent failure into a vi
   Opera, Vivaldi, Arc and Dia build is at 152 or later.
 
 ### Product (operator rulings of 2026-09-23)
-- **New name: "Natural TTS: Private Kokoro Voices for Mac"** (OD-7). The toolbar tooltip and short name stay
-  "Natural TTS", and the store description fits the 132-character limit.
+- **New name: "Natural TTS: Private Kokoro Voices for Mac"** (OD-7). The toolbar tooltip and short name are now
+  "Natural TTS" (previously "Natural Text-to-Speech"), and the store description fits the 132-character limit.
 - **System voices when the helper is not running** (OD-2). Selections are spoken with Chrome's `chrome.tts`, using
   local platform voices only (never a network voice, never another extension's voice, never a macOS sound-effect
   voice; with no such voice, or an unreadable voice list, it reports an error rather than speak), and the popup
@@ -40,8 +40,10 @@ permission to the local helper only, and it turns every silent failure into a vi
 - **Homebrew install** (OD-1). `packaging/homebrew/Formula/natural-tts.rb` builds the helper from source, installs
   the uv-locked worker environment on python@3.12, prefetches the pinned Kokoro snapshot for offline use, and runs
   as `brew services start natural-tts`. `packaging/homebrew/publish-tap.sh` publishes it to `renchris/tap`, and
-  only with explicit `--confirm` flags. The popup's install and update notices show the `brew` commands, with a
-  link for users who built from source. The tap is not published yet.
+  only with explicit `--confirm` flags. The popup's install notice shows the `brew install` command, with a
+  link for users who build from source. Its update notice, which only helpers older than 1.5 see (all installed
+  from source), shows `git pull && native-helper/Scripts/quickstart.sh`; `brew upgrade` is kept for a later API
+  bump. The root README has an Install section for both. The tap is not published yet.
 - **New icon** (OD-10): a speaker with waveform arcs on an indigo tile, from vector masters in `assets/brand/`
   and rendered by the deterministic `assets/brand/render-icons.sh`. The 16 and 48 px sizes are drawn separately,
   a 32 px icon now serves Retina toolbars, and a 512 px listing icon is included.
@@ -52,9 +54,11 @@ permission to the local helper only, and it turns every silent failure into a vi
   While the engine is down or restarting it answers 503 with `retry_after_seconds: 5`. Everything else is 500.
 - **British voices are warm on the first request.** The worker also warms the British pipeline at startup, so the
   first `bf_`/`bm_` request takes 0.17 s instead of 1.1–2.6 s. Launch to ready takes about 1–2 s longer.
-- **Long numbers, URLs and hashes are spoken whole.** A run of 16 or more digits is read in groups of three, and
-  an unbroken token longer than 40 characters is split, so a 320-digit number and a 600-character URL are spoken
-  in full (they used to fail or be cut off at 510 phonemes).
+- **Long numbers, URLs and hashes are spoken whole.** A run of 16 or more digits is read in groups of three (a
+  round number of up to 30 digits keeps its magnitude: "one quintillion"), and an unbroken token longer than 40
+  characters is split, so a 320-digit number and a 600-character URL are spoken in full (they used to fail or be
+  cut off at 510 phonemes). The split drops rule lines and banners ("=====", "#####") instead of naming each
+  symbol, keeps contractions whole, and cuts only tokens misaki would spell out, not plain words.
 - **Peak memory halved.** The worker caps the MLX buffer cache at 256 MB (`NTTS_MLX_CACHE_LIMIT_MB`). A
   ~5,000-character request now peaks at ~3.6 GB instead of ~7.9 GB, with no measurable speed cost.
 - **SIGTERM and SIGINT exit cleanly** within 2 s with status 0, and stop the worker first.

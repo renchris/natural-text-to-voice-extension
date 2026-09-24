@@ -19,9 +19,8 @@ arcs on an indigo continuous-corner tile. It reads as "read aloud / voice", and 
 | `icon-contact-sheet.png` | Every size, 1× and zoomed, on Chrome's light (`#ffffff`, `#f1f3f4`) and dark (`#202124`, `#35363a`) toolbar colours |
 | `../../chrome-extension/public/icons/icon{16,32,48,128}.png` | The shipped extension icons |
 
-`icon32.png` is rendered, but the manifest does not reference it yet. Add `"32": "icons/icon32.png"` to both
-`icons` and `action.default_icon` in `chrome-extension/public/manifest.json`, so Retina toolbars use the tuned
-32 px file instead of downscaling the 48.
+`chrome-extension/public/manifest.json` references `icon32.png` in both `icons` and `action.default_icon`, so
+Retina toolbars use the tuned 32 px file instead of downscaling the 48.
 
 ## Palette
 
