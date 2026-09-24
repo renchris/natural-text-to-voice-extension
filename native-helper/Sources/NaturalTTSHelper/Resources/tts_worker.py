@@ -277,9 +277,15 @@ PROTECTED_PUNCTUATION = "’‘“”—–…"
 # Measured with misaki as mlx-audio builds it: a digit run costs up to ~13.5 phonemes per digit (16 digits =
 # 159, 24 = 324, 64 = 977; 320 raises), any other character at most ~8 ("W" = "double-u", "%" = "percent"),
 # so a 40-character run stays under ~450 phonemes whatever it holds once its digit runs are grouped.
-# Digit runs this long or longer are read in groups of three (a quantity past the quadrillions is not
-# read as one number anyway: 32 digits came out as "... ENONILLION ...").
+# Digit runs this long or longer are read in groups of three, unless they are a round number num2words
+# still reads as one quantity (see _group_digits).
 DIGIT_GROUP_MIN = 16
+# num2words reads a round number correctly through 30 digits ("one hundred octillion"); at 31 it spells
+# the scale word letter by letter ("... NONILLION ..."). A digit run of DIGIT_GROUP_MIN..NUMBER_WORDS_MAX
+# digits with no leading zero and at most ROUND_SIGNIFICANT_MAX digits before its trailing zeros
+# ("1000000000000000000" -> "one quintillion", 40 phonemes) is left whole, so its magnitude is heard.
+NUMBER_WORDS_MAX = 30
+ROUND_SIGNIFICANT_MAX = 6
 # Whitespace-free runs longer than this are broken at their punctuation ...
 LONG_RUN = 40
 # ... and letter/digit stretches still longer than this, every PIECE characters.
@@ -288,9 +294,17 @@ PIECE = 20
 
 def _group_digits(match):
     """"4111111111111111" -> "411 111 111 111 111 1". A group's leading zeros are spoken one by one ("012" alone
-    reads "twelve", "000" reads "zero"): "100000007" -> "100 0 0 0 0 0 7". Every digit is still spoken."""
-    words = []
+    reads "twelve", "000" reads "zero"): "100000000000000007" -> "100 0 0 0 0 0 0 0 0 0 0 0 0 0 0 7". Every
+    digit is still spoken. A round number num2words can still read ("1000000000000000000" -> "one
+    quintillion") is left whole."""
     digits = match.group(0)
+    if (
+        len(digits) <= NUMBER_WORDS_MAX
+        and digits[0] != "0"
+        and len(digits.rstrip("0")) <= ROUND_SIGNIFICANT_MAX
+    ):
+        return digits
+    words = []
     for i in range(0, len(digits), 3):
         group = digits[i : i + 3]
         rest = group.lstrip("0")
@@ -316,7 +330,7 @@ def _break_long_run(match):
 
 def break_long_tokens(text):
     """Keep every misaki token under Kokoro's 510-phoneme chunk budget without dropping content: digit runs
-    of DIGIT_GROUP_MIN or more are grouped in threes, then runs over LONG_RUN characters are broken at
+    of DIGIT_GROUP_MIN or more are grouped in threes (round numbers num2words reads are kept whole), then runs over LONG_RUN characters are broken at
     punctuation and every PIECE characters. Ordinary words, numbers and short URLs are untouched."""
     text = re.sub(r"\d{%d,}" % DIGIT_GROUP_MIN, _group_digits, text)
     return re.sub(r"\S{%d,}" % (LONG_RUN + 1), _break_long_run, text)

@@ -9,6 +9,7 @@ Rows 7-11 are the long-token budget (break_long_tokens): after normalize_text no
 chunk of mlx-audio's English chunker (KokoroPipeline.en_tokenize) exceeds Kokoro's 510 phonemes, so
 nothing is truncated, and no letter or digit is dropped on the way (a 320-digit number, a 600-character
 URL, a 64-character hash, a digit run with zeros, and a 250-word run-on sentence with no punctuation).
+Row 12: a round number of 16-30 digits keeps its magnitude ("one quintillion", not "one hundred zero zero ...").
 
 Usage (from native-helper/):
   Sources/NaturalTTSHelper/Resources/python-env/bin/python3 Scripts/verify_g2p.py [WORKER]
@@ -166,6 +167,14 @@ def main():
                 ("within 510 phonemes per chunk (chunked, not truncated)", lambda n, p: within_budget(n)),
                 ("every word in some chunk",
                  lambda n, p: sum(len(t) for _, _, t in KokoroPipeline.en_tokenize(None, g2p(n)[1])) == len(g2p(n)[1])),
+            ],
+        ),
+        (
+            "1 ether = 1000000000000000000 wei. It costs 10000000000000000 tokens.",
+            [
+                ("round numbers kept whole", lambda n, p: n == "1 ether = 1000000000000000000 wei. It costs 10000000000000000 tokens."),
+                ("read as quintillion and quadrillion (kwɪntˈɪljən, kwɑdɹˈɪljən)",
+                 lambda n, p: "kwɪntˈɪljən" in p and "kwɑdɹˈɪljən" in p and "zˈɪɹO" not in p),
             ],
         ),
         (
