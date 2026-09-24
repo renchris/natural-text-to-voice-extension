@@ -222,13 +222,15 @@ lower-third captions), `tapes/render.sh privacy <dir>`, then `promo-assemble.py 
 `SCENES` table holds every measured range, clip time and caption, and which writes the master's timeline for
 `youtube-meta.mjs`. It puts each clip on both channels **unchanged** (no gain), joins scenes with 0.3 s crossfades and
 refuses any cut that would shorten a measured latency. The recipe below is the same pipeline by hand, one ffmpeg call
-per scene; it applies the uniform `volume=4.5dB` described next, which `promo-assemble.py` does not.
+per scene, and like `promo-assemble.py` it applies no gain to the clips.
 
 Every scene is recorded like the hero (`sckrec` at 1280×800, no audio), then scaled and pillarboxed to 1920×1080 in
-the brand's deep ink, given its clip, and concatenated. One static gain applies to **every** clip: the WAVs measure
-−23.5 to −26.0 LUFS (`ffmpeg -af ebur128`), YouTube only turns loud videos down, and `volume=4.5dB` brings them to
-about −20 LUFS with peaks still ≤ −0.6 dBFS. A uniform gain is a level change, not a content edit; record it in
-PROVENANCE.
+the brand's deep ink, given its clip, and concatenated. **The clips take no gain.** Since `f6f701e` the helper
+normalizes every response (one gain toward −16 LUFS under a −1.5 dBTP ceiling), so the six WAVs already measure −18.6
+to −22.1 LUFS with their true peak at −1.5 dBTP (PROVENANCE, "Loudness"), and any boost would clip. The first pass,
+made from un-normalized clips (−23.5 to −26.0 LUFS), boosted every clip by a uniform `volume=4.5dB`; do not bring that
+back. The live system-voice scene (d) is also left exactly as recorded. Keep the finished master outside `/tmp`
+(`~/ntts-captures/<date>/`), which is wiped on reboot.
 
 ```bash
 V='scale=-2:1080:flags=lanczos,pad=1920:1080:(ow-iw)/2:0:color=0x1B2060,fps=30,format=yuv420p'
@@ -238,31 +240,30 @@ card() { ffmpeg -v error -loop 1 -t "$2" -i "$1" -f lavfi -t "$2" -i anullsrc=r=
   -vf "fps=30,format=yuv420p" $enc -shortest "$3"; }
 scene() { # scene <raw.mov> <clip id> <adelay ms> <out.mp4>   (the clip's WAV starts <ms> into the scene)
   ffmpeg -v error -i "$1" -i "assets/media/src/audio/$2.wav" -filter_complex \
-    "[0:v]$V[v];[1:a]volume=4.5dB,adelay=$3|$3,apad,$A[a]" -map "[v]" -map "[a]" -shortest $enc "$4"; }
-scripts/capture/video-cards.sh /tmp/ntts-w3-out/cards          # -> {title,end}-1920x1080.png + caption overlays
-card /tmp/ntts-w3-out/cards/title-1920x1080.png 3 "$OUT/a.mp4"
+    "[0:v]$V[v];[1:a]adelay=$3|$3,apad,$A[a]" -map "[v]" -map "[a]" -shortest $enc "$4"; }
+scripts/capture/video-cards.sh "$OUT/cards"          # -> {title,end}-1920x1080.png + caption overlays
+card "$OUT/cards/title-1920x1080.png" 3 "$OUT/a.mp4"
 # (b) right-click: the hero recipe (sckrec 12 s), selecting exactly s1-rightclick's sentence:
 #     demo.mjs "$WS" "$EXT_ID" essays.example "$OUT/b.json" 'article p' --menu-only \
 #       --text "$(node -pe 'require("./assets/media/src/selections.json").selections.find(s=>s.id==="s1-rightclick").text')"
 scene "$OUT/b-raw.mov" s1-rightclick <ms> "$OUT/b.mp4"
 # (c) popup: Emma in the grouped list, Speak; then + three times to 1.3×, Speak. Two clips in one scene:
 ffmpeg -v error -i "$OUT/c-raw.mov" -i assets/media/src/audio/s2-british.wav -i assets/media/src/audio/s3-speed.wav \
-  -filter_complex "[0:v]$V[v];[1:a]volume=4.5dB,adelay=<ms1>|<ms1>[x];[2:a]volume=4.5dB,adelay=<ms2>|<ms2>[y];[x][y]amix=inputs=2:normalize=0,apad,$A[a]" \
+  -filter_complex "[0:v]$V[v];[1:a]adelay=<ms1>|<ms1>[x];[2:a]adelay=<ms2>|<ms2>[y];[x][y]amix=inputs=2:normalize=0,apad,$A[a]" \
   -map "[v]" -map "[a]" -shortest $enc "$OUT/c.mp4"
 # (d) fallback, live system voice. Dry run first: 3 s while chrome.tts speaks must be louder than -60 dB.
 sckrec $CHROME_PID 3 /tmp/tts-probe.mov --exclude-others & \
   node scripts/capture/cdp.mjs "$WS" "chrome-extension://$EXT_ID/background" 'chrome.tts.speak("Testing the system voice.")'; wait
 ffmpeg -i /tmp/tts-probe.mov -af volumedetect -f null - 2>&1 | grep max_volume   # silent? exclude only the HUD apps,
                                                                                     # or record unfiltered with DND on
-# The take (helper stopped): sckrec … --exclude-others. Level-match its speech to the clips: measure it
-# (ffmpeg -i d-raw.mov -af ebur128 -f null -), and use volume=<-20 minus its integrated LUFS>dB instead of 4.5dB:
-ffmpeg -v error -i "$OUT/d-raw.mov" -filter_complex "[0:v]$V[v];[0:a]volume=<gain>dB,$A[a]" -map "[v]" -map "[a]" $enc "$OUT/d.mp4"
+# The take (helper stopped): sckrec … --exclude-others. Its audio goes in as recorded (no gain), as in promo-assemble.py:
+ffmpeg -v error -i "$OUT/d-raw.mov" -filter_complex "[0:v]$V[v];[0:a]$A[a]" -map "[v]" -map "[a]" $enc "$OUT/d.mp4"
 # (e) privacy terminal + s5-offline:
 scene "$OUT/e-raw.mov" s5-offline <ms> "$OUT/e.mp4"
-card /tmp/ntts-w3-out/cards/end-1920x1080.png 4 "$OUT/f.mp4"
+card "$OUT/cards/end-1920x1080.png" 4 "$OUT/f.mp4"
 printf "file '%s'\n" "$OUT"/{a,b,c,d,e,f}.mp4 > "$OUT/list.txt"
-ffmpeg -v error -f concat -safe 0 -i "$OUT/list.txt" -c copy -movflags +faststart -use_editlist 0 /tmp/ntts-w3-out/youtube-master.mp4
-ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,avg_frame_rate -of compact /tmp/ntts-w3-out/youtube-master.mp4
+ffmpeg -v error -f concat -safe 0 -i "$OUT/list.txt" -c copy -movflags +faststart -use_editlist 0 "$OUT/youtube-master.mp4"
+ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,avg_frame_rate -of compact "$OUT/youtube-master.mp4"
 ```
 
 Every part shares one encoder setting (the R09 §3.4 profile: H.264 High, 8 Mbps, closed GOP 15, 2 B-frames, AAC
