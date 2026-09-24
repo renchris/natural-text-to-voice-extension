@@ -395,6 +395,27 @@ describe('offscreen speak / stop', () => {
     expect(lastOf(finishedMessages())).toEqual({ type: 'SPEAK_FINISHED', success: true });
   });
 
+  test('answers the popup\'s status query and broadcasts when it starts and stops serving (EXT-3)', async () => {
+    const activity = () => runtimeSendMessage.mock.calls.map(call => call[0]).filter((m: any) => m?.type === 'OFFSCREEN_ACTIVITY');
+    const status = () => send<{ type: string; speaking: boolean }>({ type: 'OFFSCREEN_STATUS_QUERY' }).response;
+    runtimeSendMessage.mockClear();
+
+    expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: false });
+    const { response } = speak();
+    await until(() => pendingSpeaks.length > 0, '/speak request');
+    expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: true });
+    expect(activity()).toEqual([{ type: 'OFFSCREEN_ACTIVITY', speaking: true }]);
+
+    expect(await stop().response).toEqual({ type: 'STOPPED', stopped: true });
+    expect(await response).toEqual({ type: 'SPEAK_STOPPED', success: true });
+    expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: false });
+    expect(activity()).toEqual([
+      { type: 'OFFSCREEN_ACTIVITY', speaking: true },
+      { type: 'OFFSCREEN_ACTIVITY', speaking: false },
+    ]);
+    pendingSpeaks.shift()!.resolve();
+  });
+
   test('empty text settles as an error without calling the helper', async () => {
     const calls = fetchMock.mock.calls.length;
     const { response } = speak('   ');

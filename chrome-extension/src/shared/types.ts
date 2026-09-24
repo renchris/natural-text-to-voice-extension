@@ -180,6 +180,28 @@ export interface OffscreenIdleMessage {
 }
 
 /**
+ * Asked by the popup when it opens: is the offscreen document speaking (a
+ * right-click or shortcut request)? Answered with OffscreenStatusResponse.
+ */
+export interface OffscreenStatusQuery {
+  type: 'OFFSCREEN_STATUS_QUERY';
+}
+
+export interface OffscreenStatusResponse {
+  type: 'OFFSCREEN_STATUS';
+  speaking: boolean;
+}
+
+/**
+ * Broadcast by the offscreen document when it starts or stops serving a
+ * speak request, so an open popup can show (and drop) its Stop button.
+ */
+export interface OffscreenActivityMessage {
+  type: 'OFFSCREEN_ACTIVITY';
+  speaking: boolean;
+}
+
+/**
  * Union type for all offscreen document messages
  */
 export type OffscreenMessage =
@@ -187,4 +209,6 @@ export type OffscreenMessage =
   | StopInOffscreenMessage
   | OffscreenIdleMessage
   | SpeakFinishedMessage
+  | OffscreenStatusQuery
+  | OffscreenActivityMessage
   | OffscreenSpeakResponse;

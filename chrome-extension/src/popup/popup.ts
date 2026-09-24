@@ -7,7 +7,12 @@ import { getApiClient, resetApiClient, userMessageForError } from '../shared/api
 import { Voice, HealthResponse } from '../shared/types';
 import { HelperNotFoundError, NetworkTimeoutError } from '../shared/types';
 import { readSelection } from '../shared/selection';
-import type { OffscreenMessage } from '../shared/types';
+import type {
+  OffscreenMessage,
+  OffscreenStatusQuery,
+  OffscreenStatusResponse,
+  StopInOffscreenMessage,
+} from '../shared/types';
 import { renderShortcutChip } from './shortcut-chip';
 import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
 import { buildVoiceOptionNodes } from '../shared/voice-options';
@@ -27,12 +32,15 @@ interface PopupState {
   engineFailed: boolean;
   isGenerating: boolean;
   currentAudio: HTMLAudioElement | null;
+  /** The offscreen document is speaking a right-click or shortcut request; the button stops it. */
+  offscreenSpeaking: boolean;
   warmupPollTimer: ReturnType<typeof setTimeout> | null;
 }
 
 type MessageType = 'success' | 'error' | 'warning' | 'info';
 
 const PLAYING_MESSAGE = 'Playing audio…';
+const OFFSCREEN_PLAYING_MESSAGE = 'Speaking your selection…';
 const NOT_RUNNING_MESSAGE = 'Native helper not running. Please start the helper and click Retry.';
 const ENGINE_FAILED_MESSAGE = 'The helper’s voice engine stopped. Restart the helper, then click Retry.';
 const disconnectedMessage = (): string => (state.engineFailed ? ENGINE_FAILED_MESSAGE : NOT_RUNNING_MESSAGE);
@@ -69,6 +77,7 @@ const state: PopupState = {
   engineFailed: false,
   isGenerating: false,
   currentAudio: null,
+  offscreenSpeaking: false,
   warmupPollTimer: null,
 };
 
@@ -125,6 +134,7 @@ async function init(): Promise<void> {
 
   // Update UI to reflect current state
   updateUI();
+  await syncOffscreenSpeaking();
   const footerVersion = document.getElementById('footerVersion');
   if (footerVersion) footerVersion.textContent = `v${chrome.runtime.getManifest().version}`;
   const shortcutChip = document.getElementById('shortcutChip');
@@ -183,6 +193,8 @@ function setupEventListeners(): void {
   chrome.runtime.onMessage.addListener((message: OffscreenMessage) => {
     if (message?.type === 'STOP_IN_OFFSCREEN') {
       stopPopupAudio();
+    } else if (message?.type === 'OFFSCREEN_ACTIVITY') {
+      showOffscreenSpeaking(message.speaking);
     }
     return false;
   });
@@ -420,6 +432,15 @@ async function handleSpeak(): Promise<void> {
     return;
   }
 
+  // Right-click / shortcut speech is playing: the button stops it. This is
+  // the one Stop a default install has (stop-speaking ships without a key).
+  if (state.offscreenSpeaking) {
+    const stop: StopInOffscreenMessage = { type: 'STOP_IN_OFFSCREEN' };
+    chrome.runtime.sendMessage(stop).catch(() => {});
+    showOffscreenSpeaking(false);
+    return;
+  }
+
   // One request at a time. The guard is set synchronously below, before the
   // first await, so a second click (or Enter) cannot slip in.
   if (state.isGenerating) {
@@ -569,6 +590,39 @@ async function playAudio(audioBlob: Blob): Promise<void> {
   } catch (error) {
     finishPlayback();
     throw error;
+  }
+}
+
+/**
+ * Ask the offscreen document whether it is speaking (no document, no answer:
+ * nothing is).
+ */
+async function syncOffscreenSpeaking(): Promise<void> {
+  try {
+    const query: OffscreenStatusQuery = { type: 'OFFSCREEN_STATUS_QUERY' };
+    const reply = await chrome.runtime.sendMessage(query) as OffscreenStatusResponse | undefined;
+    if (reply?.type === 'OFFSCREEN_STATUS') showOffscreenSpeaking(reply.speaking);
+  } catch {
+    // No offscreen document: nothing is speaking.
+  }
+}
+
+/**
+ * Show (or drop) the Stop button for speech the offscreen document is
+ * serving. Never while the popup plays its own audio.
+ */
+function showOffscreenSpeaking(speaking: boolean): void {
+  if (speaking) {
+    if (state.currentAudio || state.isGenerating) return;
+    state.offscreenSpeaking = true;
+    setPlayingState(true);
+    elements.speakButton.disabled = false;
+    showMessage(OFFSCREEN_PLAYING_MESSAGE, 'info');
+  } else if (state.offscreenSpeaking) {
+    state.offscreenSpeaking = false;
+    setPlayingState(false);
+    hideMessageIf(OFFSCREEN_PLAYING_MESSAGE);
+    updateUI();
   }
 }
 

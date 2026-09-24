@@ -14,6 +14,8 @@ import type {
   OffscreenMessage,
   OffscreenIdleMessage,
   SpeakFinishedMessage,
+  OffscreenStatusResponse,
+  OffscreenActivityMessage,
 } from '../shared/types';
 
 /**
@@ -86,7 +88,7 @@ armIdleTimer();
 chrome.runtime.onMessage.addListener((
   message: OffscreenMessage,
   _sender: chrome.runtime.MessageSender,
-  sendResponse: (response: OffscreenSpeakResponse | OffscreenStopResponse) => void
+  sendResponse: (response: OffscreenSpeakResponse | OffscreenStopResponse | OffscreenStatusResponse) => void
 ): boolean => {
 
   if (message.type === 'SPEAK_IN_OFFSCREEN') {
@@ -98,6 +100,12 @@ chrome.runtime.onMessage.addListener((
 
   if (message.type === 'STOP_IN_OFFSCREEN') {
     sendResponse({ type: 'STOPPED', stopped: stopSpeaking() });
+    return false;
+  }
+
+  // The popup asks on open, so it can offer Stop for speech it did not start.
+  if (message.type === 'OFFSCREEN_STATUS_QUERY') {
+    sendResponse({ type: 'OFFSCREEN_STATUS', speaking: activeJob !== null });
     return false;
   }
 
@@ -171,6 +179,7 @@ function handleSpeakRequest(
           activeJob = null;
           // Playback ended, failed or was stopped: start the idle countdown.
           armIdleTimer();
+          broadcastActivity(false);
         }
         if (job.started) {
           reportFinished(response);
@@ -180,6 +189,7 @@ function handleSpeakRequest(
       },
     };
     activeJob = job;
+    broadcastActivity(true);
 
     runSpeakJob(message, job).then(job.settle, (error) => {
       releaseAudio(job);
@@ -226,6 +236,14 @@ async function runSpeakJob(
     type: 'SPEAK_COMPLETE',
     success: true,
   };
+}
+
+/** Tell an open popup whether a speak request is being served. */
+function broadcastActivity(speaking: boolean): void {
+  const activity: OffscreenActivityMessage = { type: 'OFFSCREEN_ACTIVITY', speaking };
+  chrome.runtime.sendMessage(activity).catch(() => {
+    // No popup open (and the service worker ignores it): nothing to tell.
+  });
 }
 
 /** The outcome of a request whose reply (SPEAK_STARTED) has already gone. */

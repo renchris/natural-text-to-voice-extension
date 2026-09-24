@@ -75,6 +75,11 @@ const storage: Record<string, unknown> = {
   native_tts_helper_config: { port: 18249, secret: '', default_voice: 'af_bella' },
 };
 let onMessage: ((message: unknown) => boolean) | null = null;
+// Runtime messages the popup sends (the offscreen status query, a Stop); the
+// offscreen document answers the query with speaking: false.
+const runtimeSendMessage = mock(async (message: { type: string }) =>
+  message?.type === 'OFFSCREEN_STATUS_QUERY' ? { type: 'OFFSCREEN_STATUS', speaking: false } : undefined
+);
 const setBadgeText = mock(async (_details: { text: string }) => {});
 
 const saved = {
@@ -90,6 +95,7 @@ function installGlobals(): void {
     runtime: {
       getManifest: () => ({ name: 'Natural Text-to-Speech', version: '1.4.0' }),
       onMessage: { addListener: (fn: (message: unknown) => boolean) => { onMessage = fn; } },
+      sendMessage: runtimeSendMessage,
       openOptionsPage: mock(() => {}),
     },
     storage: {
@@ -240,6 +246,35 @@ describe('popup speak button (IN-10)', () => {
     expect(onMessage!({ type: 'STOP_IN_OFFSCREEN' })).toBe(false);
     expect(audio.pause).toHaveBeenCalled();
     expect(el('buttonText').textContent).toBe('Speak Selected Text');
+  });
+
+  test('on open it asks the offscreen document whether it is speaking (EXT-3)', () => {
+    const types = runtimeSendMessage.mock.calls.map(call => (call[0] as { type: string }).type);
+    expect(types).toContain('OFFSCREEN_STATUS_QUERY');
+  });
+
+  test('right-click / shortcut speech can be stopped from the popup, with no key bound (EXT-3)', async () => {
+    const button = el<HTMLButtonElement>('speakButton');
+    const speaksBefore = speakCalls();
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: true });
+    expect(el('buttonText').textContent).toBe('Stop');
+    expect(button.disabled).toBe(false);
+
+    runtimeSendMessage.mockClear();
+    button.click();
+    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'button back to Speak');
+    const sent = runtimeSendMessage.mock.calls.map(call => call[0]);
+    expect(sent).toEqual([{ type: 'STOP_IN_OFFSCREEN' }]);
+    // It stopped the offscreen speech; it did not start a second, overlapping one.
+    expect(speakCalls()).toBe(speaksBefore);
+  });
+
+  test('the Stop goes away by itself when the offscreen speech ends', () => {
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: true });
+    expect(el('buttonText').textContent).toBe('Stop');
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false });
+    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
   });
 
   test('no selection asks for one, without mentioning an input field, and sends nothing', async () => {
