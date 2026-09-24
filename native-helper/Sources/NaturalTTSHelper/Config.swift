@@ -185,7 +185,7 @@ struct Config: Codable {
                 port: preferredPort,
                 pythonPath: "",
                 workerScriptPath: "",
-                defaultVoice: "af_bella"
+                defaultVoice: VoiceCatalogue.defaultVoice
             )
         }
 

@@ -206,13 +206,14 @@ Generate TTS audio.
 ```json
 {
   "text": "Hello from Metal GPU!",
-  "voice": "af_bella",  // optional, default: "af_bella"
+  "voice": "af_heart",  // optional, default: "af_heart"
   "speed": 1.0          // optional, range: 0.5-2.0, default: 1.0
 }
 ```
 
 **Available Voices**:
-- `af_bella` (US Female) - Default
+- `af_heart` (US Female) - Default for new installs (a stored `default_voice` is kept)
+- `af_bella` (US Female)
 - `af_sarah` (UK Female)
 - `am_adam` (US Male)
 - `am_michael` (UK Male)
@@ -454,7 +455,7 @@ Config is saved to: `~/Library/Application Support/NaturalTTS/config.json`
   "secret": "uuid-token",
   "python_path": "/path/to/Sources/NaturalTTSHelper/Resources/python-env/bin/python3",
   "worker_script_path": "/path/to/Sources/NaturalTTSHelper/Resources/tts_worker.py",
-  "default_voice": "af_bella"
+  "default_voice": "af_heart"
 }
 ```
 

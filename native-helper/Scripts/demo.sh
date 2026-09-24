@@ -256,13 +256,13 @@ test_custom_text() {
         VOICE_NAME=$(echo "$VOICES_JSON" | jq -r ".voices[] | select(.id==\"$VOICE_ID\") | .name")
         echo "  $((i+1)). $VOICE_NAME ($VOICE_ID)"
     done
-    echo "  Enter: Use default (af_bella)"
+    echo "  Enter: Use default (af_heart)"
     echo ""
     echo -n "Choice [1-${#VOICE_IDS[@]}] or Enter: "
     read -r VOICE_CHOICE
 
     if [ -z "$VOICE_CHOICE" ]; then
-        SELECTED_VOICE="af_bella"
+        SELECTED_VOICE="af_heart"
     else
         SELECTED_VOICE="${VOICE_IDS[$((VOICE_CHOICE-1))]}"
     fi

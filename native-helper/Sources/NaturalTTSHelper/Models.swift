@@ -106,7 +106,14 @@ enum VoiceCatalogue {
         Voice("bm_daniel", "Daniel", grade: "D"),
     ]
 
-    static let fallbackVoice = "af_bella"
+    /// The voice a NEW install speaks with (OD-5: af_heart, grade A). Written
+    /// into a freshly created config.json; an existing config's
+    /// default_voice, and any voice a request names, is left as it is.
+    static let defaultVoice = "af_heart"
+
+    /// Used when a request names no voice and the configured default_voice
+    /// is not in the catalogue.
+    static let fallbackVoice = defaultVoice
 
     private static let ids = Set(voices.map(\.id))
 

@@ -79,6 +79,8 @@ MODEL_REVISION = "e02c9eada7ce7416798af36b190a8a2dd2ecd566"
 # What the worker needs from the snapshot; setup fetches the same set.
 MODEL_FILES = ["config.json", "*.safetensors"]
 SETUP_HINT = "run Scripts/setup-python-env.sh (model not cached or dependency missing)"
+# Voice for a request that names none (the helper always names one; OD-5: af_heart, grade A).
+DEFAULT_VOICE = "af_heart"
 PEAK_LIMIT = 0.98
 SAMPLE_RATE = 24000
 # Largest request frame the worker accepts. The helper caps request text far below this (HTTPServer.swift
@@ -428,7 +430,7 @@ def main():
 
             # Extract parameters
             text = request.get("text", "")
-            voice = request.get("voice", "af_bella")
+            voice = request.get("voice", DEFAULT_VOICE)
             speed = request.get("speed", 1.0)
 
             if not text:
