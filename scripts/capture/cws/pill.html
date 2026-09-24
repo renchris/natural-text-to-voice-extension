@@ -1,0 +1,12 @@
+<!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css>
+<!-- README hero preview: the "watch with sound" pill composited onto the preview's held last frame (960x600, DPR 1,
+     transparent). The preview is silent (GitHub does not play repo MP4s inline), so the held frame points at the
+     MP4 it links to. Rendered by scripts/capture/hero-preview.sh; the length is passed as ?s=<seconds>. -->
+<style>html,body{background:transparent!important;width:960px;height:600px}
+.pill{position:absolute;right:66px;bottom:44px;display:flex;align-items:center;gap:10px;padding:11px 20px 11px 16px;
+  border-radius:999px;background:rgba(27,32,96,.94);color:#fff;font:600 19px/1 var(--sans);letter-spacing:-.005em;
+  box-shadow:0 14px 34px -12px rgba(27,32,96,.55),0 0 0 1px rgba(255,255,255,.18)}
+.pill b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#5B6CF3;font-size:11px;padding-left:2px}
+.pill span{color:rgba(255,255,255,.72);font-weight:500}</style>
+<body><div class=pill><b>&#9654;</b>Watch with sound <span>· <i id=s style="font-style:normal"></i> s</span></div>
+<script>document.getElementById('s').textContent=new URLSearchParams(location.search).get('s')||'25'</script>
