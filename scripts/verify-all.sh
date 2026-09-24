@@ -49,9 +49,14 @@ VOICES_IDS="$LOGDIR/voices-ids.txt"   # written by the swift section, read by co
 SECTION=""
 R_SEC=(); R_NAME=(); R_STAT=(); R_DETAIL=()
 
+# One row per check. The detail is cut to DETAIL_MAX characters so a row fits a 130-column terminal; the full
+# output is always in the section's log under $LOGDIR.
+DETAIL_MAX=70
+ROW_FMT='%-6s  %-11s %-38s  %s\n'
+short() { local d="${1:-}"; (( ${#d} > DETAIL_MAX )) && d="${d:0:$((DETAIL_MAX - 1))}…"; printf '%s' "$d"; }
 record() { # <status> <name> <detail>
   R_SEC+=("$SECTION"); R_STAT+=("$1"); R_NAME+=("$2"); R_DETAIL+=("${3:-}")
-  printf '%-4s  %-11s %-34s %s\n' "$1" "$SECTION" "$2" "${3:-}"
+  printf "$ROW_FMT" "$1" "$SECTION" "$2" "$(short "${3:-}")"
 }
 pass() { record PASS "$1" "${2:-}"; }
 fail() { record FAIL "$1" "${2:-}"; }
@@ -471,8 +476,8 @@ print(json.dumps(found[-1]) if found else "")' "$LOGDIR/extension-perms.log" 2>/
     pass "dist manifest has tts permission"
   else fail "dist manifest has tts permission" "permissions: $(json "$dist/manifest.json" "d.get('permissions')" 2>/dev/null)"; fi
   local mname; mname="$(json "$dist/manifest.json" "d.get('name')" 2>/dev/null || echo '?')"
-  if [[ "$mname" == "$EXPECTED_NAME" ]]; then pass "manifest name (OD-7)" "$mname"
-  else fail "manifest name (OD-7)" "got '$mname', want '$EXPECTED_NAME'"; fi
+  if [[ "$mname" == "$EXPECTED_NAME" ]]; then pass "manifest name" "$mname"
+  else fail "manifest name" "got '$mname', want '$EXPECTED_NAME'"; fi
   # OD-10: the 128 px icon is 96 px of artwork inside a fully transparent 16 px border.
   if need "$dist/icons/icon128.png" "icon128 96 px art, 16 px clear"; then
     local icon; icon="$(python3 - "$dist/icons/icon128.png" <<'PY' 2>&1
@@ -621,17 +626,22 @@ section_docs() {
     elif out="$(python3 "$REPO/scripts/verify/store-zip.py" "$zip" "$EXPECTED_VERSION" 2>&1)"; then pass "store zip" "$out"
     else fail "store zip" "$(echo "$out" | tail -1 | cut -c1-220)"; fi
   fi
-  # Privacy policy: states this version.
-  if need "$EXT_DIR/PRIVACY.md" "PRIVACY.md version"; then
-    if grep -qF "Version $EXPECTED_VERSION" "$EXT_DIR/PRIVACY.md"; then pass "PRIVACY.md version" "Version $EXPECTED_VERSION"
-    else fail "PRIVACY.md version" "no 'Version $EXPECTED_VERSION' in chrome-extension/PRIVACY.md"; fi
+  # Privacy policy: the 1.5.0 rewrite, not only its version line. The pre-rewrite policy also said "Version 1.5.0",
+  # so the version string alone could not tell them apart; "## Limited Use" exists only in the rewrite
+  # (docs/publishing/PRIVACY_TRACEABILITY.md traces every statement under it).
+  if need "$EXT_DIR/PRIVACY.md" "PRIVACY.md is the 1.5.0 rewrite"; then
+    if ! grep -qF "Version $EXPECTED_VERSION" "$EXT_DIR/PRIVACY.md"; then
+      fail "PRIVACY.md is the 1.5.0 rewrite" "no 'Version $EXPECTED_VERSION' in chrome-extension/PRIVACY.md"
+    elif ! grep -qx '## Limited Use' "$EXT_DIR/PRIVACY.md"; then
+      fail "PRIVACY.md is the 1.5.0 rewrite" "no '## Limited Use' section: this is the pre-rewrite policy"
+    else pass "PRIVACY.md is the 1.5.0 rewrite" "Version $EXPECTED_VERSION, Limited Use section"; fi
   fi
   # OD-7: the old product name survives only in history (research, CHANGELOG, the original implementation plan).
   # The pattern is split so this line does not match itself.
   local oldname; oldname="$(git -C "$REPO" grep -n "Natural Text-to""-Speech" -- . ':!docs/research' ':!CHANGELOG.md' \
     ':!chrome-extension/IMPLEMENTATION_PLAN.md' 2>/dev/null | cut -c1-120 | head -3 | tr '\n' ' ' || true)"
-  if [[ -z "$oldname" ]]; then pass "no old product name (OD-7)" "tracked files outside history"
-  else fail "no old product name (OD-7)" "$oldname"; fi
+  if [[ -z "$oldname" ]]; then pass "no old product name" "tracked files outside history"
+  else fail "no old product name" "$oldname"; fi
 }
 
 # ---------------------------------------------------------------- main
@@ -648,12 +658,12 @@ done
 cleanup; HELPER_PID=""; WORKER_PID=""
 
 echo
-printf '%-4s  %-11s %-34s %s\n' RESULT SECTION CHECK DETAIL
-printf '%s\n' "------------------------------------------------------------------------------------------------"
+printf "$ROW_FMT" RESULT SECTION CHECK DETAIL
+printf '%s\n' "----------------------------------------------------------------------------------------------------------------------------------"
 if (( ${#R_NAME[@]} == 0 )); then echo "FAIL: no checks ran"; exit 1; fi
 nfail=0
 for i in "${!R_NAME[@]}"; do
-  printf '%-4s  %-11s %-34s %s\n' "${R_STAT[$i]}" "${R_SEC[$i]}" "${R_NAME[$i]}" "${R_DETAIL[$i]}"
+  printf "$ROW_FMT" "${R_STAT[$i]}" "${R_SEC[$i]}" "${R_NAME[$i]}" "$(short "${R_DETAIL[$i]}")"
   [[ "${R_STAT[$i]}" == PASS ]] || nfail=$((nfail + 1))
 done
 echo
