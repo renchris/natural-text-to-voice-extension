@@ -10,6 +10,7 @@
 //   --park <x,y>            screen point to park the real cursor before the menu opens (default 1600,300); it
 //                           must be off the capture window, or the menu opens with an item under the cursor
 //   --shot <cmd>            menu mode: shell command run while "Speak selected text" is highlighted
+//   --at k=s,...            full mode: override the schedule (select, right, hover, click; seconds from start)
 //   --pid <pid>             the capture browser's main pid (CHROME_PID in env.txt), for axmenu
 //   --popup-at <s>          full mode: open the real anchored toolbar popup at this second (chrome.action.openPopup
 //                           from the service worker), to show the speaking state; omit for no popup
@@ -37,6 +38,7 @@ const shot = opt('shot', '');
 const popupAt = opt('popup-at') ? Number(opt('popup-at')) : null;
 // full-mode schedule, seconds from start
 const AT = { select: 0.8, right: 2.7, hover: 3.5, click: 4.4 };
+for (const kv of (opt('at', '') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); AT[k] = Number(v); }
 
 const tool = (name, ...args) => execFileSync(name, args.map(String), { encoding: 'utf8' }).trim();
 const ws = new WebSocket(wsUrl);
@@ -125,6 +127,9 @@ ws.onopen = async () => {
     tool('move', item.x, item.y);
     mark('hover');
     await until(AT.click - 0.05);
+    // Never click blind: if the menu closed (the operator clicked elsewhere), the point is some other window.
+    const again = await menuItem('Speak selected text', 300).catch(() => null);
+    if (!again || again.x !== item.x || again.y !== item.y) throw new Error('menu closed or moved before the click; not clicking');
     const out = tool('click', item.x, item.y, 0.05);
     const downAt = Number(out.match(/down_at=(\d+)/)[1]);
     mark('speak-click', { downAt, tDown: (downAt - t0) / 1000 });

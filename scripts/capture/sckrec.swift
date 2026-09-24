@@ -14,7 +14,7 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputD
     if type == .screen { videoFrames += 1 } else if type == .audio { audioBuffers += 1 }
   }
   func stream(_ s: SCStream, didStopWithError e: Error) { fputs("stream stopped with error: \(e)\n", stderr) }
-  func recordingOutputDidStartRecording(_ r: SCRecordingOutput) { print("recording started") }
+  func recordingOutputDidStartRecording(_ r: SCRecordingOutput) { print("recording started at=\(Int(Date().timeIntervalSince1970 * 1000))"); fflush(stdout) }
   func recordingOutputDidFinishRecording(_ r: SCRecordingOutput) { print("recording finished") }
   func recordingOutput(_ r: SCRecordingOutput, didFailWithError e: Error) { fputs("recording failed: \(e)\n", stderr) }
 }
@@ -68,7 +68,7 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputD
     let rec = SCRecordingOutput(configuration: rc, delegate: sink)
     try stream.addRecordingOutput(rec)
     try await stream.startCapture()
-    print("capturing app=\(app.applicationName) pid=\(pid) rect=\(rect) scale=\(scale) px=\(cfg.width)x\(cfg.height) for \(secs)s")
+    fflush(stdout); print("capturing app=\(app.applicationName) pid=\(pid) rect=\(rect) scale=\(scale) px=\(cfg.width)x\(cfg.height) for \(secs)s"); fflush(stdout)
     try await Task.sleep(nanoseconds: UInt64(secs * 1_000_000_000))
     try await stream.stopCapture()
     try await Task.sleep(nanoseconds: 700_000_000)
