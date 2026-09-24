@@ -27,6 +27,9 @@ actor PythonWorker {
 
     private let warmupTimeout: TimeInterval = 60.0 // 60 seconds for model load
 
+    /// Every line tts_worker.py's own logger writes starts with this.
+    static let workerLinePrefix = "[worker] "
+
     init(config: Config) {
         self.config = config
     }
@@ -52,6 +55,12 @@ actor PythonWorker {
 
         // Forward worker stderr line by line, through the redactor so request
         // text never reaches the helper's log, and watch for warmup completion.
+        // Only lines from the worker's own logger ("[worker] " prefix, one
+        // physical line each; tts_worker.py) are logged at info. Anything else
+        // on the pipe (a library that escaped the worker's stderr redirect, a
+        // native crash message) goes to debug, which the .info handler drops:
+        // library output can carry text-derived data the redactor cannot
+        // match, such as mlx-audio's phoneme dump of a long chunk.
         let logger = self.logger
         let redactor = self.redactor
         let lines = LineSplitter()
@@ -62,7 +71,11 @@ actor PythonWorker {
             for line in lines.feed(data) {
                 let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { continue }
-                logger.info("[worker] \(redactor.redact(trimmed))")
+                if trimmed.hasPrefix(Self.workerLinePrefix) {
+                    logger.info("\(redactor.redact(trimmed))")
+                } else {
+                    logger.debug("[worker, unprefixed] \(redactor.redact(trimmed))")
+                }
 
                 if trimmed.contains("Model loaded, ready for requests") {
                     Task {
@@ -127,9 +140,12 @@ actor PythonWorker {
         let response: GenerateResponse = try await receiveMessage()
 
         // Check for error
+        // Redacted once, here, so no later log line or response body can carry
+        // request text quoted by a worker error.
         if let error = response.error {
-            logger.error("Generation failed: \(redactor.redact(error))")
-            throw WorkerError.generationFailed(error)
+            let safe = redactor.redact(error)
+            logger.error("Generation failed: \(safe)")
+            throw WorkerError.generationFailed(safe)
         }
 
         // Decode audio

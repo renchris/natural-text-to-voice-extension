@@ -211,6 +211,20 @@ section_swift() {
     fail "bf_emma -> WAV" "HTTP $c, $fmt"
   fi
 
+  # Privacy, long token: one chunk over 510 phonemes made mlx-audio log its whole phoneme string (the
+  # number, spelled out), and a 320-digit number made the worker return str(OverflowError) quoting it.
+  local digits="4111411141114111" big
+  big="$(python3 -c 'print("7" * 320)')"
+  c="$(curl -s --max-time 120 -o /dev/null -w '%{http_code}' -X POST "$base/speak" -H 'Content-Type: application/json' \
+      -d "{\"text\":\"My card number is ${digits}${digits}${digits}${digits} and my PIN is 9876.\",\"voice\":\"af_bella\"}" || echo 000)"
+  local c2; c2="$(curl -s --max-time 60 -o "$LOGDIR/overflow.json" -w '%{http_code}' -X POST "$base/speak" \
+      -H 'Content-Type: application/json' -d "{\"text\":\"The modulus is $big and that is all.\",\"voice\":\"af_bella\"}" || echo 000)"
+  if [[ "$c" != 200 ]]; then fail "no phonemes/digits in helper log" "64-digit /speak HTTP $c"
+  elif grep -qE 'ps ==|len\(ps\)' "$hlog"; then fail "no phonemes/digits in helper log" "phoneme dump in $hlog"
+  elif grep -qE "$digits|7777777777777777" "$hlog" "$LOGDIR/overflow.json"; then
+    fail "no phonemes/digits in helper log" "request digits in $hlog or the error body"
+  else pass "no phonemes/digits in helper log" "64-digit HTTP $c, 320-digit HTTP $c2"; fi
+
   # Privacy: the spoken text never reaches the helper's log.
   if grep -q "$sentinel" "$hlog"; then fail "text absent from helper log" "sentinel found in $hlog"
   else pass "text absent from helper log" "$(wc -l <"$hlog" | tr -d ' ') log lines checked"; fi

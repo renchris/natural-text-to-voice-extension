@@ -17,11 +17,52 @@ import base64
 import logging
 from io import BytesIO
 
-# Setup logging to stderr (captured by Swift)
-logging.basicConfig(
-    level=logging.INFO, format="[%(levelname)s] %(message)s", stream=sys.stderr
-)
-logger = logging.getLogger(__name__)
+# Logging, and why it is built this way (privacy). PythonWorker.swift forwards the worker's stderr into
+# the helper log, and libraries write text-derived data there: mlx-audio's KokoroPipeline logs the full
+# phoneme transcription of any chunk over 510 phonemes through the ROOT logger, whose handler keeps the
+# stderr object it was created with, so redirect_stderr() around generate() never silenced it. So the
+# worker's own logger is the only writer that can reach the helper: it gets a private duplicate of fd 2,
+# and fd 2 and sys.stderr are pointed at /dev/null for everything else (library loggers, warnings, C
+# libraries such as espeak-ng). Every line it writes starts with "[worker] " and is one physical line, so
+# the helper can forward exactly these lines and drop anything else.
+_log_stream = os.fdopen(os.dup(2), "w", buffering=1, encoding="utf-8", errors="replace")
+_devnull_fd = os.open(os.devnull, os.O_WRONLY)
+os.dup2(_devnull_fd, 2)
+os.close(_devnull_fd)
+sys.stderr = open(os.devnull, "w")
+
+
+class _OneLineFormatter(logging.Formatter):
+    def format(self, record):
+        return super().format(record).replace("\n", " | ")
+
+
+_handler = logging.StreamHandler(_log_stream)
+_handler.setFormatter(_OneLineFormatter("[worker] [%(levelname)s] %(message)s"))
+logger = logging.getLogger("tts_worker")
+logger.addHandler(_handler)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+# Library records stop at the root logger, which only has a NullHandler (and so never falls back to
+# logging.lastResort either).
+logging.getLogger().handlers[:] = [logging.NullHandler()]
+
+
+def _log_uncaught(exc_type, exc, tb):
+    logger.critical(f"Uncaught {exc_type.__name__}", exc_info=(exc_type, exc, tb))
+
+
+sys.excepthook = _log_uncaught
+
+
+def describe_exception(e):
+    """Type and raising location of an exception, never its message: messages can quote the input (a
+    310-digit number makes num2words raise OverflowError('abs(<the number>) must be ...'))."""
+    import traceback
+
+    frames = traceback.extract_tb(e.__traceback__)
+    where = f" at {os.path.basename(frames[-1].filename)}:{frames[-1].lineno}" if frames else ""
+    return f"{type(e).__name__}{where}"
 
 MODEL_ID = "prince-canuma/Kokoro-82M"
 SETUP_HINT = "run Scripts/setup-python-env.sh (model not cached or dependency missing)"
@@ -62,7 +103,7 @@ def read_message():
         message = json.loads(message_bytes.decode("utf-8"))
         return message
     except Exception as e:
-        logger.error(f"Error reading message: {e}")
+        logger.error(f"Error reading message: {describe_exception(e)}")
         return None
 
 
@@ -75,7 +116,7 @@ def write_message(obj):
         sys.stdout.buffer.write(message_bytes)
         sys.stdout.buffer.flush()
     except Exception as e:
-        logger.error(f"Error writing message: {e}")
+        logger.error(f"Error writing message: {describe_exception(e)}")
 
 
 def get_cached_model():
@@ -274,8 +315,9 @@ def generate_audio_mlx(text, voice, speed):
         }
 
     except Exception as e:
-        logger.error(f"Error generating audio: {e}", exc_info=True)
-        return {"error": str(e)}
+        # Neither the message nor the traceback: both can carry the request text (see describe_exception).
+        logger.error(f"Error generating audio: {describe_exception(e)}")
+        return {"error": f"internal_error: {type(e).__name__}"}
 
 
 def main():
@@ -322,8 +364,8 @@ def main():
             logger.info("Interrupted by user")
             break
         except Exception as e:
-            logger.error(f"Unexpected error in main loop: {e}", exc_info=True)
-            write_message({"error": str(e)})
+            logger.error(f"Unexpected error in main loop: {describe_exception(e)}")
+            write_message({"error": f"internal_error: {type(e).__name__}"})
 
     logger.info("Python worker shutting down")
 

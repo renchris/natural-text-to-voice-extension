@@ -227,7 +227,9 @@ actor HTTPServer {
             return (head, buffer)
 
         } catch let error as WorkerError {
-            logger.error("Generation failed: \(error.description)")
+            // PythonWorker already redacts a generationFailed message; redact
+            // again so this line never depends on where the error came from.
+            logger.error("Generation failed: \(worker.redactor.redact(error.description))")
             let errorResponse = ErrorResponse(
                 error: error.code,
                 message: error.description,
@@ -236,7 +238,7 @@ actor HTTPServer {
             return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
 
         } catch {
-            logger.error("Unexpected error: \(error)")
+            logger.error("Unexpected error: \(worker.redactor.redact(String(describing: error)))")
             let errorResponse = ErrorResponse(
                 error: "internal_error",
                 message: error.localizedDescription,

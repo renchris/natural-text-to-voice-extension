@@ -4,8 +4,12 @@
 Spawns the worker exactly as PythonWorker.swift does (4-byte little-endian length prefix + JSON on
 stdin/stdout, logs on stderr) and asserts:
 
-  * exactly 3 OK responses, each a 24 kHz / mono / 16-bit WAV, for af_bella, bf_emma and af_heart;
-  * the `empty_text` error for "" and the `invalid_speed` error for speed 0;
+  * an OK response, each a 24 kHz / mono / 16-bit WAV, for every request expected "ok" (af_bella,
+    bf_emma, af_heart, and a 64-digit number that crosses mlx-audio's 510-phoneme warning);
+  * the `empty_text` error for "" and the `invalid_speed` error for speed 0, and an `internal_error:`
+    code (never the exception message) for a 320-digit number that makes num2words raise;
+  * privacy: every stderr line comes from the worker's own "[worker] " logger, with no phoneme dump
+    and no request text;
   * no stray bytes on stdout after the last frame, and exit code 0 on stdin EOF;
   * stderr carries the exact readiness sentinel PythonWorker.swift matches.
 
@@ -39,6 +43,12 @@ SENTINEL = (
 # bundled libespeak-ng falls back to its compiled-in CI path and the first request kills the worker.
 ESPEAK_DATA_PATH = "/opt/homebrew/opt/espeak-ng/share/espeak-ng-data"
 
+LONG_TOKEN = "4111" * 16  # 64 digits: ~950 phonemes, one chunk
+LONG_TOKEN_TEXT = f"My card number is {LONG_TOKEN} and my PIN is 9876."
+OVERFLOW_TOKEN = "7" * 320
+OVERFLOW_TEXT = f"The modulus is {OVERFLOW_TOKEN} and that is all."
+WORKER_LINE_PREFIX = "[worker] "  # PythonWorker.swift logs only lines with this prefix at info
+
 REQUESTS = [
     (
         {
@@ -66,6 +76,12 @@ REQUESTS = [
     ),
     ({"text": "", "voice": "af_bella"}, "empty_text"),
     ({"text": "x", "voice": "af_bella", "speed": 0}, "invalid_speed"),
+    # Privacy: one token over 510 phonemes made mlx-audio log the whole phoneme string (the number,
+    # spelled out) through the root logger, which reached the helper log.
+    ({"text": LONG_TOKEN_TEXT, "voice": "af_bella", "speed": 1.0}, "ok"),
+    # Privacy: a 320-digit number makes num2words raise OverflowError quoting the number. The worker
+    # must answer with a code, never str(e).
+    ({"text": OVERFLOW_TEXT, "voice": "af_bella", "speed": 1.0}, "internal_error"),
 ]
 
 
@@ -144,10 +160,16 @@ def main():
                 if expect == "ok":
                     ok_voices.append(req["voice"])
             else:
-                print(f"ERR voice={req.get('voice')} -> {resp}  latency={dt:.2f}s")
+                shown = {k: (v[:80] + "…" if isinstance(v, str) and len(v) > 80 else v) for k, v in resp.items()}
+                print(f"ERR voice={req.get('voice')} -> {shown}  latency={dt:.2f}s")
+                code = str(resp.get("error", ""))
                 check(
-                    resp.get("error") == expect,
-                    f"voice={req.get('voice')} expected {expect!r}, got {resp}",
+                    code == expect or code.startswith(expect + ":"),
+                    f"voice={req.get('voice')} expected {expect!r}, got {shown}",
+                )
+                check(
+                    "7777777777777777" not in code,
+                    "a worker error response quotes the request text",
                 )
 
         try:
@@ -164,10 +186,16 @@ def main():
         err.seek(0)
         stderr = err.read().decode("utf-8", "replace")
 
-    check(
-        ok_voices == ["af_bella", "bf_emma", "af_heart"],
-        f"OK voices {ok_voices}, want af_bella,bf_emma,af_heart",
-    )
+    want_ok = [req["voice"] for req, expect in REQUESTS if expect == "ok"]
+    check(ok_voices == want_ok, f"OK voices {ok_voices}, want {want_ok}")
+    # Privacy: stderr is what the helper forwards to its log. Every line must come from the worker's own
+    # logger, and none may carry the request text or its phoneme transcription.
+    lines = [line for line in stderr.splitlines() if line.strip()]
+    foreign = [line for line in lines if not line.startswith(WORKER_LINE_PREFIX)]
+    check(not foreign, f"{len(foreign)} stderr line(s) not from the worker's logger, first: {foreign[:1]}")
+    check(not any("ps ==" in line or "len(ps)" in line for line in lines), "stderr carries a phoneme dump")
+    for secret in (LONG_TOKEN[:16], OVERFLOW_TOKEN[:16], "My card number"):
+        check(secret not in stderr, f"stderr carries request text ({secret[:8]}…)")
     check(len(rest) == 0, f"stray_stdout_bytes={len(rest)}")
     check(rc == 0, f"exit={rc}")
     check(
