@@ -58,6 +58,37 @@ changed: no music, no gain edits, no cuts inside a clip. See `scripts/capture/RE
 When a finished video is produced, add a line here naming the video file, the clips it uses and their
 offsets.
 
+**Caveat on the PDF scene (checked 2026-09-24).** `article.pdf` does not, on its own, demonstrate the ligature fix:
+Skia writes a ToUnicode map that already turns each fi/fl/ffi glyph back into plain letters, so
+`pdftotext src/article.pdf -` returns 0 code points in U+FB00–FB06, and a selection in Chrome's viewer (not checked by hand: that needs a display) is
+expected to carry none either. The glyphs on the page are real ligatures; the "fixed" part needs a PDF whose text layer carries
+U+FB01-style code points before any store image or scene claims it (`scripts/capture/GUI_PASS.md`).
+
+## Screens and loops (capture step 2, headless, 2026-09-24)
+
+Captured through the Chrome DevTools Protocol only (`scripts/capture/launch.sh` with `HEADLESS=1`,
+`scripts/capture/shoot.mjs`), because the console was locked for much of the session. Chrome for Testing
+153.0.8010.12, `--headless=new`, the extension built from this tree (`chrome-extension/dist`, v1.5.0) and loaded
+with `--load-extension`, light colour scheme, device scale factor 2. The popup page is the real
+`chrome-extension://<id>/popup/popup.html`, opened in a tab whose viewport is sized to the popup's rendered content
+(`--fit`: measured until two readings agree), scrollbars hidden as in the real popup window. It is not the anchored
+bubble; that one needs a display (GUI pass).
+
+Every request the capture browser made to 127.0.0.1 went through `scripts/capture/port-guard.mjs`, which refused
+port 8249 (an older helper runs there on this machine) and logged each request with the page that sent it.
+
+| File | Size | What is on screen, and how it was made |
+|---|---|---|
+| `popup.png` | 720×700 (360×350 CSS @2x) | Connected to the real helper 1.5.0 on 127.0.0.1:8250 (launched with `--port/--python/--worker`), Heart (`af_heart`) selected, 1.0×. Re-shot independently and byte-identical to the first take |
+| `fallback.png` | 720×1124 (360×562 CSS @2x) | The same popup with no helper on 8250 and 8249 refused (1 refused request in the guard log): "Offline" pill, the system-voice line, the install hint with the Homebrew command (the tap is the planned install path; it is not published yet), "System voice" in the voice box |
+| `status.webp` | 720×700, 3.6 s loop | The popup opening against the real helper: "Checking" → "Connected", the voice box going from "Loading voices…" to "Heart". **One timing change:** the guard held each of the popup's two `/health` requests for 600 ms (`--hold-health 8250:600`), because the real "Checking" state lasts a few milliseconds. Responses were not altered. Frames are full-resolution `Page.captureScreenshot` grabs (~20/s) at their real times; the last frame is held 2.5 s. Encoded `img2webp -near_lossless 40` |
+| `helper.webp` | 1182×870, 26.1 s loop | VHS 0.11.0 recording of a real shell: the helper 1.5.0 starting on 8250 to "ready" (real time, including the ~6 s warm-up), `curl /health`, a real `/speak` (af_heart, "Hello from a private Kokoro voice.") writing `hello.wav`, and `afinfo` on the result. The helper's paths are shown through `/tmp/natural-tts/` symlinks (`scripts/capture/tapes/env.sh`) so no home path is on screen; its log prefix (timestamp, level, label) is trimmed by the `sed` visible in the command. Off camera: moving the helper to the background (Ctrl+Z, `bg`, `clear`) and stopping it at the end. `gif2webp -m 6 -min_size` (lossless) |
+| `gate.webp` | 1280×824, 11.8 s loop | VHS recording of a real `bash scripts/verify-all.sh` run from this tree (`PASS: all 48 checks`, 267 s of real recording cut to 77 distinct screens), sped up by `scripts/capture/tapes/retime.mjs`, which only shortens stretches where the screen does not change (each capped at 120 ms; the final table is held 6 s). Lossless `img2webp -min_size` |
+
+Not made in this step, and why: `voices.webp` (a voice switch needs the native `<select>` dropdown open; the
+closed box only changes its one-word label, which would not show the accent groups) and the hero video, poster
+and preview (they need the native context menu). Both are in `scripts/capture/GUI_PASS.md`.
+
 ## Remaking the clips
 
 ```bash
