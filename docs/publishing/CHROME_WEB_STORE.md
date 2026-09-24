@@ -132,7 +132,7 @@ Every claim in it, and where it is proven:
 | --- | --- |
 | Text goes only to 127.0.0.1; the only install warning | `manifest.json` `host_permissions`; measured warning in §1 |
 | Right-click "Speak selected text"; popup Speak; shortcuts with no default keys | `service-worker.ts:98-102,151`; manifest `commands` (no `suggested_key`); CHANGELOG 1.5.0 |
-| Kokoro-82M on the Mac's GPU; more than 20× real time on an M1 Max; a paragraph in about a second | W2-integration-measurements §3: warm RTF 26.2-26.6× at every size, 60 words in 1.106 s (idle GPU). `bench/results.json` (the README chart): 21.6-23.3× with other GPU work running, 60 words in 1.24 s. "More than 20×" is true of both; see [§8](#8-timings-behind-the-numbers) |
+| Kokoro-82M on the Mac's GPU; more than 20× real time on an M1 Max; a paragraph in about a second | W2-integration-measurements §3: warm RTF 26.2-26.6× at every size, 60 words in 1.106 s (idle GPU). `bench/results.json` (the README chart): 21.6-23.3× with other GPU work running, 60 words in 1.24 s. "More than 20×" is true of both. Both predate the loudness step (W2 §10), which adds ~0.3% of the audio's length, ~7% of the wait: ~24.5× idle and ~20.1-21.6× busy with it, 60 words in ~1.2 s idle. Still true; see [§8](#8-timings-behind-the-numbers) |
 | 28 voices, US and UK, grouped; Heart default | `src/shared/voices.ts` (20 `a*`, 8 `b*`, `DEFAULT_VOICE = 'af_heart'`); `src/shared/voice-options.ts` (optgroups) |
 | Speed 0.5-2.0× | `src/shared/settings-defaults.ts:34-39` |
 | PDF viewer; ligature repair, "tra!c" → "traffic" | `src/shared/selection.ts:70-122`; `src/shared/text-cleanup.ts` (its own example) |

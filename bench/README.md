@@ -43,7 +43,9 @@ and from the fourth minute on the GPU read 43–57 % in every sample while the S
 that contention the helper ran at a warm median of 21.6–23.3× real time. The 1.5.0 helper on an idle machine ran
 at about 26.5× the day before (`docs/research/2026-09-upgrade/W2-integration-measurements.md` §3; voice
 `af_bella`, a slightly earlier worker). The worker's peak footprint, 3.7 GB, is not affected by contention and
-matches that report's §9. Replace the file with a clean run:
+matches that report's §9. Both runs predate the helper's loudness normalization (W2 §10), which adds about 0.3% of
+the audio's length to every response, about 7% of the wait at these speeds; the next run measures it in. Replace the
+file with a clean run:
 
 ```bash
 node bench/run.mjs --port 18249 --wait 3600 --require-idle && node bench/chart.mjs

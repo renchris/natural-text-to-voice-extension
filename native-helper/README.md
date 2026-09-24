@@ -257,6 +257,11 @@ warmed at startup, so the first British request is as fast as later ones.
 **Response Body**: Binary WAV audio
 - Format: WAV, 16-bit PCM, mono
 - Sample rate: 24 kHz, so 48,000 bytes per second of audio plus a 44-byte header (a 9 s clip is 432,044 bytes)
+- Level: one gain per response toward −16 LUFS integrated (ITU-R BS.1770-4), never past a −1.5 dBTP true peak, with
+  no compressor or limiter. Kokoro's peaks usually stop it first, so responses land at about −16 to −21 LUFS (−25
+  at worst in the measured set).
+  The log gets one numbers-only line per request (`Loudness … LUFS (gated), true peak … dBTP; gain … dB`). Method
+  and measurements: [W2 §10](../docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)
 
 **Status Codes**:
 - `200 OK`: Audio generated successfully
@@ -369,7 +374,8 @@ two before it. Their "25x" long-text figure was not a measurement; see [docs/his
 
 Measured 2026-09-23 with `curl` on an otherwise idle GPU, voice `af_bella`, speed 1.0; real-time factor = audio
 seconds ÷ client wall time. Full method and raw numbers:
-[W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md).
+[W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md). These runs predate
+the loudness normalization (§10), which adds about 0.3% of the audio's length to each request, about 7% at 26×.
 
 | Text | Audio | Warm request (median) | Faster than real time |
 |---|---:|---:|---:|

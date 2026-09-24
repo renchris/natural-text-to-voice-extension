@@ -53,7 +53,9 @@ permission to the local helper only, and it turns every silent failure into a vi
   BS.1770-4), never past a −1.5 dBTP true peak, with no compressor or limiter and no clipping. Speech that measured
   −23 to −28 LUFS now measures about −16 to −21 (−25 at worst). The jump when the extension falls back to the
   macOS system voice (about −16) shrinks from 7–12 LU to 0–5 LU. Most responses stop at the peak ceiling before
-  −16, because Kokoro's peaks sit 14–24 dB above its loudness. The demo clips and videos were regenerated.
+  −16, because Kokoro's peaks sit 14–24 dB above its loudness. Measuring and applying the gain costs about 0.3% of
+  the audio's length (0.08 s for 25 s of speech), about 7% of a response's wait at ~26× real time; the speeds below
+  were measured before it. The demo clips and videos were regenerated.
   `verify-python.sh` gains a loudness check, and its fidelity check still compares the synthesis before
   normalization, so a decoder gain drift stays visible.
 - **`/speak` status codes say whose fault it was.** A bad request answers 400 with a code (`invalid_speed` for
