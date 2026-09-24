@@ -30,10 +30,10 @@
   <rect x="40" y="40" width="635.6299999999999" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
   <text x="52" y="54" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Chrome extension · MV3 · no content script</text>
 </g>
-<g class="subgraph" data-id="mac" data-label="Your Mac · offline">
+<g class="subgraph" data-id="mac" data-label="Your Mac">
   <rect x="142.48149999999995" y="525.1" width="215.481" height="385.70000000000005" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
   <rect x="142.48149999999995" y="525.1" width="215.481" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
-  <text x="154.48149999999995" y="539.1" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Your Mac · offline</text>
+  <text x="154.48149999999995" y="539.1" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Your Mac</text>
 </g>
 <polyline class="edge" data-from="POP" data-to="NET" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="/health · /voices · /speak" points="142.92399999999998,137.8 142.92399999999998,323.90000000000003 142.92399999999998,428.20000000000005 222.4823333333333,428.20000000000005 222.4823333333333,440.20000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
 <polyline class="edge" data-from="OFF" data-to="NET" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="POST /speak" points="357.5199999999999,307.90000000000003 357.5199999999999,323.90000000000003 357.5199999999999,428.20000000000005 277.96166666666664,428.20000000000005 277.96166666666664,440.20000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
@@ -91,10 +91,10 @@ Host + Origin checks" data-shape="rectangle">
   <rect x="165.89149999999995" y="569.1" width="168.661" height="53.800000000000004" rx="0" ry="0" fill="#12261a" stroke="#3fb950" stroke-width="0.75" />
   <text x="250.22199999999995" y="596" text-anchor="middle" font-size="13" font-weight="500" fill="#e6edf3"><tspan x="250.22199999999995" dy="-3.9000000000000012">Swift helper · SwiftNIO</tspan><tspan x="250.22199999999995" dy="16.900000000000002">Host + Origin checks</tspan></text>
 </g>
-<g class="node" data-id="PY" data-label="Python worker
+<g class="node" data-id="PY" data-label="Python worker · offline
 mlx-audio · Kokoro-82M" data-shape="rectangle">
   <rect x="158.48149999999995" y="739.2" width="183.481" height="53.800000000000004" rx="0" ry="0" fill="#12261a" stroke="#3fb950" stroke-width="0.75" />
-  <text x="250.22199999999995" y="766.1" text-anchor="middle" font-size="13" font-weight="500" fill="#e6edf3"><tspan x="250.22199999999995" dy="-3.9000000000000012">Python worker</tspan><tspan x="250.22199999999995" dy="16.900000000000002">mlx-audio · Kokoro-82M</tspan></text>
+  <text x="250.22199999999995" y="766.1" text-anchor="middle" font-size="13" font-weight="500" fill="#e6edf3"><tspan x="250.22199999999995" dy="-3.9000000000000012">Python worker · offline</tspan><tspan x="250.22199999999995" dy="16.900000000000002">mlx-audio · Kokoro-82M</tspan></text>
 </g>
 <g class="node" data-id="GPU" data-label="Apple GPU
 MLX · Metal" data-shape="rectangle">

@@ -9,10 +9,10 @@ flowchart TB
         SW -.->|"no helper"| TTS
     end
     NET(["HTTP · 127.0.0.1:8249"])
-    subgraph mac["Your Mac · offline"]
+    subgraph mac["Your Mac"]
         direction TB
         HELPER["Swift helper · SwiftNIO<br/>Host + Origin checks"]
-        PY["Python worker<br/>mlx-audio · Kokoro-82M"]
+        PY["Python worker · offline<br/>mlx-audio · Kokoro-82M"]
         GPU["Apple GPU<br/>MLX · Metal"]
         HELPER -->|"JSON frames · stdio"| PY
         PY --> GPU
