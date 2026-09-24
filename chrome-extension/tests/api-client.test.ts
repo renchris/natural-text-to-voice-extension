@@ -4,6 +4,7 @@ import {
   getApiClient,
   resetApiClient,
   speakTimeoutMs,
+  userMessageForError,
 } from '../src/shared/api-client';
 import { discoverConfig } from '../src/shared/config';
 import {
@@ -383,6 +384,48 @@ describe('ApiClient', () => {
 
       await client.checkHealth();
       expect(healthCalls).toBe(3);
+    });
+  });
+
+  describe('a failed discovery is not cached (EXT-2, EXT-4)', () => {
+    let helperUp = false;
+    let helperPort = 8249;
+    beforeEach(() => {
+      helperUp = false;
+      helperPort = 8249;
+      (chrome.storage.local.get as any).mockImplementation(async () => ({}));
+      mockFetch.mockImplementation(async (url: string) => {
+        if (!helperUp || !url.startsWith(`http://127.0.0.1:${helperPort}/`)) throw new TypeError('Failed to fetch');
+        if (url.endsWith('/health')) return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
+        return { ok: true, blob: async () => new Blob(['wav']) };
+      });
+    });
+
+    test('helper down, then started: the same client speaks on the next try', async () => {
+      await expect(client.speak({ text: 'Hello' })).rejects.toThrow(HelperNotFoundError);
+      helperUp = true;
+      const blob = await client.speak({ text: 'Hello' });
+      expect(blob).toBeInstanceOf(Blob);
+    });
+
+    test('a failed discovery from speak() reads as "helper not running", not the raw port list', async () => {
+      const error = await client.speak({ text: 'Hello' }).catch(e => e);
+      expect(error).toBeInstanceOf(HelperNotFoundError);
+      expect(userMessageForError(error)).toBe('The Natural TTS helper is not running. Start it, then try again.');
+      // Discovery's own error type maps to the same sentence wherever it surfaces.
+      const raw = Object.assign(new Error('Native TTS Helper not found on ports: 8249, 8250'), { name: 'ConfigNotFoundError' });
+      expect(userMessageForError(raw)).toBe('The Natural TTS helper is not running. Start it, then try again.');
+    });
+
+    test('a helper that moved to another port is rediscovered after one failed request', async () => {
+      helperUp = true;
+      await client.speak({ text: 'Hello' });
+      helperPort = 8250;
+      await expect(client.speak({ text: 'Hello' })).rejects.toThrow(HelperNotFoundError);
+      const blob = await client.speak({ text: 'Hello' });
+      expect(blob).toBeInstanceOf(Blob);
+      const lastSpeak = mockFetch.mock.calls.map(c => String(c[0])).filter(u => u.endsWith('/speak')).pop();
+      expect(lastSpeak).toBe('http://127.0.0.1:8250/speak');
     });
   });
 

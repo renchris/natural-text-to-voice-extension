@@ -32,7 +32,13 @@ export class ApiClient implements NativeTTSClient {
   private configPromise: Promise<Partial<HelperConfig>> | null = null;
 
   /**
-   * Get configuration (lazy loaded and cached)
+   * Get configuration (lazy loaded and cached). A failed discovery is NOT
+   * cached: the offscreen document keeps this client for as long as it is
+   * used, and a cached rejection made every later speak fail without even
+   * trying, after the user had started the helper.
+   *
+   * A missing helper is reported as HelperNotFoundError (discovery throws
+   * ConfigNotFoundError, whose raw message lists every port probed).
    */
   private async getConfig(): Promise<Partial<HelperConfig>> {
     if (this.config) {
@@ -43,7 +49,15 @@ export class ApiClient implements NativeTTSClient {
       this.configPromise = getConfig();
     }
 
-    this.config = await this.configPromise;
+    try {
+      this.config = await this.configPromise;
+    } catch (error) {
+      this.configPromise = null;
+      if (error instanceof Error && error.name === 'ConfigNotFoundError') {
+        throw new HelperNotFoundError(error.message);
+      }
+      throw error;
+    }
     return this.config;
   }
 
@@ -67,16 +81,7 @@ export class ApiClient implements NativeTTSClient {
     timeout: number = 10000,
     maxRetries: number = 2
   ): Promise<T> {
-    // Get config and convert ConfigNotFoundError to HelperNotFoundError
-    let config;
-    try {
-      config = await this.getConfig();
-    } catch (error) {
-      if (error instanceof Error && error.name === 'ConfigNotFoundError') {
-        throw new HelperNotFoundError(error.message);
-      }
-      throw error;
-    }
+    const config = await this.getConfig();
 
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}${endpoint}`;
@@ -162,7 +167,10 @@ export class ApiClient implements NativeTTSClient {
       }
     }
 
-    // All retries failed
+    // All retries failed. Nothing answered on the cached port: forget it, so
+    // the next request rediscovers the helper (it may have restarted on
+    // another port of 8249-8260).
+    this.resetConfig();
     if (lastError) {
       if (lastError.message.includes('fetch')) {
         throw new HelperNotFoundError(

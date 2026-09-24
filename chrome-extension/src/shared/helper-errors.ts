@@ -133,6 +133,8 @@ export function userMessageForError(error: unknown): string {
     return MESSAGES[error.code as HelperErrorCode] ?? `The helper reported an error (${error.code}).`;
   }
   if (error instanceof HelperNotFoundError) return MESSAGES.helper_down;
+  // Discovery's own error lists every port it probed; say it plainly instead.
+  if (error instanceof Error && error.name === 'ConfigNotFoundError') return MESSAGES.helper_down;
   if (error instanceof NetworkTimeoutError) {
     return 'The helper took too long to answer. It may be busy; try again or select less text.';
   }
