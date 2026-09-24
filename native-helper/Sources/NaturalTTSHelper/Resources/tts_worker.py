@@ -106,13 +106,14 @@ CANCEL_FILE = os.environ.get("NTTS_CANCEL_FILE")
 # limit that costs <= 5% real-time factor. Set with MLX's top-level API (mx.metal.* is deprecated in 0.32).
 MLX_CACHE_LIMIT_MB = int(os.environ.get("NTTS_MLX_CACHE_LIMIT_MB", "256"))
 
-# Loudness normalization of every /speak response (ITU-R BS.1770-4 integrated loudness, gated). Kokoro
-# speaks at about -23 to -28 LUFS and the macOS system voice the extension falls back to at about -13, so
-# the engine switch was a jump of ~10 LU. One gain per response, never a compressor or limiter: the gain is
-# the smallest of the one that reaches LOUDNESS_TARGET_LUFS, the one that puts the 4x-oversampled true peak
-# at TRUE_PEAK_CEILING_DBTP (so no sample can clip) and MAX_GAIN_DB. Kokoro's speech runs 14-24 dB from
-# true peak to loudness, more than the 14.5 dB between the target and the ceiling, so most responses stop
-# at the ceiling below the target (W2-integration-measurements.md §10 has the numbers).
+# Loudness normalization of every /speak response (ITU-R BS.1770-4 integrated loudness, gated). Kokoro speaks
+# at about -23 to -28 LUFS and the macOS system voice the extension falls back to at about -16 for the same
+# text (both measured as the mono files they are), so the engine switch was a jump of 7-12 LU. One gain per
+# response, never a compressor or limiter: the gain is the smallest of the one that reaches
+# LOUDNESS_TARGET_LUFS, the one that puts the 4x-oversampled true peak at TRUE_PEAK_CEILING_DBTP (so no sample
+# can clip) and MAX_GAIN_DB. Kokoro's speech runs 14-24 dB from true peak to loudness, more than the 14.5 dB
+# between the target and the ceiling, so most responses stop at the ceiling below the target
+# (W2-integration-measurements.md §10 has the numbers).
 LOUDNESS_TARGET_LUFS = -16.0
 TRUE_PEAK_CEILING_DBTP = -1.5
 # BS.1770-4's absolute gate. A response whose loudness is below it is silence (or nearly), and is returned
