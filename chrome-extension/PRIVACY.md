@@ -19,11 +19,12 @@ developer or to any other server, and it has no analytics.
 
 **The text you choose to hear (website content).** The extension reads the text you selected only when you ask it to
 speak, in one of three ways: the "Speak selected text" item in the right-click menu, the Speak button in its toolbar
-popup, or a keyboard shortcut you have assigned yourself. That action gives it access to the current tab for that
-moment only (Chrome's `activeTab`), and it runs a small function there that returns the selection and whether the page
-is a PDF. In a PDF, or where the page can't be read that way, it uses the selected text that Chrome passes to the
-right-click menu. The extension adds no scripts to the pages you visit, and it reads nothing from a page until you
-ask it to speak.
+popup, or a keyboard shortcut you have assigned yourself. That action gives it access to the current tab until you
+leave or close that page (Chrome's `activeTab`), and it runs a small function there that returns the selection and
+whether the page is a PDF. In a PDF, or where the page can't be read that way, it uses the selected text that Chrome
+passes to the right-click menu. The extension installs no content scripts: the only code it runs in a page is that one
+function, when you ask, and it reads nothing from a page until then. It also checks the page's address to tell whether
+it is a PDF, and neither stores nor sends it.
 
 It then sends the text to the helper, with the voice and speed you chose, and the helper returns the audio. The
 extension plays the audio from memory and does not store the text or the audio.
@@ -35,7 +36,7 @@ extension plays the audio from memory and does not store the text or the audio.
 | Your chosen voice | To use it next time |
 | Your chosen speed | To use it next time |
 | "When the helper isn't running": use system voices, or show an error | Your choice for when the helper can't be reached |
-| The helper's port number, stored with the helper's default voice name | To reconnect without probing every port |
+| The helper's port number, with a default voice name | To reconnect without probing every port |
 
 It does not use `chrome.storage.sync`, so nothing is copied to your other devices, even with Chrome Sync on. Chrome
 deletes these settings when you remove the extension.
@@ -44,8 +45,8 @@ deletes these settings when you remove the extension.
 
 **Only to your own computer.** The extension's only host permission is `http://127.0.0.1/*`, the loopback address of
 the computer it runs on. It looks for the helper on ports 8249 to 8260, and before it sends any text it checks that
-the answer really comes from the helper. Any other program answering on those ports is skipped and never receives
-your text.
+the answer is the helper's status reply; a program that answers anything else is skipped and never receives your
+text.
 
 **When the helper isn't running.** By default the extension then reads the selection aloud with a voice built into
 your operating system, through Chrome's `chrome.tts`. It only uses voices that Chrome reports as local to your
@@ -65,19 +66,22 @@ The extension contains no analytics, advertising, tracking, crash reporting or t
   own port, which stops a website that points its own name at your computer. It also refuses requests from web pages
   to read text aloud or list voices. It answers browser extensions, and programs running on your computer (such as
   `curl`). Like any service on `127.0.0.1`, it trusts the extensions and programs you have installed. Its status check
-  (`/health`) answers anyone, and reports only whether it is ready and which version it is.
+  (`/health`) answers anyone, and reports whether it is ready, its version, how long it has run and how many requests
+  it has served; never any text.
 - **It keeps neither your text nor the audio.** It turns the text into audio in memory and sends the audio back. Its
   log records sizes, timings, the voice and speed, error codes, and the `Host` or `Origin` of any request it refused.
   It never records your text. With Homebrew the log is `$(brew --prefix)/var/log/natural-tts.log`. When you run the
   helper yourself, the log goes to your terminal.
 - **It keeps a small settings file**, `config.json`, holding its port, the paths to its own files and its default
-  voice. With Homebrew the file is in `$(brew --prefix)/var/natural-tts/`.
+  voice. With Homebrew the file is in `$(brew --prefix)/var/natural-tts/`. Otherwise it is in
+  `~/Library/Application Support/NaturalTTS/`.
 - **It works offline.** It runs with Hugging Face's offline mode on and its telemetry off, and connects to nothing
   outside your computer while it runs.
 
 **One-time downloads when you install the helper.** Installing it downloads the Kokoro-82M voice model (one pinned
 version of `prince-canuma/Kokoro-82M`) from huggingface.co, its Python packages from pypi.org, and its source code and
-Swift packages from github.com. These downloads contain no personal data and none of your text, but like any
+Swift packages from github.com. With Homebrew, it also downloads the helper's dependencies (uv, Python 3.12,
+espeak-ng) from Homebrew's servers. These downloads contain no personal data and none of your text, but like any
 download, those services can see your IP address. After that, speech works without an internet connection.
 
 ## What we do not do
