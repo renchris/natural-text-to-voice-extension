@@ -55,7 +55,7 @@ Build a privacy-first Chrome extension that integrates with the local Native TTS
 - ✅ **Excellent Vite compatibility**: Tested and verified with reproducible tests
 - ✅ **Same disk efficiency**: Global cache + hardlinks (identical to pnpm)
 
-**Testing Results**: See [`BUN_TEST_RESULTS.md`](./BUN_TEST_RESULTS.md) for comprehensive validation
+**Testing Results**: See `BUN_TEST_RESULTS.md` (removed in 1.5; read it with `git show v1.4.0:chrome-extension/BUN_TEST_RESULTS.md`) for comprehensive validation
 
 ### Core Stack (Finalized)
 
