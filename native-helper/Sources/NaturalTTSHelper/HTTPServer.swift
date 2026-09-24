@@ -19,6 +19,10 @@ actor HTTPServer {
     /// accents): 5,000 of them made an 11 MB worker frame, past the worker's
     /// 10 MB frame limit.
     static let maxTextBytes = 100_000
+    /// Speeds /speak accepts: finite and within what the extension can send
+    /// (its stepper spans 0.5-2.0), with room either side. Anything else is a
+    /// 400 invalid_speed here, before it reaches the worker.
+    static let speedRange: ClosedRange<Double> = 0.25...4.0
 
     private var channel: Channel?
     private var eventLoopGroup: MultiThreadedEventLoopGroup?
@@ -219,13 +223,22 @@ actor HTTPServer {
             return badRequest("Invalid JSON", origin: origin)
         }
 
-        // Validate text
+        // Validate text. Error bodies name the problem, never the text.
         guard !request.text.isEmpty else {
-            return badRequest("Text cannot be empty", origin: origin)
+            return clientError("empty_text", "Text cannot be empty", origin: origin)
         }
 
         guard request.text.count <= 5000, request.text.utf8.count <= Self.maxTextBytes else {
-            return badRequest("Text too long (max 5000 characters, \(Self.maxTextBytes) bytes)", origin: origin)
+            return clientError("text_too_long", "Text too long (max 5000 characters, \(Self.maxTextBytes) bytes)", origin: origin)
+        }
+
+        let speed = request.speed ?? 1.0
+        guard speed.isFinite, Self.speedRange.contains(speed) else {
+            return clientError(
+                "invalid_speed",
+                "Speed must be between \(Self.speedRange.lowerBound) and \(Self.speedRange.upperBound)",
+                origin: origin
+            )
         }
 
         // Validate voice against the catalogue. An unknown ID used to reach
@@ -253,7 +266,7 @@ actor HTTPServer {
             let audio = try await worker.generate(
                 text: request.text,
                 voice: voice,
-                speed: request.speed ?? 1.0
+                speed: Float(speed)
             )
             let genTime = Date().timeIntervalSince(startTime)
             let rtf = audio.duration / genTime
@@ -282,21 +295,28 @@ actor HTTPServer {
             return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
 
         } catch let error as WorkerError {
-            // PythonWorker already redacts a generationFailed message; redact
-            // again so this line never depends on where the error came from.
-            logger.error("Generation failed: \(worker.redactor.redact(error.description))")
+            // Status by cause: 400 for a request the worker refused
+            // (invalid_speed, empty_text, unknown_voice, text/audio too long),
+            // 503 while the engine is down or warming up, 500 for a failure on
+            // this side (nan_audio, empty_audio, internal_error, a bad frame).
+            // The body carries the worker's own code. PythonWorker already
+            // redacts a generationFailed message; redact again so neither the
+            // log line nor the body depends on where the error came from.
+            let message = worker.redactor.redact(error.description)
+            logger.error("Generation failed: \(message)")
             let errorResponse = ErrorResponse(
                 error: error.code,
-                message: error.description,
-                retryAfterSeconds: error.code == "warmup_timeout" ? 5 : nil
+                message: message,
+                retryAfterSeconds: error.httpStatus == 503 ? 5 : nil
             )
-            return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
+            return jsonResponse(errorResponse, status: HTTPResponseStatus(statusCode: error.httpStatus), origin: origin)
 
         } catch {
+            // Neither the log nor the body quotes the error's text beyond its type.
             logger.error("Unexpected error: \(worker.redactor.redact(String(describing: error)))")
             let errorResponse = ErrorResponse(
                 error: "internal_error",
-                message: error.localizedDescription,
+                message: "Internal error (\(type(of: error)))",
                 retryAfterSeconds: nil
             )
             return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
@@ -349,7 +369,12 @@ actor HTTPServer {
     }
 
     private nonisolated func badRequest(_ message: String, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
-        let error = ErrorResponse(error: "bad_request", message: message, retryAfterSeconds: nil)
+        clientError("bad_request", message, origin: origin)
+    }
+
+    /// 400 with a specific code, e.g. {"error": "invalid_speed", ...}.
+    private nonisolated func clientError(_ code: String, _ message: String, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
+        let error = ErrorResponse(error: code, message: message, retryAfterSeconds: nil)
         return jsonResponse(error, status: .badRequest, origin: origin)
     }
 

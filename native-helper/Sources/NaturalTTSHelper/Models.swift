@@ -5,7 +5,9 @@ import Foundation
 struct SpeakRequest: Codable {
     let text: String
     let voice: String?
-    let speed: Float?
+    /// Double, not Float: 1e39 still decodes, so it is refused as
+    /// invalid_speed rather than as unparseable JSON.
+    let speed: Double?
 
     enum CodingKeys: String, CodingKey {
         case text, voice, speed
@@ -194,13 +196,43 @@ enum WorkerError: Error, CustomStringConvertible {
         }
     }
 
+    /// The code /speak answers with. A worker failure carries the worker's
+    /// own code ("invalid_speed", or "internal_error" for
+    /// "internal_error: OverflowError"), not a generic "generation_failed".
     var code: String {
         switch self {
         case .processNotRunning: return "process_not_running"
         case .warmupTimeout: return "warmup_timeout"
         case .tooManyRestarts: return "too_many_restarts"
-        case .generationFailed: return "generation_failed"
+        case .generationFailed(let msg): return Self.workerCode(msg)
         case .invalidResponse: return "invalid_response"
         }
+    }
+
+    /// HTTP status for this failure: 400 when the request itself is at fault,
+    /// 503 while the engine is down or still warming up (retrying later can
+    /// succeed), 500 for anything else that failed on the helper's side.
+    var httpStatus: Int {
+        switch self {
+        case .processNotRunning, .warmupTimeout, .tooManyRestarts: return 503
+        case .invalidResponse: return 500
+        case .generationFailed:
+            return Self.clientErrorCodes.contains(code) ? 400 : 500
+        }
+    }
+
+    /// Worker error codes caused by the request: a different request succeeds.
+    /// audio_too_long is the audio-side twin of text_too_long (the text makes
+    /// more than MAX_AUDIO_SECONDS of speech at this speed).
+    static let clientErrorCodes: Set<String> = [
+        "invalid_speed", "empty_text", "text_too_long", "audio_too_long",
+        "unknown_voice", "bad_request",
+    ]
+
+    /// "internal_error: OverflowError" -> "internal_error"; "nan_audio" -> "nan_audio".
+    static func workerCode(_ message: String) -> String {
+        let head = message.split(separator: ":", maxSplits: 1).first.map(String.init) ?? message
+        let code = head.trimmingCharacters(in: .whitespaces)
+        return code.isEmpty ? "generation_failed" : code
     }
 }

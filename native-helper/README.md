@@ -207,7 +207,7 @@ Generate TTS audio.
 {
   "text": "Hello from Metal GPU!",
   "voice": "af_heart",  // optional, default: "af_heart"
-  "speed": 1.0          // optional, range: 0.5-2.0, default: 1.0
+  "speed": 1.0          // optional, 0.25-4.0 (the extension sends 0.5-2.0), default: 1.0
 }
 ```
 
@@ -232,8 +232,16 @@ Generate TTS audio.
 
 **Status Codes**:
 - `200 OK`: Audio generated successfully
-- `400 Bad Request`: Invalid JSON or missing `text` field
-- `500 Internal Server Error`: Model generation failed
+- `400 Bad Request`: the request is at fault; a different request succeeds. `error` is one of
+  `bad_request` (invalid JSON or missing `text`), `empty_text` (nothing speakable), `text_too_long`
+  (over 5,000 characters or 100,000 bytes), `audio_too_long` (over 20 minutes of speech),
+  `invalid_speed` (not a number from 0.25 to 4.0) or `unknown_voice`
+- `503 Service Unavailable`: the speech engine is down or still warming up (`process_not_running`,
+  `warmup_timeout`, `too_many_restarts`); `retry_after_seconds` is 5
+- `500 Internal Server Error`: synthesis failed on the helper's side (`nan_audio`, `empty_audio`,
+  `internal_error`, `invalid_response`)
+
+Every error is JSON, `{"error": "<code>", "message": "..."}`, and never quotes the request text.
 
 **Example**:
 ```bash
