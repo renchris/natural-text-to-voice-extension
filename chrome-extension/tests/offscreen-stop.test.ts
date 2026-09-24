@@ -25,7 +25,7 @@ function deferred(): Deferred {
 const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (url.endsWith('/health')) {
-    return new Response(JSON.stringify({ status: 'ok', model_loaded: true }), { status: 200 });
+    return new Response(JSON.stringify({ status: 'ok', model: 'kokoro-82m', model_loaded: true }), { status: 200 });
   }
   if (url.endsWith('/speak') && String(init?.body).includes('"zz_nope"')) {
     return new Response(JSON.stringify({ error: 'unknown_voice', message: 'Unknown voice: zz_nope' }), { status: 400 });

@@ -82,7 +82,7 @@ export async function startMockHelper(opts = {}) {
       if (req.url === '/health') {
         return json(200, {
           status: 'ok',
-          model: 'mock',
+          model: 'kokoro-82m', // the extension's helper identity (config.ts HELPER_MODEL)
           model_loaded: true,
           uptime_seconds: Math.round((Date.now() - t0) / 1000),
           requests_served: requests.filter(r => r.url === '/speak').length,

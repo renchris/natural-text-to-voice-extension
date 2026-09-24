@@ -16,7 +16,7 @@ let speakResponse: () => Response | Promise<Response> = () => new Response('', {
 const fetchMock = mock(async (input: RequestInfo | URL) => {
   const url = String(input);
   if (!url.startsWith('http://127.0.0.1:18249/')) throw new Error(`unexpected URL ${url}`);
-  if (url.endsWith('/health')) return new Response(JSON.stringify({ status: 'ok', model_loaded: true }), { status: 200 });
+  if (url.endsWith('/health')) return new Response(JSON.stringify({ status: 'ok', model: 'kokoro-82m', model_loaded: true }), { status: 200 });
   return speakResponse();
 });
 

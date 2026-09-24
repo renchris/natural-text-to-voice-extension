@@ -18,6 +18,28 @@ const DEFAULT_PORT = 8249;
 const DISCOVERY_PORTS: number[] = Array.from({ length: 12 }, (_, i) => DEFAULT_PORT + i);
 
 /**
+ * The model every helper reports on /health (v1.4 and later), used as its
+ * identity. Any local service may answer 200 on /health (a dev server, or a
+ * `kubectl port-forward` / `ssh -L` tunnel on 8249 while the helper sits on
+ * 8250), and the next request would POST the user's selection to it.
+ */
+export const HELPER_MODEL = 'kokoro-82m';
+
+/**
+ * True when a /health response comes from the Natural TTS helper: a 2xx whose
+ * JSON body names the helper's model. Never throws.
+ */
+export async function isHelperHealth(response: { ok: boolean; json: () => Promise<unknown> }): Promise<boolean> {
+  if (!response.ok) return false;
+  try {
+    const body = await response.json() as { model?: unknown; status?: unknown } | null;
+    return body?.model === HELPER_MODEL && typeof body.status === 'string';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Get the config file path (macOS only for now)
  * Note: Chrome extensions cannot directly read files from the filesystem
  * This is here for documentation purposes only
@@ -98,7 +120,7 @@ export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Pr
         signal: AbortSignal.timeout(2000), // 2 second timeout per port
       });
 
-      if (response.ok) {
+      if (await isHelperHealth(response)) {
         // Found a running helper on this port
         const config: Partial<HelperConfig> = {
           port,
@@ -148,7 +170,7 @@ export async function getConfig(): Promise<Partial<HelperConfig>> {
         signal: AbortSignal.timeout(2000),
       });
 
-      if (response.ok) {
+      if (await isHelperHealth(response)) {
         return storedConfig;
       }
     } catch (error) {

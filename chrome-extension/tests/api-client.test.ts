@@ -6,7 +6,7 @@ import {
   speakTimeoutMs,
   userMessageForError,
 } from '../src/shared/api-client';
-import { discoverConfig } from '../src/shared/config';
+import { discoverConfig, isHelperHealth } from '../src/shared/config';
 import {
   HelperNotFoundError,
   InvalidResponseError,
@@ -29,6 +29,13 @@ global.chrome = {
 
 // Create mock fetch (but don't assign to global yet)
 const mockFetch = mock();
+
+/** /health answers as the helper; every other endpoint answers `response`. */
+function answerWith(response: unknown): void {
+  mockFetch.mockImplementation(async (url: string) => String(url).endsWith('/health')
+    ? { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) }
+    : response);
+}
 
 describe('ApiClient', () => {
   let client: ApiClient;
@@ -61,7 +68,7 @@ describe('ApiClient', () => {
       if (url.includes('/health')) {
         return {
           ok: true,
-          json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+          json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
         };
       }
       throw new Error('Unexpected URL in default mock');
@@ -77,7 +84,7 @@ describe('ApiClient', () => {
     test('should return health response on success', async () => {
       const healthResponse = {
         status: 'ok',
-        model: 'kokoro-v0_19',
+        model: 'kokoro-82m',
         model_loaded: true,
         uptime_seconds: 100,
         requests_served: 5,
@@ -119,7 +126,7 @@ describe('ApiClient', () => {
         if (mockFetch.mock.calls.length === 1) {
           return {
             ok: true,
-            json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+            json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
           };
         }
         return {
@@ -139,7 +146,7 @@ describe('ApiClient', () => {
         if (mockFetch.mock.calls.length === 1) {
           return {
             ok: true,
-            json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+            json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
           };
         }
         return {
@@ -160,7 +167,7 @@ describe('ApiClient', () => {
         if (callCount === 1) {
           return {
             ok: true,
-            json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+            json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
           };
         }
         // Second call: actual request - fail with network error
@@ -170,7 +177,7 @@ describe('ApiClient', () => {
         // Third call: retry - succeed
         return {
           ok: true,
-          json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+          json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
         };
       });
 
@@ -188,7 +195,7 @@ describe('ApiClient', () => {
         { id: 'am_adam', name: 'Adam (US)', language: 'en-US' },
       ];
 
-      mockFetch.mockResolvedValue({
+      answerWith({
         ok: true,
         json: async () => ({ voices }),
       });
@@ -205,7 +212,7 @@ describe('ApiClient', () => {
     });
 
     test('should include secret header if configured', async () => {
-      mockFetch.mockResolvedValue({
+      answerWith({
         ok: true,
         json: async () => ({ voices: [] }),
       });
@@ -227,7 +234,7 @@ describe('ApiClient', () => {
     test('should generate speech with default parameters', async () => {
       const audioBlob = new Blob(['audio data'], { type: 'audio/wav' });
 
-      mockFetch.mockResolvedValue({
+      answerWith({
         ok: true,
         blob: async () => audioBlob,
       });
@@ -254,7 +261,7 @@ describe('ApiClient', () => {
     test('should use custom voice and speed', async () => {
       const audioBlob = new Blob(['audio data']);
 
-      mockFetch.mockResolvedValue({
+      answerWith({
         ok: true,
         blob: async () => audioBlob,
       });
@@ -292,9 +299,12 @@ describe('ApiClient', () => {
     test('should use longer timeout for speak requests', async () => {
       const audioBlob = new Blob(['audio data']);
 
-      mockFetch.mockImplementation(async (_url, options: any) => {
+      mockFetch.mockImplementation(async (url, options: any) => {
         // Verify timeout is set (we can't directly check AbortSignal timeout)
         expect(options.signal).toBeDefined();
+        if (String(url).endsWith('/health')) {
+          return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
+        }
         return {
           ok: true,
           blob: async () => audioBlob,
@@ -323,7 +333,7 @@ describe('ApiClient', () => {
       };
       mockFetch.mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
-          return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+          return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
         }
         return { ok: true, blob: async () => new Blob(['wav']) };
       });
@@ -339,7 +349,7 @@ describe('ApiClient', () => {
       let speakCalls = 0;
       mockFetch.mockImplementation(async (url: string) => {
         if (url.includes('/health')) {
-          return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+          return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
         }
         speakCalls++;
         throw new TypeError('Failed to fetch');
@@ -353,7 +363,7 @@ describe('ApiClient', () => {
       let speakSignal: AbortSignal | undefined;
       mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
         if (url.includes('/health')) {
-          return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+          return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
         }
         speakSignal = init?.signal ?? undefined;
         return new Promise((_resolve, reject) => {
@@ -379,7 +389,7 @@ describe('ApiClient', () => {
         healthCalls++;
         // 1: config verification, 2: first attempt fails, 3: retry succeeds
         if (healthCalls === 2) throw new TypeError('Failed to fetch');
-        return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+        return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
       });
 
       await client.checkHealth();
@@ -429,6 +439,41 @@ describe('ApiClient', () => {
     });
   });
 
+  describe('only the helper is treated as the helper (SEC-03)', () => {
+    test('a service answering 200 on /health at 8249 never receives the selection', async () => {
+      (chrome.storage.local.get as any).mockImplementation(async () => ({}));
+      const posted: string[] = [];
+      mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.startsWith('http://127.0.0.1:8249/')) {
+          if (init?.method === 'POST') posted.push(url);
+          // An unrelated dev service (or a tunnel) with a conventional /health.
+          return { ok: true, json: async () => ({ status: 'ok', service: 'some-dev-api' }), blob: async () => new Blob(['x']) };
+        }
+        if (url === 'http://127.0.0.1:8250/health') {
+          return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true }) };
+        }
+        if (url === 'http://127.0.0.1:8250/speak') return { ok: true, blob: async () => new Blob(['wav']) };
+        throw new TypeError('Failed to fetch');
+      });
+
+      await client.speak({ text: 'PRIVATE selected text' });
+
+      expect(posted).toEqual([]);
+      const speaks = mockFetch.mock.calls.map(c => String(c[0])).filter(u => u.endsWith('/speak'));
+      expect(speaks).toEqual(['http://127.0.0.1:8250/speak']);
+    });
+
+    test('isHelperHealth needs the helper\'s model and a status, from a 2xx', async () => {
+      const res = (ok: boolean, body: unknown) => ({ ok, json: async () => body });
+      expect(await isHelperHealth(res(true, { status: 'ok', model: 'kokoro-82m' }))).toBe(true);
+      expect(await isHelperHealth(res(true, { status: 'warming', model: 'kokoro-82m' }))).toBe(true);
+      expect(await isHelperHealth(res(true, { status: 'ok' }))).toBe(false);
+      expect(await isHelperHealth(res(true, { status: 'ok', model: 'other' }))).toBe(false);
+      expect(await isHelperHealth(res(false, { status: 'ok', model: 'kokoro-82m' }))).toBe(false);
+      expect(await isHelperHealth({ ok: true, json: async () => { throw new SyntaxError('not JSON'); } })).toBe(false);
+    });
+  });
+
   describe('discoverConfig() without chrome.storage (D1)', () => {
     test('returns the port it found even when saving the config fails', async () => {
       (chrome.storage.local.set as any).mockImplementation(async () => {
@@ -436,7 +481,7 @@ describe('ApiClient', () => {
       });
       mockFetch.mockImplementation(async (url: string) => {
         if (url.includes(':18250/')) {
-          return { ok: true, json: async () => ({ status: 'ok' }) };
+          return { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m' }) };
         }
         throw new TypeError('Failed to fetch');
       });
@@ -459,7 +504,7 @@ describe('ApiClient', () => {
       // Mock successful health check on default port
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+        json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
       });
 
       const result = await client.checkHealth();
@@ -482,7 +527,7 @@ describe('ApiClient', () => {
         }
         return {
           ok: true,
-          json: async () => ({ status: 'ok', model: 'test', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
+          json: async () => ({ status: 'ok', model: 'kokoro-82m', model_loaded: true, uptime_seconds: 10, requests_served: 1 }),
         };
       });
 
