@@ -8,7 +8,9 @@ Set Shell bash
 Set FontFamily "JetBrainsMono Nerd Font Mono"
 Set FontSize 15
 Set Width 1280
-Set Height 824
+Set Height 1640
+# 62 lines: the live run (58) never scrolls, so each new row is a one-line change and the loop stays under 3 MB
+# (at 824 px every row scrolled the whole screen: 85 full-screen frames, 5.7 MB). The final screen is the whole table.
 Set Padding 28
 Set LineHeight 1.25
 Set TypingSpeed 40ms
