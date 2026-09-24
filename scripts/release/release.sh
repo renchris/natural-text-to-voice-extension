@@ -18,18 +18,22 @@
 #   1. Tag vX.Y.Z at origin/main and push it                     GATED  --confirm vX.Y.Z
 #   2. GitHub Release vX.Y.Z: CHANGELOG section as notes,
 #      the zip and its .sha256 as assets                         GATED  --confirm release/vX.Y.Z
+#  2b. README hero video: scripts/release/embed-hero-video.sh uploads assets/media/hero.mp4 to a closed
+#      issue, puts GitHub's player under <!-- hero-video -->, commits README.md and pushes main
+#                                                                GATED  --confirm renchris/natural-text-to-voice-extension
 #   3. Homebrew tap: packaging/homebrew/publish-tap.sh, with its own confirms
 #                                                                GATED  --confirm renchris/homebrew-tap
 #   4. GitHub private vulnerability reporting on (PRIVACY.md links to it)
 #                                                                GATED  --confirm private-vulnerability-reporting
-#   5. The GUI-only steps. First checks that the listing's inputs are true: steps 1-4 CURRENT or DONE,
+#   5. The GUI-only steps. First checks that the listing's inputs are true: steps 1-4 and 2b CURRENT or DONE,
 #      the store images at their sizes, the privacy policy on GitHub's main identical to this commit's
 #      and its URL answering, and the root README rewritten with the two headings the zip links to.
 #      Only then prints the dashboard and YouTube steps, with the reviewer's test instructions ready to
 #      paste (--youtube-url fills them in); otherwise prints NOT READY and what is missing
 #
 # Idempotent: a step already done is verified and reported CURRENT, never repeated. A tag that points
-# at another commit, or a release asset whose hash differs, is a FAIL, never overwritten.
+# at another commit, or a release asset whose hash differs, is a FAIL, never overwritten. (The one move
+# tolerated: commits after the tag that change only README.md, which is what step 2b makes.)
 #
 # Exit: 0 released and the listing inputs are ready · 1 a check failed · 2 refused (a gated step
 #       needs --confirm; nothing was changed by it) · 3 released, but the listing is not ready (store
@@ -42,6 +46,7 @@ SOURCE_REPO="renchris/natural-text-to-voice-extension"
 ORIGIN_URLS="https://github.com/${SOURCE_REPO}.git https://github.com/${SOURCE_REPO} git@github.com:${SOURCE_REPO}.git"
 TAP_REPO="renchris/homebrew-tap"
 PVR_TARGET="private-vulnerability-reporting"
+EMBED_TARGET="$SOURCE_REPO"   # embed-hero-video.sh's own confirm, passed through as the tap's is
 DASHBOARD_URL="https://chrome.google.com/webstore/devconsole"
 YOUTUBE_UPLOAD_URL="https://studio.youtube.com"
 
@@ -50,7 +55,7 @@ YOUTUBE_URL=""
 REVERIFY=false
 CONFIRMS=()
 
-usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; }
 die() { echo "release: FAIL: $*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -82,8 +87,8 @@ ZIP="$EXT/release/natural-tts-${VERSION}.zip"
 # A --confirm that names no step is a typo; refuse it rather than silently not confirming anything.
 for c in "${CONFIRMS[@]+"${CONFIRMS[@]}"}"; do
     case "$c" in
-        "$TAG_TARGET"|"$RELEASE_TARGET"|"$TAP_REPO"|"$PVR_TARGET") ;;
-        *) echo "release: --confirm '$c' names no step. Valid: $TAG_TARGET $RELEASE_TARGET $TAP_REPO $PVR_TARGET" >&2
+        "$TAG_TARGET"|"$RELEASE_TARGET"|"$EMBED_TARGET"|"$TAP_REPO"|"$PVR_TARGET") ;;
+        *) echo "release: --confirm '$c' names no step. Valid: $TAG_TARGET $RELEASE_TARGET $EMBED_TARGET $TAP_REPO $PVR_TARGET" >&2
            exit 64 ;;
     esac
 done
@@ -205,11 +210,17 @@ step "1. Tag ${TAG}"
 TAG_READY=false
 if git -C "$REPO" ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
     TAG_SHA="$(git -C "$REPO" rev-parse "refs/tags/${TAG}^{commit}")"
-    [ "$TAG_SHA" = "$HEAD_SHA" ] \
-        || die "${TAG} already exists on origin at ${TAG_SHA:0:7}, not at origin/main ${HEAD_SHA:0:7}. Tags are never moved; bump the version instead"
-    note "${TAG} is on origin at ${HEAD_SHA:0:12}"
+    if [ "$TAG_SHA" != "$HEAD_SHA" ]; then
+        # Step 2b commits README.md after the tag, so a rerun (for --youtube-url, say) finds main one README-only
+        # commit ahead. README.md is in neither the zip nor anything the tag publishes; any other move still fails.
+        git -C "$REPO" merge-base --is-ancestor "$TAG_SHA" "$HEAD_SHA" \
+            && [ "$(git -C "$REPO" diff --name-only "$TAG_SHA" "$HEAD_SHA")" = README.md ] \
+            || die "${TAG} already exists on origin at ${TAG_SHA:0:7}, not at origin/main ${HEAD_SHA:0:7}. Tags are never moved; bump the version instead"
+        note "main is ${TAG} plus README.md-only commits (step 2b); the tag stays at ${TAG_SHA:0:12}"
+    fi
+    note "${TAG} is on origin at ${TAG_SHA:0:12}"
     TAG_READY=true
-    result "1 tag ${TAG}" CURRENT "on origin at ${HEAD_SHA:0:7}"
+    result "1 tag ${TAG}" CURRENT "on origin at ${TAG_SHA:0:7}"
 else
     TAG_CMDS=("git -C $REPO tag -a $TAG -m 'Natural TTS ${VERSION}' $HEAD_SHA" "git -C $REPO push origin refs/tags/$TAG")
     if git -C "$REPO" rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
@@ -299,6 +310,39 @@ else
         result "2 GitHub Release" REFUSED "needs --confirm ${RELEASE_TARGET}"
     fi
 fi
+
+# ------------------------------------------------------------------------------ 2b. README hero video
+step "2b. README hero video (GitHub's player under <!-- hero-video -->)"
+EMBED="$REPO/scripts/release/embed-hero-video.sh"
+[ -x "$EMBED" ] || die "missing or not executable: ${EMBED}"
+# Unconfirmed, embed-hero-video.sh is a read-only plan with no gh call: exit 0 = already embedded, 2 = would embed.
+set +e
+EMBED_PLAN="$("$EMBED" --push 2>&1)"
+EMBED_STATUS=$?
+set -e
+case "$EMBED_STATUS" in
+    0)
+        note "README.md already plays the hero video"
+        result "2b README video" CURRENT "attachment URL under the marker" ;;
+    2)
+        if confirmed "$EMBED_TARGET"; then
+            set +e
+            "$EMBED" --confirm "$EMBED_TARGET" --push 2>&1 | sed 's/^/      /'
+            EMBED_STATUS=${PIPESTATUS[0]}
+            set -e
+            [ "$EMBED_STATUS" -eq 0 ] || die "embed-hero-video.sh exited ${EMBED_STATUS}; see its output above"
+            result "2b README video" DONE "issue-hosted video embedded, README.md committed and pushed"
+        else
+            echo "    GATED: make the README hero a playable GitHub video (embed-hero-video.sh plan below; it changed nothing)"
+            printf '%s\n' "$EMBED_PLAN" | sed -n '/^PLAN for/,$p' | grep -v '^Runs only with' | sed 's/^/      /'
+            echo "      Runs only with: --confirm ${EMBED_TARGET}   (release.sh passes it --push: README.md lands on main)"
+            need "$EMBED_TARGET"
+            result "2b README video" REFUSED "needs --confirm ${EMBED_TARGET}"
+        fi ;;
+    *)
+        printf '%s\n' "$EMBED_PLAN" | sed 's/^/      /' >&2
+        die "embed-hero-video.sh refused its preflight (exit ${EMBED_STATUS}); see above" ;;
+esac
 
 # ------------------------------------------------------------------------------ 3. Homebrew tap
 step "3. Homebrew tap ${TAP_REPO}"
@@ -463,7 +507,7 @@ EOF
 sed 's/^/    /' "$TESTS"
 echo "    ---- end ----"
 [ -n "$YOUTUBE_URL" ] || echo "    (YOUTUBE_URL is still a placeholder: pass --youtube-url, or replace it by hand)"
-result "5 GUI handoff" READY "steps 1-4 done, images, policy and README ok; dashboard and YouTube steps printed"
+result "5 GUI handoff" READY "steps 1-4 and 2b done, images, policy and README ok; dashboard and YouTube steps printed"
 fi
 
 # ------------------------------------------------------------------------------ summary
