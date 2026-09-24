@@ -223,6 +223,23 @@ function enterFallbackState(): void {
 }
 
 /**
+ * Show a shell command so a narrow popup wraps it only after an "&&", never
+ * inside a word or between the two "&": each command is its own no-wrap part.
+ * The text (and so a copy of it) stays exactly the command.
+ */
+function renderCommand(el: HTMLElement, command: string): void {
+  const parts = command.split(' && ');
+  el.replaceChildren();
+  parts.forEach((part, i) => {
+    if (i > 0) el.append(' ');
+    const span = document.createElement('span');
+    span.className = 'command-part';
+    span.textContent = i < parts.length - 1 ? `${part} &&` : part;
+    el.append(span);
+  });
+}
+
+/**
  * Show the one-line "Install the free Natural TTS helper" notice while speech
  * falls back to the system voice, or would. Not when the helper is installed
  * and only its engine stopped: the message says to restart it instead.
@@ -230,7 +247,7 @@ function enterFallbackState(): void {
 function refreshFallbackNotice(): void {
   if (!elements.fallbackNotice) return;
   if (elements.fallbackNoticeText) elements.fallbackNoticeText.textContent = HELPER_SETUP_NOTICE;
-  if (elements.installCommand) elements.installCommand.textContent = HELPER_INSTALL_COMMAND;
+  if (elements.installCommand) renderCommand(elements.installCommand, HELPER_INSTALL_COMMAND);
   if (elements.fallbackNoticeLink) {
     elements.fallbackNoticeLink.href = HELPER_SETUP_URL;
     elements.fallbackNoticeLink.textContent = HELPER_SOURCE_LINK_TEXT;
@@ -382,7 +399,7 @@ function showUpdateNotice(update: HelperUpdate | null): void {
         ? 'Update the Natural TTS helper. In your source checkout, run:'
         : 'Update the Natural TTS helper:';
     }
-    if (elements.updateCommand) elements.updateCommand.textContent = update.command;
+    if (elements.updateCommand) renderCommand(elements.updateCommand, update.command);
     if (elements.updateSourceLink) {
       elements.updateSourceLink.href = update.url;
       elements.updateSourceLink.textContent = update.fromSource ? 'How to update' : 'Installed from source?';

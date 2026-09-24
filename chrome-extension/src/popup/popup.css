@@ -164,7 +164,12 @@ body {
 .fallback-notice code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   user-select: all;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* One command per part of an "a && b" line: the line may wrap only after the "&&", never inside it. */
+.command-part {
+  white-space: nowrap;
 }
 
 .engine-status {

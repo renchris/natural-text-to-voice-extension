@@ -495,6 +495,8 @@ describe('system-voice fallback in the popup (OD-2)', () => {
       'Install the free Natural TTS helper for natural Kokoro voices: ' +
       'brew install renchris/tap/natural-tts && brew services start natural-tts or build it from source'
     );
+    const parts = [...el('helperInstallCommand').querySelectorAll('.command-part')].map(p => p.textContent);
+    expect(parts).toEqual(['brew install renchris/tap/natural-tts &&', 'brew services start natural-tts']);
     const link = el<HTMLAnchorElement>('fallbackNoticeLink');
     expect(link.textContent).toBe('or build it from source');
     expect(link.getAttribute('href')).toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
