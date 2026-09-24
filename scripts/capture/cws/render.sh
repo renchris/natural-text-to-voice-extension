@@ -29,6 +29,8 @@ repo="$(cd "$here/../../.." && pwd)"
 caps="$(cd "${1:-$repo/assets/store/src}" && pwd)"
 mkdir -p "${2:-$repo/assets/store}" "${3:-/tmp/ntts-cws-proofs}"
 out="$(cd "${2:-$repo/assets/store}" && pwd)"; proofs="$(cd "${3:-/tmp/ntts-cws-proofs}" && pwd)"
+# Proofs from an earlier run (or another session sharing the default dir) must never reach this run's proof sheet.
+rm -f "$proofs"/screenshot-*.proof-640x400.png "$proofs"/youtube-thumbnail.proof-320x180.png "$proofs"/proof-sheet.png
 CHROME="${CHROME:-$HOME/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell}"
 [[ -x "$CHROME" ]] || { echo "missing browser: $CHROME (set CHROME=...)" >&2; exit 1; }
 command -v magick >/dev/null || { echo "missing: magick (brew install imagemagick)" >&2; exit 1; }

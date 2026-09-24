@@ -1,14 +1,18 @@
 <!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css>
 <!-- Store screenshot 4: "Works without the helper, too." (replaces "PDFs too, with ligatures fixed": see
-     assets/store/README.md). Capture: popup-fallback.png (real popup, no helper reachable, OD-2 system voice). -->
+     assets/store/README.md). Capture: popup-fallback.png (real popup, no helper reachable, OD-2 system voice),
+     cropped to its header, message and install hint and shown near 1:1 with the 2x capture (1.9x CSS), so the
+     message and the command read at the store's 640x400. The cut fades into the page, so it reads as a crop, not a card. -->
 <style>body{width:1280px;height:800px}
 .brand{left:88px;top:64px}
-h1{position:absolute;left:88px;top:150px;width:540px;font-size:66px}
-.sub{position:absolute;left:88px;top:318px;width:500px}
-.crop{position:absolute;left:676px;top:152px;width:540px;height:495px;overflow:hidden;border-radius:12px;
+h1{position:absolute;left:88px;top:150px;width:560px;font-size:66px}
+.sub{position:absolute;left:88px;top:330px;width:400px}
+.crop{position:absolute;left:532px;top:300px;width:684px;height:520px;overflow:hidden;border-radius:14px 14px 0 0;
   box-shadow:0 44px 90px -30px rgba(27,32,96,.42),0 12px 28px -14px rgba(27,32,96,.22),0 0 0 1px rgba(27,32,96,.09)}
-.crop img{width:540px;display:block}</style>
+.fade{position:absolute;left:440px;right:0;top:738px;bottom:0;background:linear-gradient(rgba(244,245,254,0),var(--surface) 80%)}
+.crop img{width:684px;display:block}</style>
 <div class=brand><img src=icon.svg alt="">Natural TTS</div>
 <h1>Works without<br>the helper, too.</h1>
-<p class=sub>No helper yet? A voice built into your Mac reads the selection, and the popup shows how to add the Kokoro voices.</p>
+<p class=sub>No helper yet? A voice built into your computer reads the selection, and the popup shows how to add the Kokoro voices.</p>
 <div class=crop><img src=popup-fallback.png alt=""></div>
+<div class=fade></div>
