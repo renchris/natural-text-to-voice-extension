@@ -429,6 +429,16 @@ describe('offscreen speak / stop', () => {
     pendingSpeaks.shift()!.resolve();
   });
 
+  test('a speed outside 0.5-2.0 settles as an error without calling the helper', async () => {
+    const calls = fetchMock.mock.calls.length;
+    for (const speed of [0.4, 2.1]) {
+      const result = await send<OffscreenSpeakResponse>({ type: 'SPEAK_IN_OFFSCREEN', text: 'Hi', voice: 'af_bella', speed }).response;
+      expect(result.type).toBe('SPEAK_ERROR');
+      expect(result.helperUnavailable).toBeUndefined();
+    }
+    expect(fetchMock.mock.calls.length).toBe(calls);
+  });
+
   test('empty text settles as an error without calling the helper', async () => {
     const calls = fetchMock.mock.calls.length;
     const { response } = speak('   ');

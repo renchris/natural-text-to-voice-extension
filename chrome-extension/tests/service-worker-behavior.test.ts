@@ -165,6 +165,29 @@ describe('context menu → selection → offscreen', () => {
     expect(speakMessages().map(m => m.text)).toEqual(['The effect']);
   });
 
+  test('install and startup create the one menu item, on selections only', async () => {
+    const create = mockChrome.contextMenus.create as unknown as ReturnType<typeof mock>;
+    for (const event of ['onInstalled', 'onStartup']) {
+      create.mockClear();
+      await listeners[event]();
+      expect(create.mock.calls.map(call => call[0])).toEqual([
+        { id: 'natural-tts-speak-selection', title: 'Speak selected text', contexts: ['selection'] },
+      ]);
+    }
+  });
+
+  test('with nothing saved, speaks with the defaults (af_heart at 1.0)', async () => {
+    storedSettings = {};
+    pageSelection = 'Fresh install';
+    await listeners['contextMenus.onClicked'](
+      { menuItemId: 'natural-tts-speak-selection', selectionText: 'Fresh install', pageUrl: 'https://example.com/' },
+      { id: 12 }
+    );
+    expect(speakMessages()).toEqual([
+      { type: 'SPEAK_IN_OFFSCREEN', text: 'Fresh install', voice: 'af_heart', speed: 1 },
+    ]);
+  });
+
   test('ignores other menu items', async () => {
     await listeners['contextMenus.onClicked'](
       { menuItemId: 'something-else', selectionText: 'x' },
