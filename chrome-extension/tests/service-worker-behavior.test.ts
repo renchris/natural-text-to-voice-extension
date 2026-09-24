@@ -542,7 +542,7 @@ describe('system-voice fallback when the helper is unavailable (OD-2)', () => {
     });
   const activity = () => sendMessage.mock.calls.map(call => call[0] as any).filter(m => m.type === 'OFFSCREEN_ACTIVITY');
 
-  test('helper unreachable: the same text is spoken with chrome.tts at the mapped rate, and no badge', async () => {
+  test('helper unreachable: the same text is spoken with chrome.tts at the mapped rate, with the install hint, not the error badge', async () => {
     pageSelection = 'Read this';
     offscreenReplies(UNAVAILABLE);
 
@@ -555,15 +555,32 @@ describe('system-voice fallback when the helper is unavailable (OD-2)', () => {
     // af_nicole is American: the local en-US voice, speed 1.25 carried over as the rate.
     expect({ rate: options.rate, lang: options.lang, voiceName: options.voiceName, enqueue: options.enqueue })
       .toEqual({ rate: 1.25, lang: 'en-US', voiceName: 'Samantha', enqueue: false });
-    expect(badgeTexts()).toEqual(['']);
-    expect(setBadgeBackgroundColor).not.toHaveBeenCalled();
+    // OD-2: tell the user to install the helper, outside the popup too.
+    expect(badgeTexts()).toEqual(['i']);
+    expect(setBadgeBackgroundColor.mock.calls.map(call => call[0].color)).toEqual(['#5F6368']);
+    expect(titles()).toEqual([
+      'Natural TTS: A system voice read your selection. Install the free Natural TTS helper for Kokoro voices (click for how).',
+    ]);
     expect(activity()).toEqual([{ type: 'OFFSCREEN_ACTIVITY', speaking: true, engine: 'system' }]);
 
-    // It ends by itself: the popup is told, the badge stays clear.
+    // It ends by itself: the popup is told, the hint stays.
     ttsOnEvent!({ type: 'end' });
     await new Promise(r => setTimeout(r, 5));
     expect(activity()[activity().length - 1]).toEqual({ type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'system' });
     expect(badgeTexts()).not.toContain('!');
+    expect(badgeTexts()[badgeTexts().length - 1]).toBe('i');
+  });
+
+  test('the next Kokoro success clears the install hint', async () => {
+    pageSelection = 'Read this';
+    offscreenReplies(UNAVAILABLE);
+    await click(50);
+    ttsOnEvent!({ type: 'end' });
+    await new Promise(r => setTimeout(r, 5));
+    sendMessage.mockImplementation(defaultSendMessage);
+    await click(50);
+    expect(badgeTexts()[badgeTexts().length - 1]).toBe('');
+    expect(titles()[titles().length - 1]).toBe('Natural TTS');
   });
 
   test('a British Kokoro voice picks a British system voice', async () => {
@@ -612,7 +629,7 @@ describe('system-voice fallback when the helper is unavailable (OD-2)', () => {
     await click(56);
     ttsOnEvent!({ type: 'error', errorMessage: 'audio device lost' });
     await new Promise(r => setTimeout(r, 5));
-    expect(badgeTexts()).toEqual(['', '!']);
+    expect(badgeTexts()).toEqual(['i', '!']);
   });
 
   test('stop-speaking stops chrome.tts too, and leaves the badge alone', async () => {

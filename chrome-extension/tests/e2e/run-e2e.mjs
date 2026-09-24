@@ -503,8 +503,8 @@ async function run() {
     }
 
     // --- Case 4: helper down (connection refused) -> the system voice speaks the
-    //     selection through chrome.tts and there is no badge (OD-2); stop-speaking
-    //     silences it.
+    //     selection through chrome.tts, and the icon shows the neutral "i" install
+    //     hint, not the error badge (OD-2); stop-speaking silences it.
     {
       const page = await openPageWithSelection(h, pageUrl);
       const expected = page.selection.trim();
@@ -524,10 +524,11 @@ async function run() {
       const b = await badge(h);
       const refused = h.intercepted.filter(i => i.failed).length - refusedBefore;
       check(
-        'helper down: chrome.tts speaks the selection (system voice) and no badge is set',
+        'helper down: chrome.tts speaks the selection (system voice) and the icon says to install the helper',
         call?.text === expected &&
           call.events.includes('start') &&
-          b.text === '' &&
+          b.text === 'i' &&
+          b.title.includes('Install the free Natural TTS helper') &&
           refused > 0 &&
           mock.speakRequests().length === speaksBefore,
         `tts ${call ? `${call.text.length} chars, rate ${call.options.rate}, voice ${JSON.stringify(call.options.voiceName ?? 'default')}, events [${call.events}]` : 'not called'}, isSpeaking ${speaking}, badge ${JSON.stringify(b.text)}, ${refused} refused request(s)`
@@ -564,7 +565,7 @@ async function run() {
       const interrupted = !!events && events.some(t => t === 'interrupted' || t === 'cancelled') && !events.includes('end');
       check(
         'stop-speaking stops the system voice',
-        speakingBeforeStop === true && interrupted && speakingAfterStop === 'false' && after.text === '',
+        speakingBeforeStop === true && interrupted && speakingAfterStop === 'false' && after.text === 'i',
         `isSpeaking before ${speakingBeforeStop}, events [${events}], isSpeaking after ${speakingAfterStop}, badge ${JSON.stringify(after.text)}`
       );
       await h.cdp.send('Target.closeTarget', { targetId: page.targetId });

@@ -128,6 +128,9 @@ See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
 
 If right-click or shortcut speech fails, the toolbar icon shows a red **!**.
 Hover over the icon to read why; the badge clears the next time speech works.
+If the helper isn't running and a system voice read the selection instead, the
+icon shows a grey **i**: its tooltip, and the popup it opens, say how to install
+the helper for Kokoro voices. It clears the next time a Kokoro voice speaks.
 
 ### Method 2: Popup Interface
 1. **Select text** on the page

@@ -30,8 +30,10 @@ permission to the local helper only, and it turns every silent failure into a vi
 - **System voices when the helper is not running** (OD-2). Selections are spoken with Chrome's `chrome.tts`, using
   local platform voices only (never a network voice, never another extension's voice, never a macOS sound-effect
   voice; with no such voice, or an unreadable voice list, it reports an error rather than speak), and the popup
-  explains how to install the helper for Kokoro voices. Options → "When the helper isn't running" chooses "Use
-  system voices" (the default) or "Show an error". The new `tts` permission adds no install warning.
+  explains how to install the helper for Kokoro voices. After right-click or shortcut speech in a system voice, the
+  toolbar icon shows a grey "i" whose tooltip says to install the helper; the next Kokoro speech clears it. Options
+  → "When the helper isn't running" chooses "Use system voices" (the default) or "Show an error". The new `tts`
+  permission adds no install warning.
 - **af_heart is the default voice for new installs** (OD-5), in the helper and the extension. A voice already
   chosen and stored is left as it is, and an install updated from an earlier release that never stored a voice
   keeps af_bella, the default it was using.

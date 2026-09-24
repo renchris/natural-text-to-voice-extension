@@ -22,7 +22,7 @@ import {
   type SystemVoiceFinished,
 } from './system-voice-engine';
 import { readSelection, resolveContextMenuText } from '../shared/selection';
-import { showErrorBadge, clearErrorBadge } from '../shared/error-badge';
+import { showErrorBadge, clearErrorBadge, showSystemVoiceHint } from '../shared/error-badge';
 import { userMessageForError } from '../shared/helper-errors';
 import { getStoredPort, saveHelperPort } from '../shared/config';
 
@@ -185,8 +185,8 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
  * for the length of the audio, which Chrome cuts off after ~5 minutes.
  *
  * When the helper cannot be reached, the same text is spoken with the system
- * voice (OD-2) unless the user chose "Show an error"; the badge then appears
- * only if the system voice fails too.
+ * voice (OD-2) unless the user chose "Show an error"; the icon then shows the
+ * neutral install hint, or the error badge if the system voice fails too.
  */
 async function speakText(text: string, generation: number = stopGeneration): Promise<void> {
   speaksInFlight++;
@@ -243,7 +243,7 @@ async function speakText(text: string, generation: number = stopGeneration): Pro
     }
 
     if (response.success) {
-      await clearErrorBadge();
+      await (response.engine === 'system' ? showSystemVoiceHint() : clearErrorBadge());
     } else {
       await showErrorBadge(response.error || 'Speech failed. Try again.');
     }
@@ -252,10 +252,10 @@ async function speakText(text: string, generation: number = stopGeneration): Pro
   }
 }
 
-/** How a started system-voice speech ended: same badge rule as SPEAK_FINISHED. */
+/** How a started system-voice speech ended: the install hint stays, a failure shows the error badge. */
 function reportSystemVoiceFinished(outcome: SystemVoiceFinished): void {
   void (outcome.success
-    ? clearErrorBadge()
+    ? showSystemVoiceHint()
     : showErrorBadge(outcome.error || 'Speech failed. Try again.'));
 }
 
@@ -277,8 +277,8 @@ chrome.runtime.onMessage.addListener((
       isStopped: () => stopGeneration !== generation,
       onFinished: reportSystemVoiceFinished,
     }).then(response => {
-      // The popup shows its own errors; a working system voice clears the badge.
-      if (response.success) void clearErrorBadge();
+      // The popup shows its own errors; a working system voice shows the install hint.
+      if (response.success) void showSystemVoiceHint();
       sendResponse?.(response);
     });
     return true;
