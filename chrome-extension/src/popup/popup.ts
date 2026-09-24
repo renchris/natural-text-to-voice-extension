@@ -466,7 +466,7 @@ async function handleRetryConnection(): Promise<void> {
     // Always restore the button, including after a successful retry: it is
     // hidden then, but if the helper later goes away it is shown again and
     // must still work.
-    if (label) label.textContent = 'Retry Connection';
+    if (label) label.textContent = 'Retry connection';
     elements.retryButton.disabled = false;
   }
 }

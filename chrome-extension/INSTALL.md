@@ -166,7 +166,7 @@ If it says **Offline** and you installed the helper, see [Troubleshooting](#trou
 1. ✅ Is the helper running? Homebrew: `brew services list | grep natural-tts`. Source: `native-helper/Scripts/status.sh`.
 2. ✅ Did it finish starting? Its log ends with "Natural TTS Helper is ready!". Homebrew logs to
    `$(brew --prefix)/var/log/natural-tts.log`; a source install: `native-helper/Scripts/logs.sh`.
-3. ✅ Then click **Retry Connection** in the popup.
+3. ✅ Then click **Retry connection** in the popup.
 
 **Solution**: start it. Homebrew: `brew services restart natural-tts`. Source: `native-helper/Scripts/quickstart.sh`.
 

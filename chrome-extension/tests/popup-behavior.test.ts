@@ -343,7 +343,7 @@ describe('popup voice list (IN-10)', () => {
     const retry = el<HTMLButtonElement>('retryButton');
     retry.click();
     await until(() => !retry.disabled, 'first retry finished');
-    expect(retry.querySelector('span')!.textContent).toBe('Retry Connection');
+    expect(retry.querySelector('span')!.textContent).toBe('Retry connection');
 
     const healthCalls = () => fetchMock.mock.calls.filter(call => String(call[0]).endsWith('/health')).length;
     const before = healthCalls();
@@ -444,7 +444,7 @@ describe('system-voice fallback in the popup (OD-2)', () => {
   const retry = async () => {
     const button = el<HTMLButtonElement>('retryButton');
     button.click();
-    await until(() => !button.disabled && button.querySelector('span')!.textContent === 'Retry Connection', 'retry finished');
+    await until(() => !button.disabled && button.querySelector('span')!.textContent === 'Retry connection', 'retry finished');
     await tick();
   };
   const sent = (type: string) => runtimeSendMessage.mock.calls.map(call => call[0] as any).filter(m => m?.type === type);

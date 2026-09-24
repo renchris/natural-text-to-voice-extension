@@ -61,7 +61,7 @@ This checklist ensures all functionality works correctly before tagging and rele
 - [ ] Open popup → status pill reads **Offline**
 - [ ] Message: "The helper isn’t running, so a system voice will read your selection."
 - [ ] The install notice shows `brew install renchris/tap/natural-tts && brew services start natural-tts`
-- [ ] "Retry Connection" button appears; "Speak" is enabled
+- [ ] "Retry connection" button appears; "Speak" is enabled
 - [ ] Speak reads the selection in a system voice; the engine line says "System voice"
 
 **Expected**: Speech still works, and the popup says how to get the Kokoro voices
@@ -73,9 +73,9 @@ This checklist ensures all functionality works correctly before tagging and rele
 
 **Expected**: A clear error and Retry, no system voice
 
-#### Test 1.2c: Retry Connection
+#### Test 1.2c: Retry connection
 - [ ] Start helper while popup is open
-- [ ] Click "Retry Connection" button
+- [ ] Click "Retry connection" button
 - [ ] Status pill changes from **Offline** → **Checking** → **Connected** (or **Warming** first, then Connected)
 - [ ] Success message: "Successfully connected to helper!"
 - [ ] Voices load correctly
