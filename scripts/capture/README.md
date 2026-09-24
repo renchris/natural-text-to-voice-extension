@@ -25,6 +25,9 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `cdp-browser.mjs` | Sends one browser-level CDP command (`Extensions.*`, `Browser.*`) |
 | `demo.mjs` | The timed demo driver: selection → real popup → speed ×3 → close → native context menu. `--menu-only` (the hero: selection → context menu only) and `--text` (select one exact sentence). Writes a timeline |
 | `hero.mjs` | The hero driver on the demo article: `--mode prep` (scroll), `menu` (store screenshot 1: the menu with "Speak selected text" highlighted), `full` (select → right-click → real hover and click on the item, optional anchored popup). Writes a timeline with the click's mouse-down time |
+| `popup-scene.mjs` | Promo scene (c): speak from the real anchored popup, switch the voice in its native grouped list, raise the speed with its + button, speak again; real OS clicks, timeline with each speak's mouse-down |
+| `promo-assemble.py` | Cuts the promo master (1920×1080) and the README demo cut (1280×720) from the raw takes: frame-exact cuts at 30 fps, each scene's clip at its measured time, refuses a cut inside a clip or a click-to-speech gap |
+| `video-cards.sh` | Renders the promo video's silent title and end cards (`cws/titlecard.html`, `cws/endcard.html`) at 1920×1080 |
 | `cws/*.html`, `cws/base.css`, `cws/arcs.js`, `cws/glyph.svg` | Store-image templates: screenshots 1–5, small tile, marquee, YouTube thumbnail, GitHub social preview |
 | `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
@@ -33,7 +36,7 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `port-guard.mjs` | CDP `Fetch` guard in every target: refuses every port 8249-8260 but the capture helper's (`launch.sh`), logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
 | `shoot.mjs` | Headless-safe capture of the popup page (or any page) through CDP: `--fit` PNG at 2x, `--cast`/`--grab` frame sequences with timestamps |
 | `assemble-loop.mjs` | Resamples a `shoot.mjs` frame sequence onto a constant rate, merges identical frames, encodes lossless `img2webp -m 6` (near-lossless ghosted earlier frames) |
-| `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`), their brand theme, `env.sh` (neutral paths), `retime.mjs`, `render.sh` |
+| `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`, `privacy.tape` for the promo's privacy scene), their brand theme, `env.sh` (neutral paths), `retime.mjs`, `render.sh` |
 | `GUI_PASS.md` | The assets that still need a real display, with preconditions and commands |
 | `youtube-meta.mjs` | Chapter list (checked against YouTube's rules) and `.srt` captions for the YouTube master, from its cut points |
 

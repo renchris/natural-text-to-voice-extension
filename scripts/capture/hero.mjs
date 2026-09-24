@@ -6,6 +6,8 @@
 //                           menu: select, right-click, hover "Speak selected text", then run --shot and leave the
 //                           menu open (store screenshot 1). full (default): the timed hero take, ending in a click.
 //   --para <text>           the start of the paragraph to select (default: paragraph 2 of the demo article)
+//   --sel <text>            select exactly this sentence (inside whichever paragraph contains it) instead of the
+//                           whole paragraph; prep then places that paragraph with --top
 //   --top <px>              where paragraph 2's top edge sits in the viewport after prep (default 300)
 //   --park <x,y>            screen point to park the real cursor before the menu opens (default 1600,300); it
 //                           must be off the capture window, or the menu opens with an item under the cursor
@@ -32,6 +34,7 @@ if (!wsUrl || !extId || !match || !outJson) {
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i === -1 ? d : argv[i + 1]; };
 const mode = opt('mode', 'full');
 const paraText = opt('para', 'Reading aloud never really left us');
+const selText = opt('sel', '');
 const top = Number(opt('top', '300'));
 const [parkX, parkY] = opt('park', '1600,300').split(',').map(Number);
 const shot = opt('shot', '');
@@ -57,7 +60,9 @@ const evalIn = async (sid, expression) => {
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? 'eval failed');
   return r.result.value;
 };
-const findPara = `[...document.querySelectorAll('article p')].find(p=>p.innerText.trim().startsWith(${JSON.stringify(paraText)}))`;
+const findPara = selText
+  ? `[...document.querySelectorAll('article p')].find(p=>p.textContent.replace(/\\s+/g,' ').includes(${JSON.stringify(selText)}))`
+  : `[...document.querySelectorAll('article p')].find(p=>p.innerText.trim().startsWith(${JSON.stringify(paraText)}))`;
 
 async function menuItem(title, ms = 3000) {
   for (let w = 0; w < ms; w += 100) {
@@ -96,16 +101,19 @@ ws.onopen = async () => {
     for (let i = 1; i <= steps; i++) {
       await evalIn(ps, `(()=>{const p=window.__p;const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,total=0,chars=[];
         while(n=w.nextNode()){chars.push([n,total]);total+=n.length}
-        let target=Math.floor(total*${i}/${steps});const all=chars.map(c=>c[0].data).join('');
-        if(${i}<${steps}){const sp=all.indexOf(' ',target);target=sp<0?total:sp}
-        let endNode=chars[0][0],endOff=0;for(const [nd,start] of chars){if(start<=target){endNode=nd;endOff=Math.min(nd.length,target-start)}}
-        const r=document.createRange();r.setStart(chars[0][0],0);r.setEnd(endNode,endOff);const s=getSelection();s.removeAllRanges();s.addRange(r);return 1})()`);
+        const all=chars.map(c=>c[0].data).join('');const sel=${JSON.stringify(selText)};
+        const a=sel?all.indexOf(sel):0, b=sel?a+sel.length:total; if(a<0) throw new Error('sentence not found');
+        let target=a+Math.floor((b-a)*${i}/${steps});
+        if(${i}<${steps}){const sp=all.indexOf(' ',target);target=sp<0||sp>b?b:sp}
+        const at=(pos)=>{let node=chars[0][0],off=0;for(const [nd,start] of chars){if(start<=pos){node=nd;off=Math.min(nd.length,pos-start)}}return [node,off]};
+        const r=document.createRange();r.setStart(...at(a));r.setEnd(...at(target));const s=getSelection();s.removeAllRanges();s.addRange(r);return 1})()`);
       await sleep(45);
     }
     const selected = await evalIn(ps, 'getSelection().toString()');
     mark('select-done', { chars: selected.length });
     // 2) native context menu: a CDP right-click inside the selection (first line, ~200 CSS px in)
-    const cx = geo.left + 200, cy = geo.top + 14;
+    const first = await evalIn(ps, `(()=>{const r=getSelection().getRangeAt(0).getClientRects()[0];return {x:r.left,y:r.top,w:r.width,h:r.height}})()`);
+    const cx = first.x + Math.min(200, first.w / 2), cy = first.y + first.h / 2;
     await until(mode === 'full' ? AT.right : 1.9);
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy }, ps);
     await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'right', clickCount: 1 }, ps);
