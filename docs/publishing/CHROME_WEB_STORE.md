@@ -12,17 +12,19 @@ corrections), the operator rulings of 2026-09-23 (OD-1, OD-2, OD-5, OD-7, OD-8, 
 
 ## Before you open the dashboard
 
-Every claim in the listing is true only once these are. `scripts/release/release.sh` drives all of them except the
-last two, and prints this list with each item's live status (see [RELEASE.md](RELEASE.md)).
+Every claim in the listing is true only once these are. `scripts/release/release.sh` drives items 1-3, checks items 4, 5
+and 7, and prints the dashboard steps only when all of them hold; otherwise its step 5 prints "NOT READY — do not
+submit" with the steps that are missing (see [RELEASE.md](RELEASE.md)). Item 6 is yours.
 
 | # | Must be true | Why | Who |
 | --- | --- | --- | --- |
 | 1 | Tag `v1.5.0` and its GitHub Release (with the zip) exist | The description and test instructions point at the repository and the Homebrew formula builds from the tag | `release.sh` (gated) |
 | 2 | `brew install renchris/tap/natural-tts` works | The Requirements block and the reviewer's steps depend on it. **The tap is not published yet** | `release.sh` → `publish-tap.sh` (gated) |
 | 3 | GitHub private vulnerability reporting is on | `PRIVACY.md` links to it. Measured `{"enabled":false}` on 2026-09-23 | `release.sh` (gated) |
-| 4 | `chrome-extension/PRIVACY.md` on `main` is the 1.5.0 policy | The privacy policy URL serves `main` | already landed with this kit |
+| 4 | `chrome-extension/PRIVACY.md` on `main` is the 1.5.0 policy | The privacy policy URL serves `main`. On 2026-09-24 `origin/main` still served the **pre-rewrite** policy (the rewrite, `8de1e51`, was only on local `main`) | Land `main` on origin first (autosquash the fixups, then `/ship`). `release.sh` proves it: its preflight requires `HEAD == origin/main`, and step 5 compares the policy on GitHub with `HEAD` and requests the policy URL |
 | 5 | The store images exist under `assets/store/` at the sizes in [§2.2](#22-graphic-assets) | The dashboard rejects a listing without an icon or a screenshot | W3 capture lane |
 | 6 | The demo video is on YouTube, public or unlisted | The promo video field takes only a YouTube URL | **OPERATOR** ([YOUTUBE.md](YOUTUBE.md)) |
+| 7 | The root `README.md` is rewritten and landed, keeping the `## Install` and `### Updating a helper installed from source` headings | The description and the test instructions send reviewers to the README, and the 1.5.0 zip links to both anchors (`…#install`, `…#updating-a-helper-installed-from-source`). The pre-rewrite README says "WebGPU", "Phase 2 … IN PROGRESS" and "Performance Targets (Untested)" | W3 README lane; `release.sh` step 5 checks the headings and that none of those phrases remains |
 
 ## 0. Account (once) — OPERATOR
 
@@ -48,8 +50,8 @@ Click **Add new item** and upload the zip.
 | --- | --- |
 | File | `chrome-extension/release/natural-tts-1.5.0.zip`, built by `cd chrome-extension && bun run package` (or by `release.sh`, which also attaches it to the GitHub Release) |
 | Checks the packager enforces | manifest version = `package.json` version = 1.5.0, no `key`, name ≤ 75 and description ≤ 132 characters, every file the manifest names is present, no source maps, tests, dotfiles or logs, `manifest.json` at the zip root, every entry re-read and CRC-checked |
-| Measured (2026-09-23, this tree) | 15 files, 111,085 bytes unpacked, **43,117-byte zip**, sha256 `a809c11be2e473ee94b015793478929be1ad211457a7e586a0f99effbc03d642`. The zip is deterministic: the same `dist` gives the same hash |
-| Install warning | `["Read and change your data on 127.0.0.1"]`, measured on Chrome for Testing 153 from the unzipped package (`node scripts/verify-permissions.cjs <dir>`) |
+| Measured (2026-09-24, extension source as of `ceb80e2`) | 15 files, 112,606 bytes unpacked, **43,616-byte zip**, sha256 `ba01ccc527a73217a2a40a85460330a1cf0d7cfb964ff54be4fe8c9b64d7f134`. The zip is deterministic: the same `dist` gives the same hash, and any change to the extension changes it, so re-measure after every product commit |
+| Install warning | `["Read and change your data on 127.0.0.1"]`, measured on Chrome for Testing 153 from the unzipped package (`node chrome-extension/scripts/verify-permissions.cjs <dir>`) |
 
 The upload assigns the **item ID**. Record it: the post-launch helper origin pin (W2-6) needs it.
 
@@ -77,7 +79,7 @@ longer required for speech. The manifest's sentence is the one that ships, it is
 cannot override it, so this listing uses it unchanged. The detailed description below opens with the same promise, as
 the leading listings do [R07 §4.3].
 
-**Description.** Paste exactly this (2,979 characters, 41 lines; the dashboard takes plain text, so the bullets are
+**Description.** Paste exactly this (2,975 characters, 41 lines; the dashboard takes plain text, so the bullets are
 `•` characters and the blank lines are kept):
 
 ```text
@@ -104,11 +106,11 @@ PRIVATE BY DESIGN
 • After setup, speech works offline.
 
 REQUIREMENTS
-• Kokoro speech needs macOS 14 (Sonoma) or later on Apple silicon (M1 or later), and the free Natural TTS helper. Install it with Homebrew, which builds it in a few minutes:
+• Kokoro speech needs macOS 14.5 (Sonoma) or later on Apple silicon (M1 or later), and the free Natural TTS helper. Install it with Homebrew, which builds it in a few minutes:
   brew install renchris/tap/natural-tts
   brew services start natural-tts
 • Installing the helper downloads the Kokoro model (about 350 MB) once from huggingface.co. The helper takes about 1 GB of disk space.
-• Without the helper, including on Windows, Linux, ChromeOS and Intel Macs, the extension reads your selection with your computer's built-in system voices where it has them, and the popup shows how to install the helper.
+• Without the helper, including on Windows, Linux and Intel Macs, the extension reads your selection with your computer's built-in system voices where it has them, and the popup shows how to install the helper.
 • Chrome 148 or later.
 
 PERMISSIONS, EXPLAINED
@@ -138,10 +140,10 @@ Every claim in it, and where it is proven:
 | Status light; plain-language errors | popup status pill (Checking / Warming / Connected / Offline); `helper-errors.ts` messages |
 | Keyboard use | `chrome-extension/ACCESSIBILITY.md` (keyboard navigation audit) |
 | Reads only on request; saves only settings; no analytics; offline | [PRIVACY_TRACEABILITY.md](PRIVACY_TRACEABILITY.md) E1-E16, H9 |
-| macOS 14+, Apple silicon | formula `depends_on macos: :sonoma`, `depends_on arch: :arm64`; CHANGELOG "Breaking" |
+| macOS 14.5+, Apple silicon | formula `depends_on macos: :sonoma`, `depends_on arch: :arm64`; CHANGELOG "Breaking". The helper runs on 14.0, but every install builds it with a Swift 6.0 toolchain (Xcode 16.2 or its Command Line Tools), which needs 14.5 (`Package.swift:17-18`, INSTALL.md) |
 | Homebrew builds it in a few minutes | Local proof: build and install in 1 min 46 s, reinstall 1 min 21 s, on an M1 Max (`packaging/homebrew/README.md`) |
 | ~350 MB model once from huggingface.co; ~1 GB on disk | W2 §1: HF cache 349 MB; formula proof: 995.8 MB installed (python-env 664 MB, hf-cache 340 MB) |
-| System voices without the helper, where the OS has them | `src/shared/system-voice.ts:99-149` (local voices only, error when none); CHANGELOG OD-2 |
+| System voices without the helper, where the OS has them (Windows, Linux, Intel Macs; not ChromeOS) | `src/shared/system-voice.ts:99-149` (local voices only, error when none); CHANGELOG OD-2. ChromeOS is not claimed: its built-in voices come from component TTS-engine extensions, and `isLocalSpeechVoice` rejects any voice with an `extensionId` |
 | Chrome 148 or later | manifest `minimum_chrome_version` |
 | MIT; Kokoro-82M Apache-2.0 by hexgrad | `LICENSE`; `THIRD_PARTY_NOTICES.md` |
 
@@ -168,8 +170,8 @@ and this listing**; `release.sh` checks that each one exists at its size before 
 | Screenshot 2 | `assets/store/screenshot-2-voices.png` | 1280×800 | | "Natural voices, at your speed." The popup with Emma (UK) speaking at 1.3×, beside the 28 voices by accent (20 American, 8 British) |
 | Screenshot 3 | `assets/store/screenshot-3-on-device.png` | 1280×800 | | "Made on your Mac. Not in the cloud." Chrome → 127.0.0.1 → helper → Apple GPU, next to the Connected popup |
 | Screenshot 4 | `assets/store/screenshot-4-no-helper.png` | 1280×800 | | "Works without the helper, too." The popup with no helper: Offline, the system-voice line, the Homebrew hint. (Not the PDF shot: Chrome's PDF selection carries no ligature code points, so the repair cannot be shown; see `assets/store/README.md`) |
-| Screenshot 5 | `assets/store/screenshot-5-setup.png` | 1280×800 | | "Install once. It's always ready." The Homebrew one-liner as two commands, the Connected popup, and the system-voice fallback line |
-| Small promo tile | `assets/store/small-tile-440x280.png` | 440×280 | **yes** (items without one are listed after items that have one) | Glyph and waveform, no text |
+| Screenshot 5 | `assets/store/screenshot-5-setup.png` | 1280×800 | | "Install once. It's always ready." "Two Homebrew commands set up the helper and start it at login.", the two commands, the Connected popup, and the system-voice fallback line |
+| Small promo tile | `assets/store/small-tile-440x280.png` | 440×280 | **yes** (items without one are listed after items that have one) | The glyph, its sound arcs, and the "Natural TTS" wordmark |
 | Marquee promo tile | `assets/store/marquee-1400x560.png` | 1400×560 | no (needed for marquee placement) | Wordmark, "Private, on-device voices", the real popup crop |
 
 Screenshot rules [R07 §4.2]: square corners, full bleed, the real UI, and every caption legible at the 640×400 the
@@ -204,7 +206,7 @@ One field per permission, then one for the host permission. Paste each block int
 **storage**
 
 ```text
-Saves the user's chosen voice, speed and "When the helper isn't running" setting, and the local port the helper was found on, in chrome.storage.local on this device. Nothing is synced or sent anywhere.
+Saves the user's chosen voice, speed and "When the helper isn't running" setting, and the local port the helper was found on, with a default voice name stored with that port, in chrome.storage.local on this device. Nothing is synced or sent anywhere.
 ```
 
 **contextMenus**
@@ -216,7 +218,7 @@ Adds one item, "Speak selected text", to the right-click menu. It appears only w
 **activeTab**
 
 ```text
-When the user chooses "Speak selected text", presses Speak in the toolbar popup, or uses a keyboard shortcut they assigned, activeTab gives temporary access to that tab so the extension can read the text the user selected. Nothing is accessed without that action, and the access ends when the user leaves the page.
+When the user chooses "Speak selected text", opens the toolbar popup and presses Speak, or uses a keyboard shortcut they assigned, activeTab gives temporary access to that tab so the extension can read the text the user selected. Nothing is accessed without that action, and the access ends when the user leaves the page.
 ```
 
 **scripting**
@@ -240,7 +242,7 @@ When the Natural TTS helper app is not running, the extension reads the user's s
 **Host permission (`http://127.0.0.1/*`)**
 
 ```text
-The speech is generated by the open-source Natural TTS helper app, which listens only on the loopback address of the user's own computer (127.0.0.1, ports 8249-8260). The extension sends the selected text there and receives WAV audio back. It contacts no other host. The port wildcard is needed because the helper moves to the next free port in that range when 8249 is taken.
+The speech is generated by the open-source Natural TTS helper app, which listens only on the loopback address of the user's own computer (127.0.0.1, ports 8249-8260). The extension sends the selected text there and receives WAV audio back. It contacts no other host. Chrome host patterns cannot name a port or a port range, so the pattern names only the host. The extension itself only contacts ports 8249-8260, the range the helper moves through when 8249 is taken.
 ```
 
 Each is true of 1.5.0: `manifest.json:7-18`; offscreen reasons and 60 s idle close at `service-worker.ts:399-406` and
@@ -293,27 +295,27 @@ Publishing is **deferred**: see [§6](#6-submit).
 
 ## 5. Test instructions tab
 
-The reviewer can always hear speech: path A works on any computer, path B shows the Kokoro voices. Paste exactly
-this (1,949 characters):
+The reviewer can always hear speech: path A works on Windows, macOS or Linux, path B shows the Kokoro voices. Paste
+exactly this (2,324 characters):
 
 ```text
-Natural TTS reads selected text aloud. You can hear it on any computer: path A needs nothing else, path B adds the natural Kokoro voices on a Mac.
+Natural TTS reads selected text aloud. You can hear it on Windows, macOS or Linux: path A needs nothing else, path B adds the natural Kokoro voices on a Mac.
 
-A. WITHOUT THE HELPER (any OS, about 1 minute)
-1. Install the extension and open https://en.wikipedia.org/wiki/Speech_synthesis
+A. WITHOUT THE HELPER (Windows, macOS or Linux; about 1 minute)
+1. Install the extension, pin Natural TTS from the puzzle-piece Extensions menu, and open https://en.wikipedia.org/wiki/Speech_synthesis
 2. Select the first paragraph, right-click, and choose "Speak selected text". A voice built into your operating system reads it (chrome.tts, local voices only). The toolbar icon shows a grey "i"; its tooltip says to install the helper.
-3. Click the toolbar icon. The status reads "Offline", the popup shows the helper's install command, and "Speak Selected Text" reads the selection with the system voice.
-If the system has no local voice (some Linux setups), the extension shows an error rather than send the text anywhere.
+3. Click the toolbar icon. The status reads "Offline", the popup shows the helper's install command, and "Speak selected text" reads the selection with the system voice.
+If the system has no local voice (some Linux setups), the popup says "The Natural TTS helper is not running, and the system voice could not speak." This is by design: the text is never sent off the computer.
 
-B. WITH THE HELPER (Kokoro voices; macOS 14 or later on Apple silicon; about 5 minutes)
+B. WITH THE HELPER (Kokoro voices; macOS 14.5 or later on Apple silicon; needs Homebrew (https://brew.sh) and Xcode Command Line Tools 16.2 or later (xcode-select --install); about 5 minutes once those are installed)
 1. In Terminal: brew install renchris/tap/natural-tts
    It builds from source in about 2 minutes on an M1 Max and downloads the Kokoro model (about 350 MB) once from huggingface.co.
 2. brew services start natural-tts
    The helper is ready within about 10 seconds: curl -s http://127.0.0.1:8249/health shows "status":"ok".
 3. Click the toolbar icon. The status reads "Connected".
-4. On the Wikipedia page, select a paragraph, right-click, and choose "Speak selected text". The Kokoro voice "Heart" starts after about 1 to 2 seconds.
-5. In the popup, choose "Michael" and speed 1.3x, select text, and press "Speak Selected Text".
-6. Privacy check: right-click inside the popup, choose Inspect, open Network, and press Speak. Every request goes to http://127.0.0.1:8249 (/health, /voices, /speak). There are no other hosts.
+4. On the Wikipedia page, select a paragraph, right-click, and choose "Speak selected text". The Kokoro voice "Heart" starts within a few seconds (about 1 s on an M1 Max).
+5. Select a paragraph, open the popup, choose "Michael" and speed 1.3x (+ button), and press "Speak selected text".
+6. Privacy check: right-click inside the popup, choose Inspect, open Network, press Cmd+R to reload the popup, then press Speak. Every request goes to http://127.0.0.1:8249 (/health, /voices, /speak). There are no other hosts.
 7. Run brew services stop natural-tts and speak again: the system voice from path A takes over.
 
 A short video of the extension in use: YOUTUBE_URL
@@ -340,11 +342,11 @@ when you pass `--youtube-url`). The timings are re-measured; see [§8](#8-timing
 
 | Policy | How it could bite | How 1.5.0 addresses it | Residual risk |
 | --- | --- | --- | --- |
-| **Minimum Functionality** ("broken functionality… non-functioning features") | A reviewer on Windows, or without the helper, hears nothing | The OD-2 system-voice fallback speaks on any computer that has local voices; test path A shows it first; the summary and the Requirements block state what needs the Mac and the helper; the video shows both | Low (~10% per R07 §6). Precedent: several local-server extensions are live, and Page Assist (needs Ollama) is Featured |
+| **Minimum Functionality** ("broken functionality… non-functioning features") | A reviewer on Windows, or without the helper, hears nothing, or waits | The OD-2 system-voice fallback speaks on Windows, macOS and Linux wherever there are local voices (not ChromeOS, whose voices come from engine extensions); test path A shows it first. Discovery probes all twelve helper ports at once, so a request with no helper falls back within one 2 s timeout at most, even where a refused loopback connect is slow (Windows) — not measured on a Windows VM; the summary and the Requirements block state what needs the Mac and the helper; the video shows both | Low (~10% per R07 §6). Precedent: several local-server extensions are live, and Page Assist (needs Ollama) is Featured |
 | **"for Mac" in the name vs. installs on other systems** | Reads as misleading metadata | The name describes the Kokoro voices, which are Mac-only; the summary says "System voices otherwise", and the description has a Requirements block. "Mac" and "Apple silicon" are used only as compatibility statements, never to imply Apple's endorsement | Low |
 | **Localhost** | A helper on 127.0.0.1 could look like "functionality not provided by the extension" or trip Local Network Access | No CWS policy forbids a local companion app; the helper *is* the synthesis engine and is disclosed in line 1 of the summary. Chrome exempts extensions that hold the host permission from Local Network Access, which is why `http://127.0.0.1/*` stays a required host permission. The User Data FAQ waives encryption for traffic "between a Chrome extension and a native program on the same computer" [R07 §6, S15 Q16, S55] | Very low |
 | **Use of Permissions** (least privilege) | Broad host access or unused permissions | No content scripts; `activeTab` + `scripting` on a user gesture instead of `<all_urls>`; one host, loopback only; the `tts` permission is used only by the fallback. Every permission has a justification in §3.2. Measured install warning: only "Read and change your data on 127.0.0.1" | ~0 |
-| **Privacy consistency** (fields ↔ policy ↔ behaviour) | A mismatch can suspend every item the publisher owns | The policy was rewritten against the 1.5.0 code, and each sentence is traced to file:line in [PRIVACY_TRACEABILITY.md](PRIVACY_TRACEABILITY.md). The dashboard's data usage ("Website content") matches the policy's first section; the Limited Use statement is present; the listing's Privacy block says nothing the policy does not | ~0, provided the policy link is live and private vulnerability reporting is on (release.sh checks both) |
+| **Privacy consistency** (fields ↔ policy ↔ behaviour) | A mismatch can suspend every item the publisher owns | The policy was rewritten against the 1.5.0 code, and each sentence is traced to file:line in [PRIVACY_TRACEABILITY.md](PRIVACY_TRACEABILITY.md). The dashboard's data usage ("Website content") matches the policy's first section; the Limited Use statement is present; the listing's Privacy block says nothing the policy does not | ~0, provided the policy link is live and private vulnerability reporting is on (release.sh step 5 checks the first by content and by URL, and refuses to print the dashboard steps while step 4, private vulnerability reporting, is not done) |
 | **Listing requirements** (accurate metadata, no keyword spam, no testimonials) | Stale numbers or repeated keywords | Every claim is mapped to its source in §2.1; no keyword lists; no user counts, ratings or "best" claims; no third-party logos | Low |
 | **Remote code** (MV3) | Loading code from a server | None: all JS is packaged; the helper returns audio | 0 |
 | **Single purpose** | Unrelated features | One purpose: read the selection aloud. Both engines serve it | 0 |
@@ -358,7 +360,7 @@ The reviewer steps and the description quote these.
 | Measure | Idle M1 Max (W2, 2026-09-23) | Re-measured on this branch, 2026-09-23 23:44, **heavily loaded** machine |
 | --- | --- | --- |
 | Conditions | GPU 0-6% before the run, load1 ~10 | Helper built from this tree (`swift build -c release`, 1 min 25 s), port 18249, throwaway config dir; load1 47-72, GPU 94% busy with another job |
-| Launch → `/health` "ok" | 1.95 s median (3 cold starts) | 9.4 / 16.2 / 3.9 s |
+| Launch → `/health` "ok" | 1.95 s median (3 cold starts), measured **before** the British pipeline was also warmed at startup (e147d5d adds ~1-2 s; `bench/results.json`, contended: 3.8-3.9 s after a 24 s first launch) | 9.4 / 16.2 / 3.9 s |
 | First `/speak`, Wikipedia lead paragraph (406 characters, 26.1 s of audio), `af_heart` | M60 (408 characters): 1.106 s | 4.47 / 3.35 / 1.18 s |
 | Warm `/speak`, same paragraph | 1.08-1.13 s | 1.50-3.01 s |
 | `am_michael` at 1.3× | — | 1.06-2.49 s |
@@ -373,10 +375,10 @@ appeared in none of the 264 helper log lines.
 
 ## 9. How these words were checked
 
-- Character counts: Python `len()` on each pasted block (summary 122, name 42, description 2,979, test instructions
-  1,949).
+- Character counts: Python `len()` on each pasted block (summary 122, name 42, description 2,975, test instructions
+  2,324).
 - Name and summary: read from `chrome-extension/public/manifest.json`; the packager asserts the 75/132 limits.
-- Install warning: `node scripts/verify-permissions.cjs` on the unzipped release package.
+- Install warning: `node chrome-extension/scripts/verify-permissions.cjs` on the unzipped release package.
 - Privacy statements: [PRIVACY_TRACEABILITY.md](PRIVACY_TRACEABILITY.md).
 - Nothing here claims the Homebrew tap is live. It is the install path, and item 2 of the checklist at the top must
   hold before submission.
