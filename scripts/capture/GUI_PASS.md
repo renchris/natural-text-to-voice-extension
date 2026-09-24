@@ -5,19 +5,21 @@ may take over the operator's screen). Everything that can be captured through CD
 
 | Asset | State |
 |---|---|
-| `assets/media/popup.png` | done, headless (720×700, 2x, Connected, Heart, 1.0×) |
-| `assets/media/fallback.png` | done, headless (720×1178, 2x, helper stopped, system-voice line + install hint) |
-| `assets/media/status.webp` | done, headless (720×700, 4.5 s Checking → Connected loop) |
+| `assets/media/popup.png` | done, headless (720×700, 2x, Connected, Heart, 1.0×); re-shot from the v1.5.0 popup in the retake round |
+| `assets/media/fallback.png` | done, headless (720×1178, 2x, helper stopped, system-voice line + install hint); re-shot in the retake round |
+| `assets/media/status.webp` | done, headless (720×700, Checking → Connected loop); re-shot in the retake round |
 | `assets/media/helper.webp`, `assets/media/gate.webp` | done, VHS (renders headlessly) |
-| `assets/store/screenshot-{2,3,4,5}-*.png`, `small-tile-440x280.png`, `marquee-1400x560.png`, `youtube-thumbnail-1280x720.png`, `assets/brand/social-preview.png` | done, headless (capture step 3): `cws/capture-inputs.sh` + `cws/render.sh`, listed in `assets/store/README.md` |
+| `assets/store/screenshot-{2,3,4,5}-*.png`, `small-tile-440x280.png`, `marquee-1400x560.png`, `youtube-thumbnail-1280x720.png`, `assets/brand/social-preview.png` | done, headless (capture step 3): `cws/capture-inputs.sh` + `cws/render.sh`, listed in `assets/store/README.md`; inputs re-captured from the v1.5.0 popup and every image re-rendered in the retake round |
 | `assets/store/screenshot-1-right-click.png` (+ `assets/store/src/contextmenu-crop.png`) | **done, GUI pass 2026-09-24**: the native menu over the article, "Speak selected text" highlighted by a real hover (`hero.mjs --mode menu`) |
 | PDF viewer check (`article.pdf`, native menu) | **done, GUI pass 2026-09-24: PASS**, recorded in `assets/store/README.md` |
-| `assets/media/hero.mp4`, `hero-poster.png`, `hero-preview.webp` | **done, GUI pass 2026-09-24** (`hero.mjs`); lag measured on the take 2.083 s, in `assets/media/PROVENANCE.md` |
-| `assets/media/voices.webp` | **done, GUI pass 2026-09-24** (`voices.mjs`): the anchored popup's native grouped list, Heart → Emma |
-| `assets/media/demo-30s.mp4` + `/tmp/ntts-w3-out/youtube-master.mp4` (not committed) | **done, GUI pass 2026-09-24** (`popup-scene.mjs`, `tapes/privacy.tape`, `video-cards.sh`, `promo-assemble.py`); master 64.6 s, demo 30.0 s |
+| `assets/media/hero.mp4`, `hero-poster.png`, `hero-preview.webp` | **retaken 2026-09-24 with the pointer recorded** (`hero.mjs --cursor`: real drag, right-click, menu click, toolbar click); lag 2.467 s, in `assets/media/PROVENANCE.md`; preview by `hero-preview.sh` |
+| `assets/media/voices.webp` | **done, GUI pass 2026-09-24** (`voices.mjs`): the anchored popup's native grouped list, Heart → Emma; re-cropped by `voices-loop.sh` in the retake round |
+| `assets/media/demo-30s.mp4` + the YouTube master (not committed; `~/ntts-captures/2026-09-24/work/out/`) | **scenes (b) and (c) retaken 2026-09-24 with the pointer recorded** (`hero.mjs --cursor`, `popup-scene.mjs --cursor`), `tapes/privacy.tape`, `video-cards.sh` (cards and captions), `promo-assemble.py`, `youtube-meta.mjs`; master 65.3 s, demo 27.4 s |
 
-**Nothing in this file is outstanding after the 2026-09-24 GUI pass.** The recipe below is kept to remake the assets;
-the lessons from that pass are in "What the GUI pass learned" at the end.
+**Nothing in this file is outstanding after the 2026-09-24 GUI pass and its retake round.** The recipe below is kept
+to remake the assets; the lessons are in "What the GUI pass learned" at the end. One gate is the operator's: the
+master's end card and store screenshot 5 name the Homebrew tap, which is not published yet, so neither goes public
+until `brew install renchris/tap/natural-tts` works.
 
 What remains needs the window server: the **native context menu**, the **anchored toolbar popup** (headless opens
 `popup.html` as a tab, not the anchored bubble) and the **native `<select>` dropdown**. This file is the one-go
@@ -25,14 +27,15 @@ recipe for that pass.
 
 ## Remaining assets
 
-1. **`assets/media/hero.mp4`** (20–25 s, 1280×800, H.264 High, yuv420p, 30 fps, AAC, `+faststart`, ≤ 8 MB), plus
-   **`hero-poster.png`** (a strong frame: the menu open with "Speak selected text" highlighted) and
-   **`hero-preview.webp`** (silent, first ~6–8 s, ≤ 3 MB, `img2webp -near_lossless 40`; GIF only if the WebP fails
-   the demo-recording skill's seam check). Story: the article at `https://essays.example/article.html`, paragraph 2
-   (`article .lede + p`) gets selected, right-click, the native menu with "Speak selected text" highlighted, click,
-   the real Kokoro voice reads it. Audio: `assets/media/src/audio/hero.wav` (af_heart, 1.0×, 15.58 s), post-muxed at
-   the measured offset. 20–25 s, not 15–20: the clip alone is 15.6 s, and it starts ~5 s in (2.4 s of selection, the
-   menu, the click, ~1 s of lag).
+1. **`assets/media/hero.mp4`** (15–25 s: a take with real gestures runs ~25 s, since the clip is 15.6 s and the
+   lag ~2–2.5 s; 1280×800, H.264 High, yuv420p, 30 fps, AAC, `+faststart`, ≤ 8 MB), plus
+   **`hero-poster.png`** (a strong frame: the menu open with "Speak selected text" highlighted, from the 2x raw,
+   stripped to a plain sRGB PNG) and **`hero-preview.webp`** (silent, the opening up to the popup's speaking state,
+   that frame held 3 s with a "Watch with sound" pill, ≤ 3 MB, `hero-preview.sh`; GIF only if the WebP fails the
+   demo-recording skill's seam check). **Record the pointer** (`sckrec` without `--no-cursor`, `hero.mjs --cursor`):
+   the gesture is the product, and a popup that appears with no click on the toolbar button misleads. Story: the article at `https://essays.example/article.html`, paragraph 2
+   gets selected, right-click, the native menu with "Speak selected text" highlighted, click, the real Kokoro voice
+   reads it. Audio: `assets/media/src/audio/hero.wav` (af_heart, 1.0x, 15.58 s), post-muxed at the measured offset.
 2. **`assets/media/voices.webp`**: a voice switch in the grouped 28-voice list. Needs the native `<select>` dropdown
    open (its optgroups are the whole point: American / British, female / male). Headless cannot show it truthfully:
    the closed select only changes its one-word label, so this was **skipped**, not faked.
@@ -48,29 +51,35 @@ recipe for that pass.
      half passed headless on 2026-09-24, and the viewer's selected text is spoken by the real helper: see
      `assets/store/README.md`, "Why screenshot 4 is not the PDF shot". Record the result there. Store shot 4 stays
      the fallback shot either way, because the ligature fix cannot be shown with `article.pdf`.
-4. **YouTube master + `demo-30s`** (the master is not committed; it goes under `/tmp/ntts-w3-out/`): the R07
-   storyboard, one real clip per scene from `assets/media/src/audio/`. Commands: "YouTube master" below.
-   - **`/tmp/ntts-w3-out/youtube-master.mp4`**: 1920×1080, 30–50 s, no music under speech. Scenes:
-     (a) title card, silent, 3 s: `/tmp/ntts-w3-out/cards/title-1920x1080.png` (`YOUTUBE_CARDS=1 cws/render.sh`);
+4. **YouTube master + `demo-30s`** (not committed; under `/tmp/ntts-w3-out/`): the R07 storyboard, one real clip per
+   scene from `assets/media/src/audio/` (`s1-rightclick`, `s2-british`, `s3-speed`, `s4-pdf`, `s5-offline`).
+   **Deferred from capture step 3** (headless-only), with this exact spec:
+   - **The YouTube master** (outside `/tmp`: `~/ntts-captures/<date>/`): 1920×1080, 45–70 s (it was 30–50 s; real
+     gestures and real latencies put the retake round's cut at 65.3 s, see `assets/media/PROVENANCE.md`), no music
+     under speech. Scenes, each with its own
+     real clip, muxed at the click time plus the lag measured on that take:
+     (a) title card, silent, 2–3 s: `cws/titlecard.html` at 1920×1080 (`video-cards.sh`);
      (b) right-click speak on the article, `s1-rightclick.wav` (af_heart 1.0×, 5.78 s);
      (c) popup: switch to Emma in the grouped list, speak, `s2-british.wav` (bf_emma, 7.13 s); then speed to 1.3×,
      speak, `s3-speed.wav` (3.78 s);
-     (d) **the fallback scene, not a PDF** (the ligature fix cannot be shown with `article.pdf`). Stop the capture
-     helper, right-click speak, and let the system voice read it. This is live audio: record it with
-     `sckrec --exclude-others`, after the dry run below proves that records sound. The popup shows Offline and the
-     system-voice line. Restart the helper for the next scene;
-     (e) privacy proof **without touching Wi-Fi**: `lsof -nP -a -p <worker pid> -i` printing nothing (the worker has
-     no network sockets and talks to the helper over pipes; run it once before recording, and cut the scene if it
-     prints anything) plus `lsof -nP -a -p <helper pid> -i` showing only `127.0.0.1:8250 (LISTEN)`, in a VHS tape or
-     a terminal window. Then speak again with `s5-offline.wav` over it. Optionally, show the guard's `guard.jsonl`
-     lines, all to `127.0.0.1:8250`;
-     (f) end card, silent, 4 s: `/tmp/ntts-w3-out/cards/end-1920x1080.png` (the two Homebrew commands and the
-     repository).
-     Check it with `ffprobe` and a contact sheet, and add a line to `assets/media/PROVENANCE.md` naming each clip,
-     its offset and the gain (below).
-   - **Chapters and captions:** `scripts/capture/youtube-meta.mjs` writes `chapters.txt` (three chapters, checked
-     against YouTube's rules) and `youtube-master.srt` from the master's cut points; YOUTUBE.md pastes both.
-   - **`assets/media/demo-30s.mp4`** (committed, ≤ 8 MB): scenes (b)+(c)+(e) cut from the master, 20–30 s,
+     (d) **fallback scene, not PDF.** The ligature fix cannot be shown (step 3). Stop the capture helper, right-click
+     speak, and let the system voice read it (live audio: record with `sckrec --exclude-others`). The popup shows
+     Offline and the system-voice line. Restart the helper for the next scene;
+     (e) privacy proof **without touching Wi-Fi**: `lsof -nP -a -p <worker pid> -i` printing nothing (expected: the
+     worker has no network sockets and talks to the helper over pipes. Run it once before recording, and cut the
+     scene if it prints anything) plus `lsof -nP -a -p <helper pid> -i` showing only `127.0.0.1:8250 (LISTEN)`, in a VHS
+     tape or a terminal window. Then speak again with `s5-offline.wav` over it, as proof that speech does not need
+     the network. Optionally, add the guard's `guard.jsonl` lines showing only `127.0.0.1:8250`;
+     (f) end card, silent, 4 s, in the `cws/` style: a numbered call to action, "1 Add Natural TTS to Chrome · Chrome
+     Web Store", "2 Install the free helper" with the two Homebrew commands, then the repository, smaller.
+     **Retake round changes:** captions on (d) and (e) (`video-cards.sh`, overlaid by `promo-assemble.py`) including
+     the note that the capture helper ran on 8251 (the default is 8249); (e)'s second right-click speak was dropped
+     (it repeated (b)); scenes are joined by 0.3 s crossfades; `youtube-meta.mjs` writes the chapters and the `.srt`.
+     Encode with the R09 §3.4 command already in "Hero video" below (H.264 High, 8 Mbps, closed GOP 15, 2 B-frames,
+     AAC 48 kHz stereo, `+faststart`, `-use_editlist 0`). Check it with `ffprobe` and a contact sheet, and add a
+     line to `assets/media/PROVENANCE.md` naming each clip and its offset.
+   - **`assets/media/demo-30s.mp4`** (committed, ≤ 8 MB): the popup half of (c) + the captioned terminal + a short end
+     card since the retake round (with real gestures (b)+(c) alone pass 30 s, and the hero shows (b)), 20–30 s,
      1280×720, `-crf 23 -preset slow`, AAC 128k, `+faststart`. Check its size with `stat` before committing.
    - The thumbnail for the upload is already made: `assets/store/youtube-thumbnail-1280x720.png`.
    - **PDF scene (optional, not a store shot):** `article.pdf` cannot show the ligature fix. Chrome/Skia writes a
@@ -123,21 +132,11 @@ node scripts/capture/cdp.mjs "$WS" about:blank 'location.href="https://essays.ex
 
 ### Hero video
 
-`demo.mjs --menu-only` drives it: it animates the selection of paragraph 2 and opens the native context menu at
-2.4 s, then exits with the menu open. No popup and no speed change, so the voice stays at hero.wav's 1.0×. The click
-on "Speak selected text" is a native `click`, and its wall time is written next to the timeline.
-
-```bash
-date +%s.%N > "$OUT/rec-start.txt"                                            # sckrec's start, wall clock
-sckrec $CHROME_PID 24 "$OUT/hero-raw.mov" 40 60 1280 800 --no-cursor &     # 24 s, no audio (inclusion filter)
-node scripts/capture/demo.mjs "$WS" "$EXT_ID" essays.example "$OUT/timeline.json" 'article .lede + p' --menu-only
-winlist "Google Chrome for Testing" | grep 'layer=101'     # the NSMenu window; read "Speak selected text"'s x,y from it
-sleep 0.8; date +%s.%N > "$OUT/click.txt"; click <x> <y> 0.4   # hover 0.4 s (highlight), then the real click
-wait
-# 1280x800 exactly: sckrec records at the display's pixel scale (2560x1600 on Retina), so scale before fps.
-ffmpeg -i "$OUT/hero-raw.mov" -vf "scale=1280:800:flags=lanczos,tpad=stop_mode=clone:stop_duration=1,fps=30" \
-  -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 20 -r 30 -movflags +faststart -an "$OUT/hero-video.mp4"
-```
+`hero.mjs --cursor` drives the committed take: every gesture is real OS input and the pointer is recorded (a drag
+selects paragraph 2, a right-click opens the native menu, the pointer hovers "Speak selected text" and clicks it,
+then clicks the toolbar button so the anchored popup shows the voice speaking). Its timeline carries each click's
+mouse-down time. (`demo.mjs --menu-only` is the older driver for the same story with CDP gestures and no pointer;
+use it only for a take that hides the cursor.)
 
 The audio offset is measured, never assumed. Every WAV opens with 0.26–0.33 s of silence, so align against the
 **start of the WAV**, not the speech onset: record a second, live-audio take the same way with
@@ -146,9 +145,19 @@ audio with `hero.wav`; the peak lag, in ms, is `<ms>` below. (R09 measured +0.93
 `<ms>` far from `click − rec-start + ~950` means the take is wrong.)
 
 ```bash
+node scripts/capture/hero.mjs "$WS" "$EXT_ID" essays.example "$OUT/prep.json" --mode prep   # then click the page margin once
+sckrec $CHROME_PID 34 "$OUT/hero-raw.mov" 40 60 1280 800 --exclude-others &   # start first; the pointer is recorded
+node scripts/capture/hero.mjs "$WS" "$EXT_ID" essays.example "$OUT/timeline.json" --mode full --cursor \
+  --pid $CHROME_PID --at select=0.6,right=4.2,hover=4.9,click=5.7 --popup-at 8.4; wait
+# 1280x800 exactly: sckrec records at the display's pixel scale (2560x1600 on Retina), so scale before fps.
+ffmpeg -i "$OUT/hero-raw.mov" -vf "scale=1280:800:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,fps=30" \
+  -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 20 -r 30 -movflags +faststart -an "$OUT/hero-video.mp4"
+# <ms> = speak-click time in timeline.json + the measured video lag (R09: constant +0.93-1.00 s). Measure the lag on
+# THIS take (a live-audio take with sckrec --exclude-others, cross-correlated with hero.wav), never assume it.
+# pan copies the mono clip to both channels exactly; an upmix (aformat=channel_layouts=stereo) lowers it by 3 dB.
 ffmpeg -i "$OUT/hero-video.mp4" -i assets/media/src/audio/hero.wav \
-  -filter_complex "[1:a]adelay=<ms>|<ms>,apad[a]" -map 0:v -map "[a]" -shortest \
-  -c:v copy -c:a aac -b:a 128k -movflags +faststart assets/media/hero.mp4
+  -filter_complex "[1:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay=<ms>|<ms>,apad[a]" -map 0:v -map "[a]" -shortest \
+  -c:v copy -c:a aac -b:a 128k -ar 48000 -movflags +faststart assets/media/hero.mp4
 ffprobe -v error -show_entries stream=codec_name,profile,width,height,avg_frame_rate,pix_fmt -of compact assets/media/hero.mp4
 stat -f %z assets/media/hero.mp4                                              # <= 8 MB (8388608)
 ```
@@ -157,17 +166,19 @@ Confirm the `/speak` the click caused: `guard.jsonl` has a `127.0.0.1:8250/speak
 and the helper log has its `[worker] [INFO] Generating [N chars] (voice=af_heart …)` and `Generated … audio in …`
 lines (the helper logs every request; it never logs the text).
 
-Poster and preview:
+Poster and preview, both from the 2x raw take (frame numbers at 30 fps, the hero cut's numbering):
 
 ```bash
-ffmpeg -ss <menu-open second> -i assets/media/hero.mp4 -frames:v 1 assets/media/hero-poster.png
-mkdir -p "$OUT/pv"; ffmpeg -v error -t 7 -i assets/media/hero.mp4 -vf "fps=20,scale=960:-1:flags=lanczos" "$OUT/pv/%04d.png"
-img2webp -loop 0 -d 50 -m 6 "$OUT"/pv/*.png -o assets/media/hero-preview.webp   # lossless; <= 3 MB
+ffmpeg -i "$OUT/hero-raw.mov" -vf "fps=30,select=eq(n\,<hover frame>),scale=1280:800:flags=lanczos" -frames:v 1 "$OUT/poster.png"
+magick "$OUT/poster.png" -strip -define png:exclude-chunks=all PNG24:assets/media/hero-poster.png   # plain sRGB, no cICP
+KMAX=20 scripts/capture/hero-preview.sh "$OUT/hero-raw.mov" <first frame> <popup speaking + ~1.5 s> <hero s> \
+  assets/media/hero-preview.webp   # <= 3 MB; wrap it in a link to hero.mp4 in the README
 ```
 
-If the lossless preview is over 3 MB, use `-near_lossless 40`, then decode it (`magick x.webp -coalesce f%03d.png`)
-and compare the last frame with its source PNG (`magick compare -metric AE`): near-lossless animation left a ghost of
-an earlier frame in `status.webp`, which is why `assemble-loop.mjs` is lossless now.
+`hero-preview.sh` encodes `-near_lossless 40` (a lossless take of a moving page is far over 3 MB) with a key frame at
+least every `KMAX` frames. Decode it (`magick x.webp -coalesce f%03d.png`) and compare the last frame with its source
+PNG (`magick compare -metric AE`): near-lossless inter frames can keep a ghost of an earlier frame, as they did in
+`status.webp`, which is why `assemble-loop.mjs` (flat UI, small lossless) encodes lossless.
 
 ### Store inputs
 
@@ -182,7 +193,9 @@ other image from them byte for byte.
 
 ### Voices loop
 
-The native `<select>` list, opened in the anchored popup, recorded without audio and assembled lossless.
+The native `<select>` list, opened in the anchored popup, recorded without audio. The committed loop is cut from the
+raw take by `voices-loop.sh` (the popup-and-list crop, a left-edge fade over the page only, 720 px wide,
+`-near_lossless 40` with forced key frames); the `img2webp` line below is the plain lossless fallback.
 
 ```bash
 node scripts/capture/cdp.mjs "$WS" "chrome-extension://$EXT_ID/background" 'chrome.action.openPopup().then(()=>"ok")'
@@ -195,13 +208,21 @@ hover <x+180> <y+380> 1.0 true                            # …into the British 
 hover <x+180> <y+430> 1.2 true; key 53                    # Escape closes the list; the popup stays
 wait
 mkdir -p "$OUT/voices"; ffmpeg -v error -i "$OUT/voices-raw.mov" -vf "fps=20,scale=720:-1:flags=lanczos" "$OUT/voices/%04d.png"
-img2webp -loop 0 -d 50 -m 6 "$OUT"/voices/*.png -o assets/media/voices.webp       # lossless; <= 3 MB
+scripts/capture/voices-loop.sh "$OUT/voices-raw.mov" <from s> <to s> assets/media/voices.webp   # <= 3 MB
+# or, uncropped and lossless: img2webp -loop 0 -d 50 -m 6 "$OUT"/voices/*.png -o assets/media/voices.webp
 ```
 
 `key 53` is Escape (it does not dismiss Chrome's context menu, but it does close a `<select>` list). Look at a
 contact sheet: the list must show both accent groups, and no voice may be picked by accident.
 
 ### YouTube master
+
+The committed cut was made by the retake round's tools: `video-cards.sh <takes>/cards` (title and end cards plus the
+lower-third captions), `tapes/render.sh privacy <dir>`, then `promo-assemble.py <takes> <master.mp4> <demo.mp4>`, whose
+`SCENES` table holds every measured range, clip time and caption, and which writes the master's timeline for
+`youtube-meta.mjs`. It puts each clip on both channels **unchanged** (no gain), joins scenes with 0.3 s crossfades and
+refuses any cut that would shorten a measured latency. The recipe below is the same pipeline by hand, one ffmpeg call
+per scene; it applies the uniform `volume=4.5dB` described next, which `promo-assemble.py` does not.
 
 Every scene is recorded like the hero (`sckrec` at 1280×800, no audio), then scaled and pillarboxed to 1920×1080 in
 the brand's deep ink, given its clip, and concatenated. One static gain applies to **every** clip: the WAVs measure
@@ -218,7 +239,7 @@ card() { ffmpeg -v error -loop 1 -t "$2" -i "$1" -f lavfi -t "$2" -i anullsrc=r=
 scene() { # scene <raw.mov> <clip id> <adelay ms> <out.mp4>   (the clip's WAV starts <ms> into the scene)
   ffmpeg -v error -i "$1" -i "assets/media/src/audio/$2.wav" -filter_complex \
     "[0:v]$V[v];[1:a]volume=4.5dB,adelay=$3|$3,apad,$A[a]" -map "[v]" -map "[a]" -shortest $enc "$4"; }
-YOUTUBE_CARDS=1 scripts/capture/cws/render.sh                  # -> /tmp/ntts-w3-out/cards/{title,end}-1920x1080.png
+scripts/capture/video-cards.sh /tmp/ntts-w3-out/cards          # -> {title,end}-1920x1080.png + caption overlays
 card /tmp/ntts-w3-out/cards/title-1920x1080.png 3 "$OUT/a.mp4"
 # (b) right-click: the hero recipe (sckrec 12 s), selecting exactly s1-rightclick's sentence:
 #     demo.mjs "$WS" "$EXT_ID" essays.example "$OUT/b.json" 'article p' --menu-only \
@@ -261,7 +282,7 @@ node scripts/capture/youtube-meta.mjs "$OUT/master-timeline.json" /tmp/ntts-w3-o
 
 Kill only `$CHROME_PID`, `$GUARD_PID` and the pid in `$OUT/helper.pid`; stop `caffeinate`; `rm -rf "$PROFILE"`.
 Then contact-sheet every video (`ffmpeg -i x.mp4 -vf "fps=1,scale=320:-1,tile=5x4" -frames:v 1 sheet.png`) and
-look at it: no cursor, no infobar, no other app, menu not clipped, audio in sync.
+look at it: the pointer only where the driver put it, no infobar, no other app, menu not clipped, audio in sync.
 
 ## What the GUI pass learned (2026-09-24)
 
@@ -289,4 +310,29 @@ look at it: no cursor, no infobar, no other app, menu not clipped, audio in sync
 - **`sckrec --exclude-others` records the live audio in the same take** as the picture, which makes the lag
   measurement direct: cross-correlate the canonical clip against it on 10 ms log-RMS envelopes (Kokoro's random
   phase defeats waveform correlation), then refine at 1 ms.
+
+Learned in the retake round (2026-09-24):
+
+- **Record the pointer, and make every gesture real.** `glide` (eased pointer moves, `--drag` for a real drag-select),
+  `click --right --stay`, `scroll` (wheel), `axfind` (the pinned toolbar button through Accessibility), driven by
+  `hero.mjs --cursor` and `popup-scene.mjs --cursor`. Real presses land on whatever window is on top, so the drivers
+  bring the browser to the front and check every point against `winlist`'s z-order before pressing; they refuse
+  rather than press on another app.
+- **Re-locate the toolbar button right before clicking it.** Once audio plays, Chrome adds its media-controls button to
+  the toolbar and every icon to its right shifts; a position read a few seconds earlier opened the Extensions menu.
+- **Another app's window can float over the capture window** (a Docker Desktop panel did, for the whole session). The
+  recording never shows it (`--exclude-others`), but real presses would reach it: plan presses around it (scene (c)
+  scrolls its second sentence above it) or wait for it to go, never click through it.
+- **Focus the page before a take**: after `location.href=…` the address bar keeps focus and its URL shows selected in
+  every frame; one click on the page margin before recording fixes it.
+- **Mono clips go on both channels with `pan=stereo|c0=c0|c1=c0`**, never `aformat=channel_layouts=stereo` (−3 dB).
+- **`-use_editlist 0` shifts the picture 66.7 ms (2 B-frames) but the audio only by its 21.3 ms AAC priming**:
+  `promo-assemble.py` delays the master's mix by the 45.3 ms difference; re-measure click flash to clip in the file.
+- **Near-lossless inter frames leave ghosts** of closed menus and replaced text: force key frames (`KMAX` in
+  `hero-preview.sh`, `--kmax` in `assemble-loop.mjs`, every 10 frames in `voices-loop.sh`) and measure the difference
+  against the source frames.
+- **Never post a key to "close" something**: the Space may already have switched, and the key lands in the operator's
+  app. Close popups with a click on the capture page instead.
+- **The lag depends on the machine's load**: with another capture run using the GPU it was 1.25–2.47 s where the first
+  pass measured 0.40–2.08 s. Measure it on every take; never reuse a number.
 

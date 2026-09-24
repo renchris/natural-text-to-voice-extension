@@ -17,17 +17,23 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `sckrec.swift` | ScreenCaptureKit recorder for one app's windows, with audio. macOS 15+ |
 | `sckapps.swift` | Lists the Chrome-like apps ScreenCaptureKit can share (diagnoses audio filter problems) |
 | `hover.swift` | Moves the real cursor, runs a capture command, restores the cursor (highlights a menu item) |
-| `click.swift` | One real OS left click at a screen point, then restores the cursor; prints the mouse-down time (`down_at=`, epoch ms) |
+| `click.swift` | One real OS click at a screen point (left, or `--right`), then restores the cursor unless `--stay` (for takes that record the pointer); prints the mouse-down time (`down_at=`, epoch ms) |
 | `move.swift` | Moves the real cursor and leaves it there (parks it off the capture window); prints where it was |
+| `glide.swift` | Moves the real pointer to a point along an eased path, the way a hand does; `--drag` holds the button for the whole path (a real drag-select); prints the mouse-down/up times |
+| `scroll.swift` | Real wheel scrolling (pixel units, eased) at the pointer's position |
+| `axfind.swift` | Finds an element of an app's windows by title/description through the Accessibility API (e.g. the pinned extension's toolbar button, an `AXPopUpButton`) and prints its centre |
 | `axmenu.swift` | Lists the items of an app's open native menu (context menu, `<select>` list) with screen frames, through the Accessibility API; with a title, prints that item's centre |
 | `key.swift` | Posts one key press by virtual key code (does **not** dismiss Chrome's native menu) |
 | `cdp.mjs` | Evaluates a JS expression in the first CDP target whose URL contains a substring (`--list` lists targets) |
 | `cdp-browser.mjs` | Sends one browser-level CDP command (`Extensions.*`, `Browser.*`) |
 | `demo.mjs` | The timed demo driver: selection → real popup → speed ×3 → close → native context menu. `--menu-only` (the hero: selection → context menu only) and `--text` (select one exact sentence). Writes a timeline |
-| `hero.mjs` | The hero driver on the demo article: `--mode prep` (scroll), `menu` (store screenshot 1: the menu with "Speak selected text" highlighted), `full` (select → right-click → real hover and click on the item, optional anchored popup). Writes a timeline with the click's mouse-down time |
-| `popup-scene.mjs` | Promo scene (c): speak from the real anchored popup, switch the voice in its native grouped list, raise the speed with its + button, speak again; real OS clicks, timeline with each speak's mouse-down |
-| `promo-assemble.py` | Cuts the promo master (1920×1080) and the README demo cut (1280×720) from the raw takes: frame-exact cuts at 30 fps, each scene's clip at its measured time, refuses a cut inside a clip or a click-to-speech gap |
-| `video-cards.sh` | Renders the promo video's silent title and end cards (`cws/titlecard.html`, `cws/endcard.html`) at 1920×1080 |
+| `hero.mjs` | The hero driver on the demo article: `--mode prep` (scroll), `menu` (store screenshot 1: the menu with "Speak selected text" highlighted), `full` (select → right-click → real hover and click on the item, optional anchored popup). `--cursor` makes every gesture real OS input for a take that records the pointer: a drag selects, a right-click opens the menu, a click on the toolbar button opens the popup. Writes a timeline with the click's mouse-down time |
+| `popup-scene.mjs` | Promo scene (c): speak from the real anchored popup, switch the voice in its native grouped list, raise the speed with its + button, speak again; real OS clicks, timeline with each speak's mouse-down. `--cursor` also drags the selections, opens the popup from its toolbar button and can scroll (`--scroll2`, `--pad`) |
+| `promo-assemble.py` | Cuts the promo master (1920×1080) and the README demo cut (1280×720) from the raw takes: frame-exact cuts at 30 fps, each scene's clip at its measured time on both channels unchanged, captions, 0.3 s crossfades, refuses a cut inside a clip or a click-to-speech gap; writes the master's timeline for `youtube-meta.mjs` |
+| `youtube-meta.mjs` | The YouTube chapter list and `youtube-master.srt` (the exact text of each clip, plus live speech) from the assembler's timeline, refusing a chapter list YouTube would ignore |
+| `video-cards.sh` | Renders the promo video's silent title and end cards (`cws/titlecard.html`, `cws/endcard.html`) and its lower-third captions (`cws/caption.html`) at 1920×1080 |
+| `hero-preview.sh` | The README hero preview: the take's opening from the 2x raw at 20 fps, the payoff frame held with a "Watch with sound" pill (`cws/pill.html`), `img2webp -near_lossless 40` with forced key frames |
+| `voices-loop.sh` | The README voices loop from the voices take: the popup-and-list crop, a left-edge fade over the page only, 720 px wide, forced key frames |
 | `cws/*.html`, `cws/base.css`, `cws/arcs.js`, `cws/glyph.svg` | Store-image templates: screenshots 1–5, small tile, marquee, YouTube thumbnail, GitHub social preview |
 | `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
@@ -36,9 +42,8 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `port-guard.mjs` | CDP `Fetch` guard in every target: refuses every port 8249-8260 but the capture helper's (`launch.sh`), logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
 | `shoot.mjs` | Headless-safe capture of the popup page (or any page) through CDP: `--fit` PNG at 2x, `--cast`/`--grab` frame sequences with timestamps |
 | `assemble-loop.mjs` | Resamples a `shoot.mjs` frame sequence onto a constant rate, merges identical frames, encodes lossless `img2webp -m 6` (near-lossless ghosted earlier frames) |
-| `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`, `privacy.tape` for the promo's privacy scene), their brand theme, `env.sh` (neutral paths), `retime.mjs`, `render.sh` |
+| `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`, `privacy.tape` for the promo's privacy scene: `render.sh privacy <dir>`), their brand theme, `env.sh` (neutral paths; `TAPE_ROOT` gives a second run its own tree), `retime.mjs`, `render.sh` |
 | `GUI_PASS.md` | The assets that still need a real display, with preconditions and commands |
-| `youtube-meta.mjs` | Chapter list (checked against YouTube's rules) and `.srt` captions for the YouTube master, from its cut points |
 
 Every published sound comes from the **real** helper (`assets/media/PROVENANCE.md`). The E2E mock,
 `chrome-extension/tests/e2e/mock-helper.mjs` (`--port <n> [--speak-delay-ms <n>]`), serves silent WAVs and must never

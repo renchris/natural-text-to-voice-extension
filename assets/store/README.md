@@ -14,14 +14,14 @@ continue outward as a faint motif. Palette: `assets/brand/README.md`.
 
 | Store field | File | Size | Bytes | Headline / content | State |
 |---|---|---|---|---|---|
-| Screenshot 1 | `screenshot-1-right-click.png` | 1280×800 | 205,812 | **"Select text. Right-click. Listen."** The native macOS context menu over the demo article (`https://essays.example/article.html`), paragraph 2 selected, "Speak selected text" highlighted by a real cursor hover. Sub-line: "A Kokoro voice starts in a second or two", measured in the GUI pass (a right-clicked sentence is audible 1.4–1.6 s after the click, a whole paragraph 2.4 s; it said "about a second" before) | Done (GUI pass, 2026-09-24): `src/contextmenu-crop.png`, a 560×660 CSS px crop at 2x of the headed CfT 153 window, converted to sRGB |
+| Screenshot 1 | `screenshot-1-right-click.png` | 1280×800 | 213,874 | **"Select text. Right-click. Listen."** The native macOS context menu over the demo article (`https://essays.example/article.html`), paragraph 2 selected, "Speak selected text" highlighted by a real cursor hover. The capture bleeds off the image's right edge (square there, no border), so the article's lines are cut by the edge of the picture and never read as text overflowing a card. Sub-line: "A Kokoro voice starts in about two seconds", measured on real takes: a right-clicked sentence is audible 1.4–2.2 s after the click, the pictured whole paragraph 2.4–2.8 s (it said "in a second or two" and, before that, "about a second") | Done (GUI pass, 2026-09-24; widened in the retake round): `src/contextmenu-crop.png`, a 624×660 CSS px crop at 2x of the headed CfT 153 window, converted to sRGB |
 | Screenshot 2 | `screenshot-2-voices.png` | 1280×800 | 136,883 | **"Natural voices, at your speed."** Emma (UK) is speaking at 1.3×: "Speaking your selection…", "Kokoro · Emma (UK)", Stop, with a lens (2.4× CSS) on the first two so they read at 640×400. The counts (20 American English: 11 female, 9 male; 8 British English: 4 female, 4 male) are the live popup's four voice groups (`src/voice-groups.json`) | Done |
 | Screenshot 3 | `screenshot-3-on-device.png` | 1280×800 | 154,981 | **"Made on your Mac. Not in the cloud."** A "Your Mac" boundary around Chrome → 127.0.0.1 → Natural TTS helper (Kokoro-82M) → Apple GPU (MLX), beside the popup with Heart (US) speaking and a lens on "Kokoro · Heart (US)" | Done |
 | Screenshot 4 | `screenshot-4-no-helper.png` | 1280×800 | 130,261 | **"Works without the helper, too."** The popup with no helper: Offline, "a system voice will read your selection" and the Homebrew install hint, shown at 1.9× CSS (the top of `assets/media/fallback.png`), the cut fading into the page. This **replaces "PDFs too, with ligatures fixed"** (see below) | Done |
-| Screenshot 5 | `screenshot-5-setup.png` | 1280×800 | 130,821 | **"Install once. It's always ready."** "Two Homebrew commands set up the helper and start it at login." over the two commands (`brew install renchris/tap/natural-tts`, `brew services start natural-tts`), the connected popup (Heart, 1.0×) with a lens on its Connected pill, and the fallback line "Until then, a voice built into your Mac reads instead." | Done. The tap is the planned install path and is not published yet; publish it before the listing goes live |
+| Screenshot 5 | `screenshot-5-setup.png` | 1280×800 | 130,821 | **"Install once. It's always ready."** "Two Homebrew commands set up the helper and start it at login." over the two commands (`brew install renchris/tap/natural-tts`, `brew services start natural-tts`), the connected popup (Heart, 1.0×) with a lens on its Connected pill, and the fallback line "Until then, a voice built into your Mac reads instead." | Done. **Gate:** the tap is the planned install path and is not published yet (`renchris/homebrew-tap` had no `natural-tts` formula on 2026-09-24); do not publish the listing with this screenshot until `brew install renchris/tap/natural-tts` works |
 | Small promo tile | `small-tile-440x280.png` | 440×280 | 60,516 | The icon's white glyph, its arcs continuing outward, and the "Natural TTS" wordmark, so the tile names the product in a carousel | Done |
 | Marquee promo tile | `marquee-1400x560.png` | 1400×560 | 256,554 | The icon (with a thin white ring, so it separates from the background) and the "Natural TTS" wordmark, the tagline "Private, on-device voices", and the popup (Emma speaking) rising out of the frame | Done |
-| Promo video thumbnail (YouTube) | `youtube-thumbnail-1280x720.png` | 1280×720 | 303,285 | **"Natural voices. On your Mac."** plus "Kokoro text-to-speech for Chrome." and the popup (Emma speaking). Checked legible at 320×180 | Done. The video itself waits for the GUI pass |
+| Promo video thumbnail (YouTube) | `youtube-thumbnail-1280x720.png` | 1280×720 | 303,285 | **"Natural voices. On your Mac."** plus "Kokoro text-to-speech for Chrome." and the popup (Emma speaking). Checked legible at 320×180 | Done. The video is made (`assets/media/PROVENANCE.md`, "Promo video and demo cut"); its end card carries the same Homebrew gate as screenshot 5 |
 | GitHub social preview (repo settings) | `../brand/social-preview.png` | 1280×640 | 267,653 | The icon and wordmark, "Private Kokoro voices for Mac", "Select text in Chrome and hear it read aloud. The speech is made on your Mac.", and the popup | Done. Uploading it is a repo setting, so it stays manual |
 
 All files are 24-bit sRGB PNGs with no alpha and no metadata chunks. They are written with zlib level 9 and adaptive
@@ -53,6 +53,8 @@ The check was run headless on 2026-09-24, with CfT 153.0.8010.12 and the extensi
   guard's log; nothing else left the browser), and a live-audio recording of the take (`sckrec --exclude-others`) has
   speech starting 2.28 s after the click frame and still playing when the 21 s take ended (paragraph 2 is 15.6 s of
   audio). The 2.28 s includes a cold start: the extension's service worker had idled out and was restarted by the click.
+  The evidence (`pdf-live.mov`, its contact sheet, `pdf-menu-hover.png`) is kept outside `/tmp`, at
+  `~/ntts-captures/2026-09-24/orig/evidence/` on the capture machine.
 
 Screenshot 4 therefore shows the system-voice fallback (OD-2), a behaviour the image *can* prove. Screenshot 2 covers
 the "28 voices, American and British" story.
@@ -91,11 +93,14 @@ Then stop only the pids in `/tmp/ntts-cap/env.txt` and the helper you started.
 |---|---|---|
 | The popup with Emma (UK) speaking at 1.3× (360×440 CSS at 2x) | `src/popup-emma-speaking.png` | 720×880 |
 | The popup with Heart (US) speaking at 1.0× (360×440 CSS at 2x) | `src/popup-heart-speaking.png` | 720×880 |
-| The native context menu over the article, "Speak selected text" highlighted (560×660 CSS at 2x, GUI pass) | `src/contextmenu-crop.png` | 1120×1320 |
+| The native context menu over the article, "Speak selected text" highlighted (624×660 CSS at 2x, GUI pass) | `src/contextmenu-crop.png` | 1248×1320 |
 
 `scripts/verify-all.sh docs` checks every image in this directory against the Size column of these two tables.
 
 **How the speaking state is made.** The service worker sends its offscreen document the same `SPEAK_IN_OFFSCREEN` message that the right-click handler sends. The text is the demo article's paragraph 2. The
 offscreen document fetches real audio from the helper's `/speak` and plays it. The popup, opened during playback, shows
 what it reports. Only the native menu click is skipped, because it needs a display. Every request went to
-`127.0.0.1:8250` through `scripts/capture/port-guard.mjs`: 37 requests were logged, none to any other port.
+`127.0.0.1:8250` through `scripts/capture/port-guard.mjs`: 37 requests were logged, none to any other port. The
+retake round's captures ran the helper on 8251 instead (`capture-inputs.sh <dir> assets/store/src 8251`, the browser
+launched with `CDP_PORT=9556 BLOCK=8249,8250`) because another capture run held 8250; its guard logged 26 requests
+to 8251 and refused one each to 8249 and 8250.
