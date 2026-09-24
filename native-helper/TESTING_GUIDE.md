@@ -1,6 +1,8 @@
 # Testing & Validation Guide
 
-Comprehensive guide for validating the Natural TTS Helper's functionality, performance, and reliability.
+Hands-on checks for the Natural TTS helper's API, speed, reliability and audio, with `curl`. The automated,
+fail-closed gate for a release is `scripts/verify-all.sh` at the repository root (it starts its own helper on a
+private port); use this guide to look at a running helper yourself.
 
 ---
 
@@ -19,14 +21,13 @@ Comprehensive guide for validating the Natural TTS Helper's functionality, perfo
 ## Prerequisites
 
 Before testing, ensure:
-- Helper is running: `.build/release/natural-tts-helper`
-- Port number is known (check terminal output or config file)
+- Helper is running: `.build/release/natural-tts-helper`, `Scripts/quickstart.sh`, or `brew services start natural-tts`
 - `jq` installed for JSON formatting: `brew install jq`
 
-**Find your port**:
+**Find your port** (8249 unless it was taken; the helper's "Listening on" log line says which):
 ```bash
-PORT=$(cat ~/Library/Application\ Support/NaturalTTS/config.json | grep -o '"port":[0-9]*' | grep -o '[0-9]*')
-echo "Helper is on port: $PORT"
+PORT=8249
+curl -s http://127.0.0.1:$PORT/health | jq -r .version   # 1.5.0
 ```
 
 ---
@@ -48,14 +49,17 @@ curl http://127.0.0.1:$PORT/health | jq
   "model": "kokoro-82m",
   "model_loaded": true,
   "uptime_seconds": 123.45,
-  "requests_served": 0
+  "requests_served": 0,
+  "version": "1.5.0",
+  "apiVersion": 2
 }
 ```
 
 **Pass criteria**:
 - HTTP 200 response
-- `status`: "ok"
+- `status`: "ok" (`warming` while a crashed worker restarts, `error` once it gave up)
 - `model_loaded`: true
+- `apiVersion`: 2
 
 **If failed**: See [Troubleshooting](#troubleshooting-failed-tests)
 
@@ -73,9 +77,9 @@ curl -X POST http://127.0.0.1:$PORT/speak \
   --output /tmp/quick_test.wav
 ```
 
-**Expected output**:
+**Expected output** (the time is about 0.1-0.4 s on an idle M1-class GPU):
 ```
-HTTP: 200, Time: 0.31s
+HTTP: 200, Time: <seconds>s
 ```
 
 **Play audio**:
@@ -85,7 +89,7 @@ afplay /tmp/quick_test.wav
 
 **Pass criteria**:
 - HTTP 200 response
-- Audio file created (>50KB)
+- Audio file created (48,000 bytes per second of audio, plus a 44-byte header)
 - Audio plays correctly
 
 ---
@@ -102,8 +106,8 @@ curl http://127.0.0.1:$PORT/voices | jq
 ```json
 {
   "voices": [
-    {"id": "af_bella", "name": "Bella (US)", "language": "en-US"},
-    {"id": "af_sarah", "name": "Sarah (UK)", "language": "en-GB"},
+    {"id": "af_heart", "name": "Heart (US)", "language": "en-US", "accent": "American", "gender": "female", "grade": "A"},
+    {"id": "af_bella", "name": "Bella (US)", "language": "en-US", "accent": "American", "gender": "female", "grade": "A-"},
     ...
   ]
 }
@@ -111,149 +115,52 @@ curl http://127.0.0.1:$PORT/voices | jq
 
 **Pass criteria**:
 - HTTP 200 response
-- Array of voices with `id`, `name`, `language` fields
-- At least 4 voices listed
+- 28 voices: 11 `af_`, 9 `am_`, 4 `bf_`, 4 `bm_`
+- `af_sarah` is "Sarah (US)", `en-US` (older helpers mislabelled it UK)
 
 ---
 
 ## Performance Testing
 
-### Short Text Performance (Target: ≥2.5x RTF, Achieved: 8.3x)
-
-Test with short text (1.57s audio):
-
-```bash
-#!/bin/bash
-# Save as /tmp/test_short_performance.sh
-
-echo "=== Short Text Performance Test ==="
-echo "Testing 10 consecutive requests with 'Hello world'"
-echo ""
-
-# Audio duration for "Hello world" is ~1.57s
-AUDIO_DURATION=1.57
-
-for i in $(seq 1 10); do
-    echo -n "Request $i: "
-    TIME=$(echo '{"text": "Hello world", "voice": "af_bella", "speed": 1.0}' | \
-        curl -X POST http://127.0.0.1:$PORT/speak \
-        -H "Content-Type: application/json" \
-        --data-binary @- \
-        -o /tmp/test_short_$i.wav \
-        -w "%{time_total}" \
-        -s)
-
-    # Calculate RTF
-    RTF=$(echo "scale=2; $AUDIO_DURATION / $TIME" | bc)
-    echo "${TIME}s → RTF: ${RTF}x"
-
-    sleep 0.2
-done
-
-echo ""
-echo "=== Results ==="
-echo "Expected: Request 1 (cold): ~0.31s (5x RTF)"
-echo "Expected: Requests 2-10 (warm): ~0.18s (8.3x RTF)"
-```
-
-**Run it**:
-```bash
-chmod +x /tmp/test_short_performance.sh
-/tmp/test_short_performance.sh
-```
-
-**Expected results**:
-```
-Request 1:  0.31s → RTF:  5.06x  (cold start)
-Request 2:  0.19s → RTF:  8.09x
-Request 3:  0.20s → RTF:  7.85x
-Request 4:  0.19s → RTF:  8.32x
-Request 5:  0.18s → RTF:  8.56x
-Request 6:  0.20s → RTF:  7.85x
-Request 7:  0.19s → RTF:  8.26x
-Request 8:  0.18s → RTF:  8.72x
-Request 9:  0.18s → RTF:  8.76x
-Request 10: 0.18s → RTF:  8.78x
-
-Average warm RTF: 8.3x
-```
-
-**Pass criteria**:
-- Request 1 (cold): 0.25-0.40s (5-6x RTF)
-- Requests 2-10 (warm): 0.15-0.22s (7-10x RTF)
-- Average warm RTF: ≥7.0x
-
----
-
-### Long Text Performance (Target: ≥2.5x RTF, Achieved: 25x)
-
-Test with longer text (21.7s audio):
+The helper measures itself: every `/speak` response carries `X-Audio-Duration` (seconds of audio),
+`X-Generation-Time` (seconds the worker took) and `X-Real-Time-Factor` (their ratio). Read those instead of
+guessing the audio length. (The 2025 version of this guide, and `Scripts/test-performance-*.sh`, hard-coded the
+duration; the long-text "25x" they printed was really about 8x. See [docs/history.md](../docs/history.md).)
 
 ```bash
 #!/bin/bash
-# Save as /tmp/test_long_performance.sh
-
-echo "=== Long Text Performance Test ==="
-
-# Create test payload (21.7s audio)
-cat > /tmp/long_test.json << 'EOF'
-{
-  "text": "The development of modern text-to-speech systems has revolutionized how we interact with technology, enabling natural-sounding voices that can convey emotion and nuance with remarkable accuracy and speed.",
-  "voice": "af_bella",
-  "speed": 1.0
-}
-EOF
-
-AUDIO_DURATION=21.7
-
-echo "Testing 10 consecutive requests with 50-word text"
-echo ""
-
-for i in $(seq 1 10); do
-    echo -n "Request $i: "
-    TIME=$(curl -X POST http://127.0.0.1:$PORT/speak \
-        -H "Content-Type: application/json" \
-        --data-binary @/tmp/long_test.json \
-        -o /tmp/test_long_$i.wav \
-        -w "%{time_total}" \
-        -s)
-
-    RTF=$(echo "scale=1; $AUDIO_DURATION / $TIME" | bc)
-    echo "${TIME}s → RTF: ${RTF}x"
-
-    sleep 0.2
+# Save as /tmp/test_performance.sh; run with PORT set
+TEXTS=(
+  "The quick brown fox jumps over the lazy dog."
+  "$(jq -r '.long[0]' examples/sample-texts.json)"
+)
+for text in "${TEXTS[@]}"; do
+  echo "=== ${#text} characters ==="
+  for i in $(seq 1 5); do
+    jq -n --arg t "$text" '{text: $t, voice: "af_heart", speed: 1.0}' |
+      curl -s -o /dev/null -D - -X POST "http://127.0.0.1:$PORT/speak" \
+        -H 'Content-Type: application/json' --data-binary @- -w 'wall %{time_total}\n' |
+      grep -iE '^(x-audio-duration|x-real-time-factor|wall)' | tr -d '\r' | paste -sd' ' -
+  done
 done
-
-echo ""
-echo "=== Results ==="
-echo "Expected: ~0.85s average (25x RTF)"
 ```
 
-**Run it**:
-```bash
-chmod +x /tmp/test_long_performance.sh
-/tmp/test_long_performance.sh
-```
+Run it from `native-helper/` (it reads `examples/sample-texts.json`).
 
-**Expected results**:
-```
-Request 1:  0.90s → RTF: 24.1x
-Request 2:  0.86s → RTF: 25.2x
-Request 3:  0.85s → RTF: 25.5x
-Request 4:  0.95s → RTF: 22.8x
-Request 5:  0.91s → RTF: 23.8x
-Request 6:  0.83s → RTF: 26.1x
-Request 7:  0.82s → RTF: 26.5x
-Request 8:  0.84s → RTF: 25.8x
-Request 9:  0.89s → RTF: 24.4x
-Request 10: 0.91s → RTF: 23.8x
+**Reference** (helper 1.5.0, M1 Max, idle GPU, `af_bella`, 2026-09-23; from
+[W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md)):
 
-Average RTF: ~25x
-```
+| Text | Audio | Wall time (median) | Faster than real time |
+|---|---:|---:|---:|
+| 15 words | 9.0 s | 0.34 s | 26.6× |
+| 60 words | 29.0 s | 1.11 s | 26.2× |
+| 407 words | 171.5 s | 6.47 s | 26.5× |
+| 751 words | 325.2 s | 12.2 s | 26.6× |
 
 **Pass criteria**:
-- All requests: 0.70-1.10s (20-30x RTF)
-- Average RTF: ≥20x
+- The first request after launch is no slower than later ones (the worker warms up before it opens its port)
+- On an idle M1-class GPU, `X-Real-Time-Factor` is roughly 20× or more for anything past a sentence. Anything
+  else using the GPU lowers it: measured with other work running, a 5-second clip came in at 13-14×
 
 ---
 
@@ -341,59 +248,33 @@ Status: ✅ 100% PASS
 
 ### Memory Stability Test
 
-Monitor memory usage over 50 requests:
+The model lives in the **Python worker**, a child process of the helper, and most of its memory is GPU buffers,
+which `ps` RSS does not count. Watch the worker with `footprint`:
 
 ```bash
 #!/bin/bash
 # Save as /tmp/test_memory.sh
-
-echo "=== Memory Stability Test ==="
-echo "Monitoring memory usage over 50 requests"
-echo ""
-
+HELPER=$(lsof -ti tcp:$PORT -sTCP:LISTEN)
+WORKER=$(pgrep -P "$HELPER" | head -1)
+echo "helper $HELPER, worker $WORKER"
 for i in $(seq 1 50); do
-    # Make request
-    curl -X POST http://127.0.0.1:$PORT/speak \
-        -H "Content-Type: application/json" \
-        -d '{"text":"Memory test request '$i'"}' \
-        -o /tmp/mem_test_$i.wav \
-        -s > /dev/null
-
-    # Check memory
-    PID=$(lsof -ti :$PORT)
-    if [ -n "$PID" ]; then
-        MEM=$(ps -o rss= -p $PID | awk '{print $1/1024}')
-        echo "Request $i: ${MEM} MB"
-    fi
-
-    sleep 0.1
+  curl -s -o /dev/null -X POST "http://127.0.0.1:$PORT/speak" \
+    -H "Content-Type: application/json" -d '{"text":"Memory test request '$i'"}'
+  if (( i % 10 == 0 )); then
+    echo "after $i: $(footprint -p "$WORKER" 2>/dev/null | grep -m1 -o 'Footprint: [0-9.]* [KMG]B')"
+  fi
 done
-
-echo ""
-echo "=== Expected Behavior ==="
-echo "Memory should stabilize at ~2000-2500 MB after initial model load"
-echo "No continuous growth (memory leak)"
 ```
 
-**Run it**:
-```bash
-chmod +x /tmp/test_memory.sh
-/tmp/test_memory.sh
-```
-
-**Expected results**:
-```
-Request 1: 2200 MB  (model loading)
-Request 2: 2150 MB
-Request 3: 2150 MB
-...
-Request 50: 2150 MB  (stable)
-```
+**Expected** (1.5.0): the worker's footprint returns to about 0.6-0.7 GB between requests. Its lifetime peak depends on
+the longest request so far: about 2.1 GB after a short sentence, about 3.6 GB after 5,000 characters, with the
+MLX buffer cache capped at 256 MB (`NTTS_MLX_CACHE_LIMIT_MB`). `footprint` prints both the current and the peak
+figure. The Swift helper itself stays near 10 MB, 140 MB
+at most.
 
 **Pass criteria**:
-- Memory stabilizes at 2000-2500 MB
-- No continuous growth (±50 MB variance is normal)
-- Helper remains responsive
+- No continuous growth of the between-request footprint
+- Helper remains responsive (`/health` answers in under a millisecond even during a long `/speak`)
 
 ---
 
@@ -428,32 +309,20 @@ file /tmp/quality_test.wav
 
 ### File Size Validation
 
-Check if audio file sizes are reasonable:
+The WAV is 16-bit mono at 24 kHz: 48,000 bytes per second of audio plus a 44-byte header, so size and the
+`X-Audio-Duration` header must agree:
 
 ```bash
-# Short text (~1.57s audio)
-curl -X POST http://127.0.0.1:$PORT/speak \
+curl -s -D /tmp/h.txt -X POST http://127.0.0.1:$PORT/speak \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello world"}' \
   --output /tmp/size_short.wav
-
-ls -lh /tmp/size_short.wav
-# Expected: ~74KB
-
-# Long text (~21.7s audio)
-curl -X POST http://127.0.0.1:$PORT/speak \
-  -H "Content-Type: application/json" \
-  --data-binary @/tmp/long_test.json \
-  --output /tmp/size_long.wav
-
-ls -lh /tmp/size_long.wav
-# Expected: ~321KB
+DUR=$(grep -i '^x-audio-duration' /tmp/h.txt | tr -d '\r' | awk '{print $2}')
+echo "expected $(echo "$DUR * 48000 + 44" | bc | cut -d. -f1) bytes, got $(stat -f %z /tmp/size_short.wav)"
 ```
 
 **Pass criteria**:
-- Short text (1.57s): 70-80KB
-- Long text (21.7s): 310-330KB
-- Size correlates with audio duration
+- The two numbers match (within a few bytes of rounding)
 
 ---
 
@@ -463,7 +332,7 @@ Manually verify audio quality:
 
 ```bash
 # Generate samples with different voices
-for voice in af_bella af_sarah am_adam am_michael; do
+for voice in af_heart am_michael bf_emma bm_george; do
     echo "Testing voice: $voice"
     curl -X POST http://127.0.0.1:$PORT/speak \
       -H "Content-Type: application/json" \
@@ -479,7 +348,7 @@ done
 **Pass criteria** (subjective):
 - Clear, natural-sounding speech
 - No distortion, clicks, or artifacts
-- Voice matches requested voice ID
+- Voice matches requested voice ID (British `bf_`/`bm_` voices with British pronunciation)
 - Text is intelligible
 
 ---
@@ -500,7 +369,7 @@ curl -v http://127.0.0.1:$PORT/health 2>&1 | grep -E "(HTTP|status|model)"
 **Pass criteria**:
 - HTTP 200
 - Valid JSON
-- Contains `status`, `model`, `model_loaded`, `uptime_seconds`, `requests_served`
+- Contains `status`, `model`, `model_loaded`, `uptime_seconds`, `requests_served`, `version`, `apiVersion`
 
 ---
 
@@ -515,9 +384,9 @@ curl -X POST http://127.0.0.1:$PORT/speak \
 
 # Expected:
 # < HTTP/1.1 200 OK
-# < X-Audio-Duration: 0.96
-# < X-Generation-Time: 0.11
-# < X-Real-Time-Factor: 8.73
+# < X-Audio-Duration: <seconds of audio>
+# < X-Generation-Time: <seconds>
+# < X-Real-Time-Factor: <ratio>
 ```
 
 **Invalid request (missing text)**:
@@ -542,10 +411,28 @@ curl -X POST http://127.0.0.1:$PORT/speak \
 # HTTP: 400
 ```
 
+**Unknown voice, bad speed, web-page origin**:
+```bash
+curl -s -X POST http://127.0.0.1:$PORT/speak -H "Content-Type: application/json" \
+  -d '{"text":"hi","voice":"xx_nope"}' -w ' %{http_code}\n'
+# {"error":"unknown_voice","message":"Unknown voice 'xx_nope'. GET /voices lists the supported IDs."} 400
+
+curl -s -X POST http://127.0.0.1:$PORT/speak -H "Content-Type: application/json" \
+  -d '{"text":"hi","speed":9}' -w ' %{http_code}\n'
+# {"error":"invalid_speed",...} 400
+
+curl -s -X POST http://127.0.0.1:$PORT/speak -H "Origin: https://example.com" \
+  -H "Content-Type: application/json" -d '{"text":"hi"}' -w ' %{http_code}\n'
+# {"error":"forbidden","message":"Origin not allowed"} 403
+```
+
 **Pass criteria**:
 - Valid request: HTTP 200, valid WAV
-- Missing text: HTTP 400
-- Invalid JSON: HTTP 400
+- Missing text: HTTP 400 (`bad_request`)
+- Invalid JSON: HTTP 400 (`bad_request`)
+- Unknown voice: 400 `unknown_voice`; speed outside 0.25-4.0: 400 `invalid_speed`
+- A web-page `Origin`: 403 `forbidden`; a non-loopback `Host`: 403 `bad_host`
+- Error bodies never quote the request text
 
 ---
 
@@ -554,13 +441,13 @@ curl -X POST http://127.0.0.1:$PORT/speak \
 ```bash
 curl http://127.0.0.1:$PORT/voices | jq '.voices | length'
 
-# Expected: 4 (or more)
+# Expected: 28
 ```
 
 **Pass criteria**:
 - HTTP 200
-- Valid JSON array
-- Each voice has `id`, `name`, `language`
+- Valid JSON array of 28
+- Each voice has `id`, `name`, `language`, `accent`, `gender`, `grade`
 
 ---
 
@@ -568,72 +455,43 @@ curl http://127.0.0.1:$PORT/voices | jq '.voices | length'
 
 ### Real-Time Factor (RTF)
 
-**RTF = Audio Duration / Generation Time**
+**RTF = Audio Duration / Generation Time**. 1.0× generates audio as fast as it plays. The 2025 target was 2.5×;
+helper 1.5.0 reaches about 26.5× on an idle M1 Max, at every text length.
 
-| RTF | Meaning |
-|-----|---------|
-| 1.0x | Real-time (generates as fast as playback) |
-| 2.5x | Target performance (2.5x faster than playback) |
-| 8.3x | Achieved (short text) — **3.3x better than target** |
-| 25x | Achieved (long text) — **10x better than target** |
+`X-Real-Time-Factor` uses the worker's own generation time. Dividing `X-Audio-Duration` by `curl`'s
+`time_total` instead includes HTTP overhead and gives a slightly lower number; the reference table above uses
+that client-side method.
 
-**Example**:
-- Audio: 1.57 seconds
-- Generation: 0.18 seconds
-- RTF: 1.57 / 0.18 = **8.72x**
+### Expected Latencies (helper 1.5.0, idle M1 Max)
 
-This means the helper generates audio 8.72x faster than real-time playback.
+| Request | Expected time |
+|---|---|
+| First request after launch | same as later ones (~0.35 s for 15 words) |
+| One sentence | 0.1-0.4 s |
+| 400 words | ~6.5 s |
+| 5,000 characters (the extension's limit) | ~12 s |
 
----
-
-### Performance Tiers
-
-| Tier | RTF Range | Status |
-|------|-----------|--------|
-| **Excellent** | ≥8.0x | ✅ Production-ready |
-| **Good** | 5.0-7.9x | ✅ Acceptable |
-| **Target** | 2.5-4.9x | ✅ Meets minimum |
-| **Below Target** | <2.5x | ⚠️ Investigate |
-
-**Current performance**: **Excellent** (8.3x short, 25x long)
-
----
-
-### Expected Latencies
-
-| Request Type | Expected Time | RTF |
-|-------------|---------------|-----|
-| **First request (cold)** | 0.25-0.40s | 5-6x |
-| **Short text (warm)** | 0.15-0.22s | 8-10x |
-| **Long text (warm)** | 0.70-1.10s | 20-30x |
-
-**Warm**: Model is cached in memory
-**Cold**: First request after helper start (model loading)
+Audio starts only when the whole WAV is ready, so these are also the times to first audio.
 
 ---
 
 ## Troubleshooting Failed Tests
 
-### Health Check Fails (HTTP 503)
+### Health Check Fails
 
-**Symptom**: `/health` returns 503 or connection refused
+**Symptom**: connection refused, or `status` is not `ok`
 
 **Possible causes**:
-1. Helper not running
-2. Wrong port number
-3. Model still loading
+1. Helper not running, or on another port (8250-8260)
+2. `status: "warming"`: the worker is restarting after a crash
+3. `status: "error"`: the worker crashed more than 3 times in 2 minutes and the helper gave up
 
 **Fix**:
 ```bash
-# Check if helper is running
-ps aux | grep natural-tts-helper
+# Is it running, and on which port?
+lsof -nP -iTCP -sTCP:LISTEN | grep natural-t
 
-# Check correct port
-cat ~/Library/Application\ Support/NaturalTTS/config.json | grep port
-
-# Restart helper
-pkill -f natural-tts-helper
-.build/release/natural-tts-helper
+# Restart it: Scripts/quickstart.sh (source), or brew services restart natural-tts
 ```
 
 ---
@@ -644,9 +502,8 @@ pkill -f natural-tts-helper
 
 **Possible causes**:
 1. Using debug build instead of release
-2. CPU throttling
+2. Other work on the GPU (MLX, video, games)
 3. Memory pressure
-4. Cold start (first request)
 
 **Fix**:
 ```bash
@@ -654,14 +511,10 @@ pkill -f natural-tts-helper
 swift build -c release
 .build/release/natural-tts-helper  # NOT .build/debug/
 
-# 2. Check CPU usage (should be 100-200% during generation)
-top -pid $(lsof -ti :$PORT)
+# 2. Check GPU load: Activity Monitor → Window → GPU History
 
 # 3. Check memory
 vm_stat | grep "Pages free"
-
-# 4. Wait for model warmup
-# First request is always slower (model loading)
 ```
 
 ---
@@ -671,18 +524,14 @@ vm_stat | grep "Pages free"
 **Symptom**: Some requests fail (HTTP ≠ 200)
 
 **Possible causes**:
-1. Concurrent request limit exceeded
-2. Memory exhaustion
-3. Python worker crash
+1. Requests that are refused on purpose (400 codes: check the `error` field)
+2. Memory exhaustion on very long requests
+3. A Python worker crash (the helper restarts it; `/health` shows `warming` meanwhile)
 
 **Fix**:
 ```bash
-# Check helper logs for errors
-# (Helper should print errors to terminal)
-
-# Restart helper
-pkill -f natural-tts-helper
-.build/release/natural-tts-helper
+# Check the helper log: Scripts/logs.sh (source install), or
+# $(brew --prefix)/var/log/natural-tts.log (Homebrew)
 
 # Re-run test with slower rate
 # Add `sleep 0.5` between requests in test script
@@ -704,8 +553,8 @@ pkill -f natural-tts-helper
 # 1. Check disk space
 df -h /tmp
 
-# 2. Verify file size (should be >50KB)
-ls -lh /tmp/test.wav
+# 2. Is it a JSON error instead of a WAV?
+file /tmp/test.wav; head -c 200 /tmp/test.wav
 
 # 3. Re-generate
 curl -X POST http://127.0.0.1:$PORT/speak \
@@ -718,24 +567,20 @@ curl -X POST http://127.0.0.1:$PORT/speak \
 
 ## Summary Checklist
 
-Use this checklist to validate the helper before Phase 2 development:
-
-- [ ] Health check passes (HTTP 200, `model_loaded: true`)
+- [ ] Health check passes (HTTP 200, `status: "ok"`, `model_loaded: true`, `apiVersion: 2`)
 - [ ] Basic speech generation works (audio plays correctly)
-- [ ] Voices endpoint returns ≥4 voices
-- [ ] Short text RTF ≥7.0x (warm requests)
-- [ ] Long text RTF ≥20x
+- [ ] Voices endpoint returns 28 voices
+- [ ] The first request after launch is as fast as later ones
+- [ ] `X-Real-Time-Factor` is roughly 20× or more past a sentence on an idle GPU
 - [ ] Reliability ≥99% (100 requests)
-- [ ] Memory stable at 2000-2500 MB (no leaks)
-- [ ] WAV files are valid format (24kHz, 16-bit, mono)
-- [ ] Audio quality is clear and natural
-- [ ] Invalid requests return HTTP 400
-
-**All checked?** ✅ **Helper is production-ready for Phase 2!**
+- [ ] Worker footprint returns to ~0.6-0.7 GB between requests (no leaks)
+- [ ] WAV files are valid (24 kHz, 16-bit, mono) and their size matches `X-Audio-Duration`
+- [ ] Audio quality is clear and natural, in American and British voices
+- [ ] Invalid requests return the documented 400 and 403 codes
 
 ---
 
 **See also**:
 - [README.md](README.md) — Full documentation
-- [QUICKSTART.md](QUICKSTART.md) — 5-minute setup guide
-- [TEST_RESULTS_OPTIMIZED.md](TEST_RESULTS_OPTIMIZED.md) — Phase 1 & 2 validation results
+- [QUICKSTART.md](QUICKSTART.md) — step-by-step setup
+- [TEST_RESULTS_OPTIMIZED.md](TEST_RESULTS_OPTIMIZED.md) — the 2025 validation run (historical)
