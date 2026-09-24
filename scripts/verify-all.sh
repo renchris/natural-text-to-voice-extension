@@ -327,7 +327,8 @@ PY
   s2="$(wavinfo "$LOGDIR/digits-320.wav" | cut -d' ' -f2)"; s3="$(wavinfo "$LOGDIR/url-600.wav" | cut -d' ' -f2)"
   if [[ "$c" != 200 ]]; then fail "no phonemes/digits in helper log" "64-digit /speak HTTP $c"
   elif grep -qE 'ps ==|len\(ps\)' "$hlog"; then fail "no phonemes/digits in helper log" "phoneme dump in $hlog"
-  elif grep -qE "$digits|7777777777777777" "$hlog"; then fail "no phonemes/digits in helper log" "request digits in $hlog"
+  # Also the worker's grouped form of both numbers (normalize_text reads a 16+ digit run in threes).
+  elif grep -qE "$digits|7777777777777777|411 141 114 111|777 777 777 777" "$hlog"; then fail "no phonemes/digits in helper log" "request digits in $hlog"
   else pass "no phonemes/digits in helper log" "64-digit HTTP $c, 320-digit HTTP $c2, URL HTTP $c3"; fi
   if [[ "$c2" == 200 && "$c3" == 200 ]] && awk -v a="$s2" -v b="$s3" 'BEGIN{exit !(a >= 90 && b >= 60)}'; then
     pass "320 digits + 600-char URL spoken" "HTTP 200 ${s2}s (>= 90), HTTP 200 ${s3}s (>= 60)"

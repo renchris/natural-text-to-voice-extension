@@ -491,6 +491,10 @@ actor PythonWorker {
 /// 16-character run shared with one of the two most recent request texts
 /// (raw, or NFKD-folded to ASCII the way the worker normalizes) withholds the
 /// line, and the old worker's text-echoing formats are cut at their marker.
+/// Runs are also compared with all whitespace removed from both sides: the
+/// worker re-spaces what it reads (break_long_tokens groups a 16+ digit run in
+/// threes, "4111411141114111" -> "411 141 114 111 ..."), and that form shares
+/// no 16-character run with the raw text.
 final class TextRedactor: Sendable {
     private static let window = 16
     private static let keep = 2
@@ -505,7 +509,10 @@ final class TextRedactor: Sendable {
 
     func remember(_ text: String) {
         let folded = Self.fold(text)
-        let windows = Self.windows(of: text).union(Self.windows(of: folded))
+        let windows = Self.windows(of: text)
+            .union(Self.windows(of: folded))
+            .union(Self.windows(of: Self.stripWhitespace(text)))
+            .union(Self.windows(of: Self.stripWhitespace(folded)))
         let entry = Entry(text: text, folded: folded, windows: windows)
         recent.withLock { entries in
             entries.append(entry)
@@ -522,7 +529,7 @@ final class TextRedactor: Sendable {
             return line[..<range.upperBound] + "[text withheld]"
         }
 
-        let lineWindows = Self.windows(of: line)
+        let lineWindows = Self.windows(of: line).union(Self.windows(of: Self.stripWhitespace(line)))
         let leaks = recent.withLock { entries in
             entries.contains { entry in
                 if entry.text.count < Self.window {
@@ -538,6 +545,10 @@ final class TextRedactor: Sendable {
 
     private static func fold(_ text: String) -> String {
         String(String.UnicodeScalarView(text.decomposedStringWithCompatibilityMapping.unicodeScalars.filter(\.isASCII)))
+    }
+
+    private static func stripWhitespace(_ text: String) -> String {
+        String(text.filter { !$0.isWhitespace })
     }
 
     private static func windows(of text: String) -> Set<String> {
