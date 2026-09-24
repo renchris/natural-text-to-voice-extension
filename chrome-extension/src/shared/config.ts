@@ -143,42 +143,56 @@ export async function clearConfig(): Promise<void> {
  * Discover helper configuration by trying to connect
  * This attempts to find a running helper and retrieve its configuration
  *
+ * Every port is probed at once, and the first port IN ORDER that answers as
+ * the helper wins (the helper takes the lowest free port from 8249, so order
+ * is preference). One pass therefore costs one timeout at most, not one per
+ * port: where a refused loopback connect is slow (Windows retries the SYN
+ * after the RST, about 1-2 s), a sequential walk of 12 ports would stall the
+ * system-voice fallback for tens of seconds.
+ *
  * @param portsToTry - Array of ports to try (default: 8249..8260)
  * @returns Discovered configuration or throws ConfigNotFoundError
  */
 export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Promise<Partial<HelperConfig>> {
-  for (const port of portsToTry) {
+  const abort = new AbortController();
+  const probes = portsToTry.map(async (port): Promise<boolean> => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
-        signal: AbortSignal.timeout(2000), // 2 second timeout per port
+        signal: AbortSignal.any([abort.signal, AbortSignal.timeout(2000)]), // 2 s for the whole pass
       });
-
-      if (await isHelperHealth(response)) {
-        // Found a running helper on this port
-        const config: Partial<HelperConfig> = {
-          port,
-          default_voice: DEFAULT_VOICE
-        };
-
-        // Save the discovered config. A context without chrome.storage (the
-        // offscreen document) cannot save, but the port it found is still
-        // the right one: return it rather than moving on to the next port.
-        try {
-          await saveConfig(config);
-        } catch (error) {
-          console.warn('Found the helper on port', port, 'but could not save it:', error);
-        }
-
-        return config;
-      }
-    } catch (error) {
-      // Try next port
-      continue;
+      return await isHelperHealth(response);
+    } catch {
+      return false;
     }
+  });
+
+  try {
+    for (const [i, probe] of probes.entries()) {
+      if (!(await probe)) continue;
+      const port = portsToTry[i];
+      // Found a running helper on this port
+      const config: Partial<HelperConfig> = {
+        port,
+        default_voice: DEFAULT_VOICE
+      };
+
+      // Save the discovered config. A context without chrome.storage (the
+      // offscreen document) cannot save, but the port it found is still
+      // the right one: return it rather than moving on to the next port.
+      try {
+        await saveConfig(config);
+      } catch (error) {
+        console.warn('Found the helper on port', port, 'but could not save it:', error);
+      }
+
+      return config;
+    }
+  } finally {
+    abort.abort(); // stop the probes still waiting on higher ports
   }
 
   throw new ConfigNotFoundError(

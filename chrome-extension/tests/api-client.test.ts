@@ -515,10 +515,31 @@ describe('ApiClient', () => {
       const config = await discoverConfig([18249, 18250, 18251]);
 
       expect(config.port).toBe(18250);
+      // Probed at once, in preference order (not one timeout per port).
       expect(mockFetch.mock.calls.map(call => String(call[0]))).toEqual([
         'http://127.0.0.1:18249/health',
         'http://127.0.0.1:18250/health',
+        'http://127.0.0.1:18251/health',
       ]);
+    });
+
+    test('the lowest port that is the helper wins, even when a higher one answers first', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        const helper = { ok: true, json: async () => ({ status: 'ok', model: 'kokoro-82m' }) };
+        if (url.includes(':18251/')) return helper;                       // answers at once
+        if (url.includes(':18250/')) { await new Promise(r => setTimeout(r, 30)); return helper; }
+        throw new TypeError('Failed to fetch');
+      });
+      expect((await discoverConfig([18249, 18250, 18251])).port).toBe(18250);
+    });
+
+    test('a pass costs one timeout, not one per port', async () => {
+      mockFetch.mockImplementation((_url: string, init: { signal: AbortSignal }) => new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(new DOMException('timed out', 'TimeoutError')));
+      }));
+      const t0 = Date.now();
+      await expect(discoverConfig([18249, 18250, 18251, 18252])).rejects.toThrow('not found');
+      expect(Date.now() - t0).toBeLessThan(3500);
     });
   });
 
