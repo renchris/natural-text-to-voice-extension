@@ -17,6 +17,7 @@ import { renderShortcutChip } from './shortcut-chip';
 import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
 import { buildVoiceOptionNodes } from '../shared/voice-options';
 import { clearErrorBadge } from '../shared/error-badge';
+import { errorSummary } from '../shared/helper-errors';
 import { HELPER_UPDATE_COMMAND, helperNeedsUpdate } from '../shared/helper-version';
 
 // =================================================================================
@@ -661,7 +662,7 @@ function stopPopupAudio(): boolean {
  * Handle errors from speak operation
  */
 function handleSpeakError(error: unknown): void {
-  console.error('Speak error:', error);
+  console.error('Speak error:', errorSummary(error));
 
   if (error instanceof Error && error.message.includes('Text is required')) {
     showMessage('No text provided. Please select text to speak.', 'warning');

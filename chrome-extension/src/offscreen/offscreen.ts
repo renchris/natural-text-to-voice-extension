@@ -7,6 +7,7 @@
  */
 
 import { getApiClient, userMessageForError } from '../shared/api-client';
+import { errorSummary } from '../shared/helper-errors';
 import type {
   SpeakInOffscreenMessage,
   OffscreenSpeakResponse,
@@ -260,7 +261,7 @@ function reportFinished(response: OffscreenSpeakResponse): void {
 }
 
 function toErrorResponse(error: unknown): OffscreenSpeakResponse {
-  console.error('[Offscreen] Error generating/playing speech:', error);
+  console.error('[Offscreen] Error generating/playing speech:', errorSummary(error));
 
   return {
     type: 'SPEAK_ERROR',

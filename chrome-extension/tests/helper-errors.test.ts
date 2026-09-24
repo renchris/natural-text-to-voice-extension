@@ -7,7 +7,7 @@
 
 import { describe, test, expect, mock, beforeEach, afterAll } from 'bun:test';
 import { ApiClient, HelperError, userMessageForError } from '../src/shared/api-client';
-import { parseHelperErrorBody } from '../src/shared/helper-errors';
+import { errorSummary, parseHelperErrorBody } from '../src/shared/helper-errors';
 import { HelperNotFoundError, InvalidResponseError, NetworkTimeoutError } from '../src/shared/types';
 
 const saved = { chrome: (globalThis as any).chrome, fetch: globalThis.fetch };
@@ -144,6 +144,17 @@ describe('helper error fallbacks', () => {
   test('warmup_timeout and timeouts read clearly', () => {
     expect(userMessageForError(new HelperError('warmup_timeout', 500))).toContain('still loading');
     expect(userMessageForError(new NetworkTimeoutError())).toContain('took too long');
+  });
+
+  test('errorSummary logs the name and code, never the helper\'s detail (EXT-10)', async () => {
+    speakResponse = json(500, { error: 'generation_failed', message: 'Audio generation failed: abs(77777777777777777777)' });
+    const error = await speakError();
+    expect(String((error as Error).message)).toContain('7777');
+    const summary = errorSummary(error);
+    expect(summary).toBe('HelperError 500 generation_failed');
+    expect(summary).not.toContain('7777');
+    expect(errorSummary(new TypeError('secret text'))).toBe('TypeError');
+    expect(errorSummary('secret text')).toBe('string');
   });
 
   test('parseHelperErrorBody ignores bodies that are not helper errors', () => {

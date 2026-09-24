@@ -126,6 +126,18 @@ const MESSAGES: Record<HelperErrorCode, string> = {
 };
 
 /**
+ * What to log about an error on the speak path: its name and, for a helper
+ * error, its code; never the message. A helper error's message embeds the
+ * helper's detail string, which a worker error could fill with a fragment of
+ * the text being read, and console.error ships in the production build.
+ */
+export function errorSummary(error: unknown): string {
+  if (error instanceof HelperError) return `${error.name} ${error.status} ${error.code}`;
+  if (error instanceof Error) return error.name;
+  return typeof error;
+}
+
+/**
  * One clear sentence for the user, for any error the speak path can raise.
  */
 export function userMessageForError(error: unknown): string {
