@@ -42,9 +42,10 @@ The extension stores minimal settings data **locally on your device only**:
 |-----------|------------------|---------|---------|
 | Voice preference | Chrome Storage Local | Remember your selected voice | No |
 | Playback speed | Chrome Storage Local | Remember your speed setting | No |
-| Helper port | Chrome Storage Local | Reconnect to the helper without probing every port | No |
+| Helper port | Chrome Storage Local | Reconnect to the helper without probing every port (stored with the helper's default voice name) | No |
+| When the helper isn't running | Chrome Storage Local | Your choice: speak with a system voice, or show an error | No |
 
-All three live in `chrome.storage.local` on this device. The extension does not use `chrome.storage.sync`, so nothing is copied to your other devices, even with Chrome Sync on.
+All four live in `chrome.storage.local` on this device. The extension does not use `chrome.storage.sync`, so nothing is copied to your other devices, even with Chrome Sync on.
 
 ---
 
@@ -113,7 +114,7 @@ The extension requests minimal permissions required for functionality:
 
 | Permission | Purpose | Risk Level |
 |------------|---------|------------|
-| `storage` | Save voice and speed preferences locally | ⚪ Minimal |
+| `storage` | Save your voice, speed and "When the helper isn't running" choice, and the helper's port, locally | ⚪ Minimal |
 | `contextMenus` | Add "Speak selected text" to right-click menu | ⚪ Minimal |
 | `activeTab` | Read the selected text in the current tab, only after you click the menu, the toolbar button or a shortcut | 🟡 Low |
 | `scripting` | Run one `getSelection()` call in that tab to read the selection | 🟡 Low |
@@ -164,7 +165,7 @@ The extension uses **zero third-party services**:
 ### Auditable Code
 
 The extension is **fully open source** under the MIT License:
-- **Repository**: [GitHub](https://github.com/yourusername/natural-text-to-voice-extension)
+- **Repository**: [GitHub](https://github.com/renchris/natural-text-to-voice-extension)
 - **License**: MIT (permissive, allows auditing)
 - **Audit**: Anyone can review the source code to verify privacy claims
 
@@ -192,6 +193,8 @@ The following data is stored **temporarily** and discarded after use:
 The only persistent data is:
 - Voice preference (stored until you change it or uninstall)
 - Playback speed (stored until you change it or uninstall)
+- "When the helper isn't running" choice (stored until you change it or uninstall)
+- Helper port (updated when the helper moves to another port; removed when you uninstall)
 
 **Storage location**: Chrome Storage API (encrypted by Chrome)
 
@@ -247,15 +250,14 @@ We may update this privacy policy as the extension evolves. Changes will be:
 
 If you have privacy questions or concerns:
 
-1. **File an issue**: [GitHub Issues](https://github.com/yourusername/natural-text-to-voice-extension/issues)
+1. **File an issue**: [GitHub Issues](https://github.com/renchris/natural-text-to-voice-extension/issues)
 2. **Review the code**: Source code is fully public and auditable
-3. **Email**: [Your contact email if applicable]
 
 ### Security Issues
 
 If you discover a security vulnerability:
 1. **Do NOT** open a public issue
-2. **Email**: [Security contact email]
+2. **Report it privately** through GitHub's private vulnerability reporting: [Report a vulnerability](https://github.com/renchris/natural-text-to-voice-extension/security/advisories/new)
 3. We will respond within 48 hours
 
 ---
