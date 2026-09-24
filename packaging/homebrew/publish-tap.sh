@@ -20,7 +20,9 @@
 #
 # Without the --confirm arguments a step needs, it prints the full plan with the resolved
 # commands and exits 2 BEFORE changing anything. Re-running after a successful publish finds
-# the tag, the repo and an identical formula, and exits 0 without a commit.
+# the tag, the repo and an identical formula ON ORIGIN, and exits 0 without a commit. A run
+# whose commit succeeded but whose push failed leaves the tap checkout ahead of origin; the
+# next run pushes that commit (same gate) instead of reporting "already current".
 #
 # Exit codes: 0 published or already current · 1 a check failed · 2 refused (confirm missing)
 #             · 64 bad usage.
@@ -140,7 +142,8 @@ echo "  ${n}. write Formula/${FORMULA_NAME}.rb (url ${TARBALL_URL}, real sha256)
 n=$((n + 1))
 echo "  ${n}. brew audit --strict --online ${TAP_NAME}/${FORMULA_NAME}"; n=$((n + 1))
 echo "  ${n}. git commit -m '${FORMULA_NAME} ${VERSION}' && git push origin HEAD  (in the tap checkout;"
-echo "     skipped if the formula is already identical)"
+echo "     the commit is skipped if the formula is already identical; a commit an earlier run"
+echo "     could not push is pushed)"
 NEED+=("$TAP_REPO")
 
 MISSING=()
@@ -186,6 +189,37 @@ if [ -z "$TAP_DIR" ]; then
 fi
 git -C "$TAP_DIR" pull --ff-only --quiet || die "could not fast-forward ${TAP_DIR}"
 
+# Commits in the tap checkout that origin does not have (an earlier run committed, then its push
+# failed). Dies if the checkout and origin have diverged.
+unpushed_count() {
+    local local_head remote_head
+    local_head="$(git -C "$TAP_DIR" rev-parse HEAD)"
+    remote_head="$(git -C "$TAP_DIR" ls-remote origin HEAD | cut -f1)" \
+        || die "could not read origin HEAD of ${TAP_DIR}"
+    if [ -z "$remote_head" ]; then
+        git -C "$TAP_DIR" rev-list --count HEAD
+    elif [ "$remote_head" = "$local_head" ]; then
+        echo 0
+    elif git -C "$TAP_DIR" merge-base --is-ancestor "$remote_head" HEAD 2>/dev/null; then
+        git -C "$TAP_DIR" rev-list --count "${remote_head}..HEAD"
+    else
+        die "${TAP_DIR} (${local_head:0:7}) and origin (${remote_head:0:7}) have diverged; reconcile by hand"
+    fi
+}
+
+push_tap() {
+    git -C "$TAP_DIR" push --quiet origin HEAD
+    LOCAL_HEAD="$(git -C "$TAP_DIR" rev-parse HEAD)"
+    REMOTE_HEAD="$(git -C "$TAP_DIR" ls-remote origin HEAD | cut -f1)"
+    [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ] || die "push not visible: local ${LOCAL_HEAD}, origin ${REMOTE_HEAD}"
+}
+
+published() {
+    step "Published ${TAP_NAME}/${FORMULA_NAME} ${VERSION} (${LOCAL_HEAD:0:7})"
+    echo "Users install it with:"
+    echo "  brew install ${TAP_NAME}/${FORMULA_NAME} && brew services start ${FORMULA_NAME}"
+}
+
 # ---------------------------------------------------------------- 4. formula
 step "Writing Formula/${FORMULA_NAME}.rb"
 mkdir -p "$TAP_DIR/Formula"
@@ -205,7 +239,15 @@ grep -q "PLACEHOLDER\|0\{64\}" "$NEW" && die "placeholder text survived in the f
 
 TARGET="$TAP_DIR/Formula/${FORMULA_NAME}.rb"
 if [ -f "$TARGET" ] && cmp -s "$NEW" "$TARGET"; then
-    echo "Formula/${FORMULA_NAME}.rb is already current at ${VERSION} (${SHA256:0:12}); nothing to publish."
+    # Identical in the checkout; the tree is clean, so it is committed. Current only if origin has it.
+    UNPUSHED="$(unpushed_count)"
+    if [ "$UNPUSHED" = 0 ]; then
+        echo "Formula/${FORMULA_NAME}.rb is already current at ${VERSION} (${SHA256:0:12}) on origin; nothing to publish."
+        exit 0
+    fi
+    step "Pushing ${UNPUSHED} tap commit(s) an earlier run could not push"
+    push_tap
+    published
     exit 0
 fi
 cp "$NEW" "$TARGET"
@@ -228,11 +270,5 @@ else
     MSG="${FORMULA_NAME} ${VERSION} (new formula)"
 fi
 git -C "$TAP_DIR" commit --quiet -m "$MSG"
-git -C "$TAP_DIR" push --quiet origin HEAD
-LOCAL_HEAD="$(git -C "$TAP_DIR" rev-parse HEAD)"
-REMOTE_HEAD="$(git -C "$TAP_DIR" ls-remote origin HEAD | cut -f1)"
-[ "$LOCAL_HEAD" = "$REMOTE_HEAD" ] || die "push not visible: local ${LOCAL_HEAD}, origin ${REMOTE_HEAD}"
-
-step "Published ${TAP_NAME}/${FORMULA_NAME} ${VERSION} (${LOCAL_HEAD:0:7})"
-echo "Users install it with:"
-echo "  brew install ${TAP_NAME}/${FORMULA_NAME} && brew services start ${FORMULA_NAME}"
+push_tap
+published
