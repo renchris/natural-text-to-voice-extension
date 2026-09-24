@@ -49,6 +49,13 @@ permission to the local helper only, and it turns every silent failure into a vi
   a 32 px icon now serves Retina toolbars, and a 512 px listing icon is included.
 
 ### Changed: helper
+- **Kokoro speaks louder, closer to the system voice.** Every response gets one gain toward −16 LUFS (ITU-R
+  BS.1770-4), never past a −1.5 dBTP true peak, with no compressor or limiter and no clipping. Speech that measured
+  −23 to −28 LUFS now measures about −16 to −21 (−25 at worst). The jump when the extension falls back to the
+  macOS system voice (about −16) shrinks from 7–12 LU to 0–5 LU. Most responses stop at the peak ceiling before
+  −16, because Kokoro's peaks sit 14–24 dB above its loudness. The demo clips and videos were regenerated.
+  `verify-python.sh` gains a loudness check, and its fidelity check still compares the synthesis before
+  normalization, so a decoder gain drift stays visible.
 - **`/speak` status codes say whose fault it was.** A bad request answers 400 with a code (`invalid_speed` for
   speeds outside 0.25–4.0, `empty_text`, `text_too_long`, `unknown_voice`, `audio_too_long`, `bad_request`).
   While the engine is down or restarting it answers 503 with `retry_after_seconds: 5`. Everything else is 500.

@@ -187,3 +187,93 @@ rounding, not the cache policy. `Scripts/verify-python.sh`: PASS 7/7, fidelity l
 **What is left.** The ~3.2 GB floor is live arrays in one segment's decoder pass. Even S15 reaches 2.4 GB active. A
 cache setting cannot lower it; that would take shorter segments or a chunked decoder. On an 8 GB Mac the worker now
 peaks at ~3.6 GB instead of ~7.9 GB.
+
+## 10. Loudness normalization (W4, measured 2026-09-24)
+
+**Result.** Every `/speak` response now gets one gain: the smaller of the gain to **−16 LUFS** integrated (ITU-R
+BS.1770-4, K-weighted, gated) and the gain that puts the 4×-oversampled true peak at **−1.5 dBTP** (capped at +24 dB).
+There is no compressor or limiter, and nothing clips. Across 5 voices × 3 lengths, output moved from **−27.7…−22.9
+LUFS (median −25.2)** to **−25.0…−16.0 LUFS (median −17.8)**, +2.7 to +9.3 dB. **Only 2 of the 15 reach −16 ± 0.5
+LUFS.** The other 13 stop at the true-peak ceiling, because Kokoro's speech is peaky: its true peak sits **14.1–23.5
+dB** above its loudness, and a single gain can meet both −16 LUFS and −1.5 dBTP only when that distance is ≤ 14.5 dB.
+The peaks that bind are ordinary speech, not clicks at chunk joins. Around each one the local 20 ms crest is 8–14 dB,
+and a second peak within 2 dB of it sits elsewhere in the same take. Reaching −16 everywhere would need up to 9.0 dB of
+peak reduction (median ~2 dB) from a limiter, which the brief rules out. That call is open for the operator (see
+"Open").
+
+| Case (ffmpeg ebur128) | Raw LUFS / dBTP | Gain | Out LUFS / dBTP | Bound by |
+|---|---|---|---|---|
+| af_heart short / medium / long | −26.1/−10.8 · −25.8/−9.5 · −25.6/−6.5 | +9.28 · +8.01 · +5.07 | −16.8 · −17.8 · −20.6 / −1.5 | ceiling ×3 |
+| af_bella | −25.7/−8.7 · −24.8/−8.5 · −24.4/−6.0 | +7.29 · +6.96 · +4.52 | −18.4 · −17.8 · −19.9 / −1.5 | ceiling ×3 |
+| am_michael | −26.7/−10.5 · −27.6/−8.1 · −27.7/−4.2 | +9.03 · +6.61 · +2.68 | −17.6 · −21.0 · −25.0 / −1.5 | ceiling ×3 |
+| bf_emma | −22.9/−8.5 · −23.7/−5.2 · −23.8/−5.8 | +6.86 · +3.67 · +4.28 | **−16.0**/−1.6 · −20.0 · −19.5 / −1.5 | target · ceiling ×2 |
+| bm_george | −24.1/−9.5 · −25.0/−9.0 · −25.2/−9.3 | +7.99 · +7.54 · +7.83 | **−16.1** · −17.5 · −17.4 / −1.5 | target · ceiling ×2 |
+
+The lengths are 2.0–2.6 s, 6.7–8.1 s and 22.5–26.0 s (`Scripts/verify_loudness.py` `TEXTS`). Each case was seeded
+(`mx.random.seed`) and synthesised twice, once with normalization off and once on. The normalized output is the raw
+one times a single gain: the residual is 1.9–3.4e-4 of its RMS, which is 16-bit quantization. The sample count and
+`duration` are identical.
+
+**Against the macOS system voice, through a real helper.** The helper was built from this tree and run on :18249 with
+`--python` (the main checkout's python-env) and `--worker` (this tree's). Each `/speak` answered 200, and each file
+was measured with `ffmpeg -af ebur128=peak=true`. The system voice for the same text was rendered with `say -o`
+(default voice, 22.05 kHz mono AIFF). Both are mono files, so the numbers compare like for like:
+
+| Text | System voice (`say`) | af_heart | af_bella | am_michael | bf_emma | bm_george |
+|---|---|---|---|---|---|---|
+| short (26 chars) | −16.7 / −3.0 | −16.7 | −18.3 | −17.4 | −16.0 (−2.2 dBTP) | −16.0 |
+| medium (104) | −16.1 / −2.3 | −18.0 | −17.9 | −20.8 | −20.0 | −17.9 |
+| hero paragraph (243) | −16.4 / −2.0 | −20.2 | −19.3 | −21.5 | −18.8 | −17.4 |
+
+Every Kokoro true peak is −1.5 dBTP unless noted. Before this change the same Kokoro voices measured −23 to −28 LUFS,
+7 to 12 LU under the system voice; the gap is now 0 to 5 LU. The helper log carries one numbers-only line per request,
+such as `Loudness -26.10 LUFS (gated), true peak -10.89 dBTP; gain +9.39 dB (limited by true_peak) in 0.020s`. No
+request text appears in it (checked). The PROVENANCE figure of −13.3 LUFS for the system voice is a different
+measurement: Chrome's playback captured live, in stereo. A stereo file with the same signal on both channels reads ~3
+LU louder, because BS.1770 sums the channels. In the promo master, measured stereo against stereo, Kokoro now sits at
+−15.7…−16.3 LUFS against −13.3 (`assets/media/PROVENANCE.md`).
+
+**The meter.** It uses numpy only, adds no dependency and has no filter loop per sample. The K-weighting biquads are
+derived for any rate from BS.1770-4's analogue prototypes (the libebur128 / pyloudnorm derivation). At 48 kHz they
+reproduce the standard's table to 8.9e-16. The filters run as an FFT convolution with their impulse response,
+truncated at 16,384 samples, where it has decayed below 1e-30. Checks against known answers:
+
+- A 997 Hz 0 dBFS sine reads −3.010 LUFS at 48 kHz and −2.984 at 24 kHz. The bilinear warp at 24 kHz costs 0.026 LU.
+- A fs/4 sine sampled 45° off its crest has a sample peak of −3.01 dBFS and a true peak of +0.10 dBTP (exact: 0.0). The
+  32-tap-per-phase interpolator reads high by 0.1 dB, the safe direction.
+- On the 15 cases it agrees with ffmpeg's ebur128, an independent implementation that resamples to 48 kHz and
+  oversamples to 192 kHz, within 0.05 LU and 0.05 dB (harness: `/tmp/ntts-w4-loud/matrix.py`, ephemeral).
+- A signal under −70 LUFS, the absolute gate, is returned unchanged.
+- A response shorter than one 400 ms block cannot be gated, so it is measured ungated: a 300 ms tone lands at
+  −16.00 LUFS.
+
+pyloudnorm was not used, so no dependency was added. ffmpeg is the cross-check instead, and it is independent in both
+filter design and sample rate.
+
+**Cost.** 0.016 s for 2 s of audio, 0.083 s for 25 s, 0.88 s for 5 min and 3.6 s at the worker's 20-minute cap. That
+is about 0.3% of the audio's duration, against synthesis at ~26× real time (§3): +8% on a response's wall time.
+
+**The fidelity gate still sees the decoder.** `Scripts/ref_compare.py` (verify-python.sh check 7) compares the
+synthesis before normalization. It runs the worker with `NTTS_LOUDNESS_NORMALIZE=0`, which only verification tooling
+sets. The alternatives were comparing the normalized output, or gain-matching it to the reference. The reference is
+PyTorch Kokoro's un-normalized output, and the level check exists to catch a decoder gain drift: mlx-audio 0.2.6 sat
+2.65 dB low. Normalizing, or gain-matching, would hide exactly that drift. Measured: the normalized prose fixture
+fails both thresholds (level +1.38 dB, log-mel L1 0.182 > 0.13). With the switch, check 7 reads −0.2 dB / 0.1153, as
+it did before this change. Check 8 (`Scripts/verify_loudness.py`) covers the shipped path. It proves the normalized
+output is that synthesis times one gain, and it holds the 15 cases to three rules:
+
+- true peak ≤ −1.5 dBTP, by both meters;
+- never louder than −15.5 LUFS;
+- −16 ± 0.5 LUFS, or peak-bound: the true peak at the ceiling (≥ −1.6 dBTP), so no larger gain was possible.
+
+The brief asked for ±0.5 LU on all 15. As shown above, that is impossible without a limiter, so the check asserts
+what the algorithm guarantees and prints the reached count. `verify-python.sh`: PASS 8/8.
+
+**Media.** All six demo clips were regenerated. The hero, the demo and the YouTube master were re-muxed at their
+recorded offsets, with the video copied. Every clip sits at the same sample as before, and each rebuild was first
+proven exact with the old clips (`assets/media/PROVENANCE.md`).
+
+**Open.**
+1. Whether to add a true-peak limiter so every response reaches −16 LUFS. This is the operator's call. It needs up to
+   9 dB of peak reduction on am_michael's long text, and it changes the sound, not just its level.
+2. The AAC encode of the videos adds ~0.1 dB of true peak, so `hero.mp4` peaks at −1.4 dBTP against the WAV's −1.5.
