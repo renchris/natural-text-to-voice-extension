@@ -1,6 +1,8 @@
 <!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css>
-<style>body{width:440px;height:280px;display:grid;place-items:center;position:relative}
-.bars{position:absolute;inset:auto 0 34px 0;display:flex;gap:7px;justify-content:center;align-items:flex-end;height:60px;opacity:.35}
-.bars i{width:7px;border-radius:4px;background:#fff}</style>
-<img class="glyph" src="icon.svg" width="176" height="176" alt="">
-<div class=bars><i style="height:14px"></i><i style="height:26px"></i><i style="height:40px"></i><i style="height:22px"></i><i style="height:52px"></i><i style="height:34px"></i><i style="height:60px"></i><i style="height:28px"></i><i style="height:44px"></i><i style="height:18px"></i><i style="height:36px"></i><i style="height:54px"></i><i style="height:24px"></i><i style="height:42px"></i><i style="height:16px"></i><i style="height:30px"></i><i style="height:48px"></i><i style="height:20px"></i><i style="height:38px"></i><i style="height:12px"></i></div>
+<!-- Small promo tile 440x280 (required, no text): the icon's glyph, its three arcs continuing outward as sound. -->
+<style>body{width:440px;height:280px}
+.g{position:absolute;left:106px;top:62px;width:164px;height:154px;filter:drop-shadow(0 10px 18px rgba(8,10,48,.35))}</style>
+<body class=promo>
+<svg class=arcs data-cx=184 data-cy=139 data-r=112 data-w=12 data-color="#FFFFFF" data-opacity=.13></svg>
+<img class=g src=glyph.svg alt="">
+<script src=arcs.js></script>

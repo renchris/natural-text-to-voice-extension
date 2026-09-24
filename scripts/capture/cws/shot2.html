@@ -1,7 +1,20 @@
 <!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css>
-<style>body{width:1280px;height:800px;position:relative}
-.copy{position:absolute;left:72px;top:250px;width:360px}
-h1{font-size:50px;margin:22px 0 22px}p.sub{font-size:21px}
-.shot{position:absolute;left:470px;top:110px;width:870px}</style>
-<div class=copy><div class=eyebrow>Right-click to listen</div><h1>Any selection, read aloud.</h1><p class=sub>“Speak selected text” lives in the native menu on every page.</p></div>
-<img class=shot src="contextmenu-crop.png">
+<!-- Store screenshot 2: "Natural voices, at your speed." Capture: popup-emma-speaking.png (real popup, real helper,
+     Emma (UK) speaking at 1.3x). The voice counts are the live popup's optgroups (captures/voice-groups.json). -->
+<style>body{width:1280px;height:800px}
+.brand{left:88px;top:64px}
+h1{position:absolute;left:88px;top:150px;width:560px;font-size:66px}
+.sub{position:absolute;left:88px;top:318px;width:520px}
+.counts{position:absolute;left:88px;top:470px;display:grid;grid-template-columns:auto 1fr;column-gap:22px;row-gap:26px;align-items:center}
+.n{font:600 64px/1 var(--serif);color:var(--accent);text-align:right;font-variant-numeric:lining-nums}
+.counts b{display:block;font:600 25px/1.15 var(--sans);letter-spacing:-.01em}
+.counts span{font:400 19px/1.3 var(--sans);color:var(--ink-2)}
+.shot{left:676px;top:70px;width:540px}</style>
+<div class=brand><img src=icon.svg alt="">Natural TTS</div>
+<h1>Natural voices,<br>at your speed.</h1>
+<p class=sub>Kokoro voices with American and British accents, at any speed from 0.5× to 2×.</p>
+<div class=counts>
+  <div class=n>20</div><div><b>American English</b><span>11 female, 9 male</span></div>
+  <div class=n>8</div><div><b>British English</b><span>4 female, 4 male</span></div>
+</div>
+<img class=shot src=popup-emma-speaking.png alt="">

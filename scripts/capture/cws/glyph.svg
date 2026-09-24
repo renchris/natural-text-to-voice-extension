@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="28 32 68 64">
+  <!-- The icon's white glyph without its tile (assets/brand/icon.svg, same transform), for the promo images. -->
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" transform="translate(65 64) scale(0.92) translate(-64 -64)">
+    <path fill="#FFFFFF" stroke-width="4" d="M33,54H43L59,40V88L43,74H33Z"/>
+    <path stroke-width="6" d="M67.36,54.04A13,13 0 0 1 67.36,73.96"/>
+    <path stroke-width="6" d="M75.37,46.45A24,24 0 0 1 75.37,81.55"/>
+    <path stroke-width="6" d="M83.75,39.25A35,35 0 0 1 83.75,88.75"/>
+  </g>
+</svg>

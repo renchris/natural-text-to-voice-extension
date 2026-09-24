@@ -1,0 +1,33 @@
+<!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css>
+<!-- Store screenshot 3: "Made on your Mac. Not in the cloud." Capture: popup-heart-speaking.png (real popup, real
+     helper, Heart (US) speaking). The strip is the real request path: the extension posts to the helper on
+     127.0.0.1, the helper's Python worker runs Kokoro-82M with MLX on the Apple GPU. -->
+<style>body{width:1280px;height:800px}
+.brand{left:88px;top:64px}
+h1{position:absolute;left:88px;top:150px;width:600px;font-size:62px;white-space:nowrap}
+.mac{position:absolute;left:72px;top:334px;width:540px;height:410px;border:1.5px dashed rgba(61,78,215,.45);border-radius:22px}
+.mac .tag{position:absolute;left:22px;top:-15px;background:var(--surface);padding:0 10px;font:600 17px/30px var(--sans);color:var(--accent);letter-spacing:.01em}
+.flow{position:absolute;left:100px;top:364px;width:500px}
+.row{display:flex;align-items:center;gap:22px;height:92px;position:relative}
+.node{width:58px;height:58px;border-radius:16px;background:#fff;flex:none;display:grid;place-items:center;
+  box-shadow:0 0 0 1px rgba(27,32,96,.10),0 8px 18px -8px rgba(27,32,96,.30)}
+.node svg{width:30px;height:30px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.row b{display:block;font:600 26px/1.1 var(--sans);letter-spacing:-.015em}
+.row span{font:400 19px/1.35 var(--sans);color:var(--ink-2)}
+.wire{position:absolute;left:128px;top:422px;width:2px;height:278px;background:rgba(61,78,215,.35)}
+.shot{left:676px;top:70px;width:540px}</style>
+<div class=brand><img src=icon.svg alt="">Natural TTS</div>
+<h1>Made on your Mac.<br>Not in the cloud.</h1>
+<div class=mac><div class=tag>Your Mac</div></div>
+<div class=wire></div>
+<div class=flow>
+ <div class=row><div class=node><svg viewBox="0 0 30 30"><rect x="3.5" y="6" width="23" height="18" rx="3"/><path d="M3.5 11h23"/><path d="M7 8.6h.01M9.6 8.6h.01"/></svg></div>
+   <div><b>Chrome</b><span>sends the text you selected</span></div></div>
+ <div class=row><div class=node><svg viewBox="0 0 30 30"><path d="M22 10.5a8 8 0 1 0 1.6 6.5"/><path d="M23 5.5v5.5h-5.5"/></svg></div>
+   <div><b>127.0.0.1</b><span>a local address that stays on this Mac</span></div></div>
+ <div class=row><div class=node><svg viewBox="0 0 30 30"><path d="M5 12h4l6-5v16l-6-5H5z" fill="#3D4ED7"/><path d="M19 11.2a5 5 0 0 1 0 7.6M22.2 8a9.5 9.5 0 0 1 0 14"/></svg></div>
+   <div><b>Natural TTS helper</b><span>Kokoro-82M, an open-weight voice model</span></div></div>
+ <div class=row><div class=node><svg viewBox="0 0 30 30"><rect x="8" y="8" width="14" height="14" rx="2.5"/><rect x="12" y="12" width="6" height="6" rx="1"/><path d="M12 4.5v3.5M18 4.5v3.5M12 22v3.5M18 22v3.5M4.5 12h3.5M4.5 18h3.5M22 12h3.5M22 18h3.5"/></svg></div>
+   <div><b>Apple GPU</b><span>speech made with MLX on Apple silicon</span></div></div>
+</div>
+<img class=shot src=popup-heart-speaking.png alt="">
