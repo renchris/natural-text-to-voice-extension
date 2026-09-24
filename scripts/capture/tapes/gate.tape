@@ -24,5 +24,5 @@ Show
 
 Sleep 600ms
 Type "bash scripts/verify-all.sh" Sleep 400ms Enter
-Wait@600s
+Wait@1500s
 Sleep 3s
