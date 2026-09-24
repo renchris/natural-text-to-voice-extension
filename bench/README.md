@@ -32,6 +32,22 @@ status 2 without measuring. `chart.mjs` refuses a result with
 shares the GPU or saturates the CPU (a game, a video export, another local model, a large build) slows synthesis
 by up to half, so compare only clean runs.
 
+## The committed result
+
+`results.json` is marked **`"clean": false`**, and the chart's title says "busy machine". It was measured on
+2026-09-24 on an Apple M1 Max (64 GB, macOS 15.7.9) while other work shared the machine. During a 90-minute idle
+wait the load average never fell to 12 (it reached 700 while iOS Simulator processes from another session ran),
+and from the fourth minute on the GPU read 43–57 % in every sample while the Simulator's renderer
+(SimRenderingServices) was running; the load average was 16.6 when measuring began and 23.5 when it ended. Under
+that contention the helper ran at a warm median of 21.6–23.3× real time. The 1.5.0 helper on an idle machine ran
+at about 26.5× the day before (`docs/research/2026-09-upgrade/W2-integration-measurements.md` §3; voice
+`af_bella`, a slightly earlier worker). The worker's peak footprint, 3.7 GB, is not affected by contention and
+matches that report's §9. Replace the file with a clean run:
+
+```bash
+node bench/run.mjs --port 18249 --wait 3600 --require-idle && node bench/chart.mjs
+```
+
 ## What it measures
 
 | Field in `results.json` | Meaning |

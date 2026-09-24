@@ -1,0 +1,494 @@
+{
+  "schema": 1,
+  "tool": "bench/run.mjs",
+  "clean": false,
+  "generated_at": "2026-09-24T07:25:15.070Z",
+  "machine": {
+    "chip": "Apple M1 Max",
+    "model": "MacBookPro18,2",
+    "cpu_cores": {
+      "performance": 8,
+      "efficiency": 2
+    },
+    "gpu_cores": 32,
+    "memory_gb": 64,
+    "macos": "15.7.9",
+    "macos_build": "24G830",
+    "darwin": "24.6.0"
+  },
+  "software": {
+    "helper_version": "1.5.0",
+    "helper_api_version": 2,
+    "helper_git_sha": "f757198d6781baf4eb65eb270c605a50df5bb755",
+    "helper_tree_dirty": false,
+    "helper_binary_sha256": "bfdbadd91bedcf0a118706498e30e2d4d8a7e6bcec4c2d5675970cc15a6bc6f6",
+    "worker_sha256": "a96ea365a168b953f386c3644d3f67b3e455e22f2ab4ec993f8592e9477bc1d4",
+    "python": "3.12.13",
+    "mlx": "0.32.2",
+    "mlx_audio": "0.5.5",
+    "model_id": "prince-canuma/Kokoro-82M",
+    "model_revision": "e02c9eada7ce7416798af36b190a8a2dd2ecd566",
+    "mlx_cache_limit_mb": 256,
+    "node": "v22.21.1"
+  },
+  "conditions": {
+    "port": 8250,
+    "voice": "af_heart",
+    "speed": 1,
+    "runs_per_text": 5,
+    "cold_starts": 3,
+    "client": "node fetch, one request at a time, no Origin header",
+    "started_at": "2026-09-24T07:22:06.294Z",
+    "finished_at": "2026-09-24T07:25:15.070Z",
+    "idle_before_start": {
+      "reached": false,
+      "gpu_max_pct": 15,
+      "load1_max": 12,
+      "window_s": 10,
+      "waited_s": 5400.7,
+      "last_gpu_samples_pct": [
+        46,
+        45,
+        45,
+        47,
+        45,
+        45,
+        46,
+        46,
+        46,
+        46
+      ]
+    },
+    "gpu_utilization_pct_during": {
+      "median": 89.5,
+      "min": 45,
+      "max": 95,
+      "n": 94,
+      "note": "includes this benchmark's own requests"
+    },
+    "load_average_start": [
+      16.57,
+      17.05,
+      24.1
+    ],
+    "load_average_end": [
+      23.51,
+      19.07,
+      23.46
+    ],
+    "worker_left_behind_after_stop": false
+  },
+  "texts": [
+    {
+      "id": "S15",
+      "label": "sentence",
+      "source": "medium[1]",
+      "chars": 123,
+      "words": 15,
+      "sha256": "2c8a729905c94a38b0a6d9f87e4e89b06c1c0c9bb7f14617f9c298bf4a632c2b",
+      "preview": "Text-to-speech technology has evolved dramatically, enabling…"
+    },
+    {
+      "id": "M60",
+      "label": "paragraph",
+      "source": "long[1] + medium[0]",
+      "chars": 408,
+      "words": 60,
+      "sha256": "6aee06d19f3ac572fef00191780037b33ab2a071b6dcc6ddbe25fb00ebec31f4",
+      "preview": "Machine learning models have grown increasingly sophisticate…"
+    },
+    {
+      "id": "L400",
+      "label": "page",
+      "source": "long[0..2] + technical + storytelling + poetry + medium[0..2]",
+      "chars": 2644,
+      "words": 407,
+      "sha256": "65d6137572dedd1fa309c2721c230967862d1cbe4eeb36655ef24b4f1ce7601f",
+      "preview": "The development of modern text-to-speech systems has revolut…"
+    },
+    {
+      "id": "X4985",
+      "label": "long article",
+      "source": "short + medium + long + dialogue + poetry + technical + storytelling, repeated, cut to 4,985 chars",
+      "chars": 4985,
+      "words": 751,
+      "sha256": "87bc43a82559c3deb3c392f8cbc25a4317350b9bc1c6eb5642a2534534a8e45e",
+      "preview": "Hello world! The quick brown fox jumps over the lazy dog. Me…"
+    }
+  ],
+  "startup": {
+    "launch_to_ready_s": {
+      "median": 3.9025,
+      "min": 3.8241,
+      "max": 24.2583,
+      "n": 3,
+      "values": [
+        24.2583,
+        3.8241,
+        3.9025
+      ]
+    },
+    "first_speak_after_ready_s": {
+      "median": 0.5193,
+      "min": 0.5053,
+      "max": 0.892,
+      "n": 3,
+      "values": [
+        0.892,
+        0.5193,
+        0.5053
+      ]
+    },
+    "launch_to_first_audio_s": {
+      "median": 4.4078,
+      "min": 4.3434,
+      "max": 25.1503,
+      "n": 3,
+      "values": [
+        25.1503,
+        4.3434,
+        4.4078
+      ]
+    },
+    "first_speak_text": "S15"
+  },
+  "warm": [
+    {
+      "id": "S15",
+      "label": "sentence",
+      "words": 15,
+      "chars": 123,
+      "audio_s": {
+        "median": 8.45,
+        "min": 8.45,
+        "max": 8.45,
+        "n": 5,
+        "values": [
+          8.45,
+          8.45,
+          8.45,
+          8.45,
+          8.45
+        ]
+      },
+      "wall_s": {
+        "median": 0.385,
+        "min": 0.3548,
+        "max": 0.4369,
+        "n": 5,
+        "values": [
+          0.3548,
+          0.3586,
+          0.385,
+          0.4369,
+          0.3962
+        ]
+      },
+      "rtf": {
+        "median": 21.9494,
+        "min": 19.3415,
+        "max": 23.8185,
+        "n": 5,
+        "values": [
+          23.8185,
+          23.5666,
+          21.9494,
+          19.3415,
+          21.3261
+        ]
+      },
+      "ttfb_s": {
+        "median": 0.3844,
+        "min": 0.3536,
+        "max": 0.4365,
+        "n": 5,
+        "values": [
+          0.3536,
+          0.3582,
+          0.3844,
+          0.4365,
+          0.3958
+        ]
+      },
+      "server_generation_s": {
+        "median": 0.3825,
+        "min": 0.3512,
+        "max": 0.4342,
+        "n": 5,
+        "values": [
+          0.3512,
+          0.3556,
+          0.3825,
+          0.4342,
+          0.3937
+        ]
+      },
+      "wav_format": {
+        "format": 1,
+        "channels": 1,
+        "sample_rate": 24000,
+        "bits_per_sample": 16
+      },
+      "wav_bytes": 405644,
+      "header_vs_wav_audio_s_max_diff": 0
+    },
+    {
+      "id": "M60",
+      "label": "paragraph",
+      "words": 60,
+      "chars": 408,
+      "audio_s": {
+        "median": 28.8,
+        "min": 28.8,
+        "max": 28.8,
+        "n": 5,
+        "values": [
+          28.8,
+          28.8,
+          28.8,
+          28.8,
+          28.8
+        ]
+      },
+      "wall_s": {
+        "median": 1.2365,
+        "min": 1.1707,
+        "max": 1.742,
+        "n": 5,
+        "values": [
+          1.1767,
+          1.1707,
+          1.2365,
+          1.4305,
+          1.742
+        ]
+      },
+      "rtf": {
+        "median": 23.2906,
+        "min": 16.5327,
+        "max": 24.6,
+        "n": 5,
+        "values": [
+          24.475,
+          24.6,
+          23.2906,
+          20.1333,
+          16.5327
+        ]
+      },
+      "ttfb_s": {
+        "median": 1.2354,
+        "min": 1.1696,
+        "max": 1.7409,
+        "n": 5,
+        "values": [
+          1.1755,
+          1.1696,
+          1.2354,
+          1.4293,
+          1.7409
+        ]
+      },
+      "server_generation_s": {
+        "median": 1.2338,
+        "min": 1.1683,
+        "max": 1.7385,
+        "n": 5,
+        "values": [
+          1.1724,
+          1.1683,
+          1.2338,
+          1.4272,
+          1.7385
+        ]
+      },
+      "wav_format": {
+        "format": 1,
+        "channels": 1,
+        "sample_rate": 24000,
+        "bits_per_sample": 16
+      },
+      "wav_bytes": 1382444,
+      "header_vs_wav_audio_s_max_diff": 0
+    },
+    {
+      "id": "L400",
+      "label": "page",
+      "words": 407,
+      "chars": 2644,
+      "audio_s": {
+        "median": 168.825,
+        "min": 168.825,
+        "max": 168.825,
+        "n": 5,
+        "values": [
+          168.825,
+          168.825,
+          168.825,
+          168.825,
+          168.825
+        ]
+      },
+      "wall_s": {
+        "median": 7.7489,
+        "min": 7.0017,
+        "max": 8.1797,
+        "n": 5,
+        "values": [
+          7.0277,
+          7.0017,
+          7.7489,
+          8.1797,
+          7.8004
+        ]
+      },
+      "rtf": {
+        "median": 21.7869,
+        "min": 20.6394,
+        "max": 24.1121,
+        "n": 5,
+        "values": [
+          24.0228,
+          24.1121,
+          21.7869,
+          20.6394,
+          21.643
+        ]
+      },
+      "ttfb_s": {
+        "median": 7.7411,
+        "min": 6.9958,
+        "max": 8.1734,
+        "n": 5,
+        "values": [
+          7.0207,
+          6.9958,
+          7.7411,
+          8.1734,
+          7.7934
+        ]
+      },
+      "server_generation_s": {
+        "median": 7.7375,
+        "min": 6.994,
+        "max": 8.1706,
+        "n": 5,
+        "values": [
+          7.0187,
+          6.994,
+          7.7375,
+          8.1706,
+          7.7906
+        ]
+      },
+      "wav_format": {
+        "format": 1,
+        "channels": 1,
+        "sample_rate": 24000,
+        "bits_per_sample": 16
+      },
+      "wav_bytes": 8103644,
+      "header_vs_wav_audio_s_max_diff": 0
+    },
+    {
+      "id": "X4985",
+      "label": "long article",
+      "words": 751,
+      "chars": 4985,
+      "audio_s": {
+        "median": 319.775,
+        "min": 319.775,
+        "max": 319.775,
+        "n": 5,
+        "values": [
+          319.775,
+          319.775,
+          319.775,
+          319.775,
+          319.775
+        ]
+      },
+      "wall_s": {
+        "median": 14.8376,
+        "min": 13.6146,
+        "max": 15.9692,
+        "n": 5,
+        "values": [
+          14.8376,
+          13.6146,
+          14.1273,
+          14.8458,
+          15.9692
+        ]
+      },
+      "rtf": {
+        "median": 21.5516,
+        "min": 20.0245,
+        "max": 23.4876,
+        "n": 5,
+        "values": [
+          21.5516,
+          23.4876,
+          22.6353,
+          21.5397,
+          20.0245
+        ]
+      },
+      "ttfb_s": {
+        "median": 14.8233,
+        "min": 13.601,
+        "max": 15.9601,
+        "n": 5,
+        "values": [
+          14.8233,
+          13.601,
+          14.1148,
+          14.8328,
+          15.9601
+        ]
+      },
+      "server_generation_s": {
+        "median": 14.8205,
+        "min": 13.5966,
+        "max": 15.9544,
+        "n": 5,
+        "values": [
+          14.8205,
+          13.5966,
+          14.097,
+          14.8268,
+          15.9544
+        ]
+      },
+      "wav_format": {
+        "format": 1,
+        "channels": 1,
+        "sample_rate": 24000,
+        "bits_per_sample": 16
+      },
+      "wav_bytes": 15349244,
+      "header_vs_wav_audio_s_max_diff": 0
+    }
+  ],
+  "memory": {
+    "worker_footprint_after_ready_mb": [
+      1080.6,
+      1047.7,
+      1098.7
+    ],
+    "worker_footprint_peak_after_text_mb": {
+      "S15": 3678.3,
+      "M60": 3678.3,
+      "L400": 3678.3,
+      "X4985": 3678.3
+    },
+    "worker_footprint_peak_mb": 3678.3,
+    "worker_footprint_end_mb": 699.9,
+    "method": "`footprint -p <worker pid> -j`: phys_footprint_peak is the lifetime peak of the worker process on the last cold start; the Swift helper itself is not included"
+  },
+  "notes": [
+    "Real-time factor = audio seconds (from the WAV header) / client wall seconds for the whole request.",
+    "Time to first audio currently equals the full synthesis time: the helper returns the complete WAV, no streaming (compare ttfb_s with wall_s).",
+    "Scratch files (helper logs, one WAV per text) were written to /var/folders/0s/t55zvgts2qqb78fbqgn8ldy40000gn/T/ntts-bench-8250-1790229125432 and are not part of the result."
+  ]
+}
