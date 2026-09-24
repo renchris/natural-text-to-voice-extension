@@ -288,8 +288,16 @@ NUMBER_WORDS_MAX = 30
 ROUND_SIGNIFICANT_MAX = 6
 # Whitespace-free runs longer than this are broken at their punctuation ...
 LONG_RUN = 40
-# ... and letter/digit stretches still longer than this, every PIECE characters.
+# ... and letter/digit stretches still longer than this, every PIECE characters, when misaki would spell
+# them out (they hold a digit, or capitals past the first letter: a hash, base64, an all-caps token).
 PIECE = 20
+# A plain lower-case or Capitalized word is read as a word, not spelled, so it is cut only past this length
+# (no dictionary word comes close; 45-letter "Pneumonoultramicroscopicsilicovolcanoconiosis" is 51 phonemes).
+PLAIN_WORD_MAX = 60
+# Inside a long run, 3 or more of one symbol ("=====", "#####", "/////") is a rule line or a banner, not
+# content: misaki named each one once split apart ("equals" x 80). A run of pause punctuation keeps one
+# character; any other symbol run becomes a space.
+PAUSE_PUNCTUATION = ".,;:!?-" + "–—…"
 
 
 def _group_digits(match):
@@ -314,26 +322,44 @@ def _group_digits(match):
     return " ".join(words)
 
 
+def _collapse_symbol_run(match):
+    symbol = match.group(1)
+    return symbol if symbol in PAUSE_PUNCTUATION else " "
+
+
+def _split_word(word):
+    """Cut a letter/digit stretch misaki would spell out every PIECE characters; a plain word only past
+    PLAIN_WORD_MAX. Apostrophes are part of the word ("don’t" stays one token) and are not counted."""
+    letters = word.replace("'", "").replace("’", "")
+    plain = letters.isalpha() and (letters.islower() or (letters[0].isupper() and letters[1:].islower()))
+    limit = PLAIN_WORD_MAX if plain else PIECE
+    if len(word) <= limit:
+        return [word]
+    return [word[i : i + PIECE] for i in range(0, len(word), PIECE)]
+
+
 def _break_long_run(match):
-    """Split an over-long whitespace-free run (a URL, a hash, a base64 blob) into short tokens. Each
-    punctuation character stands alone, where misaki still reads it ("/" -> slash, "=" -> equals, "&" ->
-    and; "." and "-" become a pause, as they already were inside a URL). No letter or digit is dropped."""
-    run = match.group(0)
+    """Split an over-long whitespace-free run (a URL, a hash, a base64 blob, words joined by dashes) into
+    short tokens. A rule line or banner of one repeated symbol is dropped first (_collapse_symbol_run).
+    Words keep their apostrophes; each other punctuation character stands alone, where misaki still reads
+    it ("/" -> slash, "=" -> equals, "&" -> and; "." and "-" become a pause, as they already were inside a
+    URL). No letter or digit is dropped."""
+    run = re.sub(r"([^A-Za-z0-9\s'’])\1{2,}", _collapse_symbol_run, match.group(0))
     words = []
-    for part in re.split(r"([^A-Za-z0-9])", run):
-        if len(part) > PIECE:
-            words.extend(part[i : i + PIECE] for i in range(0, len(part), PIECE))
-        elif part:
-            words.append(part)
+    for part in re.findall(r"[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*|\S", run):
+        words.extend(_split_word(part))
     return " ".join(words)
 
 
 def break_long_tokens(text):
     """Keep every misaki token under Kokoro's 510-phoneme chunk budget without dropping content: digit runs
-    of DIGIT_GROUP_MIN or more are grouped in threes (round numbers num2words reads are kept whole), then runs over LONG_RUN characters are broken at
-    punctuation and every PIECE characters. Ordinary words, numbers and short URLs are untouched."""
+    of DIGIT_GROUP_MIN or more are grouped in threes (round numbers num2words reads are kept whole), then
+    runs over LONG_RUN characters lose their rule lines and are broken at punctuation and, where misaki
+    would spell them, every PIECE characters. Ordinary words, numbers and short URLs are untouched."""
     text = re.sub(r"\d{%d,}" % DIGIT_GROUP_MIN, _group_digits, text)
-    return re.sub(r"\S{%d,}" % (LONG_RUN + 1), _break_long_run, text)
+    text = re.sub(r"\S{%d,}" % (LONG_RUN + 1), _break_long_run, text)
+    # A dropped rule line leaves a double space behind.
+    return re.sub(r" {2,}", " ", text).strip()
 
 
 def normalize_text(text):

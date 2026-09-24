@@ -10,6 +10,9 @@ chunk of mlx-audio's English chunker (KokoroPipeline.en_tokenize) exceeds Kokoro
 nothing is truncated, and no letter or digit is dropped on the way (a 320-digit number, a 600-character
 URL, a 64-character hash, a digit run with zeros, and a 250-word run-on sentence with no punctuation).
 Row 12: a round number of 16-30 digits keeps its magnitude ("one quintillion", not "one hundred zero zero ...").
+Rows 13-16 are what the long-run splitting must NOT do: a rule line or banner of one repeated symbol (80
+"=", 44 "#", 42 "/", 42 backslashes) is dropped, not named once per character; contractions in words joined
+by em dashes stay whole ("don’t" reads dˈOnt); and a plain 45-letter word is not cut.
 
 Usage (from native-helper/):
   Sources/NaturalTTSHelper/Resources/python-env/bin/python3 Scripts/verify_g2p.py [WORKER]
@@ -175,6 +178,34 @@ def main():
                 ("round numbers kept whole", lambda n, p: n == "1 ether = 1000000000000000000 wei. It costs 10000000000000000 tokens."),
                 ("read as quintillion and quadrillion (kwɪntˈɪljən, kwɑdɹˈɪljən)",
                  lambda n, p: "kwɪntˈɪljən" in p and "kwɑdɹˈɪljən" in p and "zˈɪɹO" not in p),
+            ],
+        ),
+        (
+            "Installation\n" + "=" * 80 + "\nRun the installer.",
+            [
+                ("an 80-character rule line is dropped", lambda n, p: n == "Installation Run the installer."),
+                ("equals never spoken", lambda n, p: "ˈikwᵊlz" not in p),
+            ],
+        ),
+        (
+            "#" * 44 + " Build " + "/" * 42 + " " + "\\" * 42,
+            [
+                ("banners of #, / and backslash are dropped", lambda n, p: n == "Build"),
+                ("no hash, slash or backslash spoken",
+                 lambda n, p: "hˈæʃ" not in p and "slˈæʃ" not in p and "bˈækslæʃ" not in p),
+            ],
+        ),
+        (
+            "Well—I—don’t—think—it—wasn’t—what—they—said—at—all.",
+            [
+                ("contractions stay whole", lambda n, p: "don’t" in n and "wasn’t" in n),
+                ("reads don't (dˈOnt) and wasn't (wˈʌzᵊnt)", lambda n, p: "dˈOnt" in p and "wˈʌzᵊnt" in p),
+            ],
+        ),
+        (
+            "Pneumonoultramicroscopicsilicovolcanoconiosis—a word longer than forty letters.",
+            [
+                ("a plain long word is not cut", lambda n, p: "Pneumonoultramicroscopicsilicovolcanoconiosis" in n.split()),
             ],
         ),
         (
