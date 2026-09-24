@@ -112,24 +112,23 @@ the − and + buttons beside it do the same job from the keyboard). See [Known i
 
 #### Color Contrast
 Computed with the WCAG 2.1 formula from `src/shared/variables.css` and the page CSS. The popup background is
-`--color-bg-primary` `#FAFAFA`. Where Chrome supports `oklch()`, `--color-primary` is `oklch(0.55 0.20 258)`,
-which is `#076BE3`; otherwise it is `#3D4ED7`.
+`--color-bg-primary` `#FAFAFA`. `--color-primary` is the brand indigo `#3D4ED7` in every browser (the `oklch()`
+override that rendered `#076BE3` was removed in 1.5.0, so the popup matches the icon).
 
 | Text | Size | Ratio | AA (4.5:1) |
 |---|---|---:|---|
 | Primary text `#202124` on `#FAFAFA` | 13-16px | 15.42 | ✅ |
 | Secondary text `#5F6368` on `#FAFAFA` (slider labels, footer) | 11px | 5.80 | ✅ |
-| White on primary `#076BE3` (Speak button, oklch) | 14px | 4.99 | ✅ |
-| White on primary `#3D4ED7` (fallback) | 14px | 6.42 | ✅ |
+| White on primary `#3D4ED7` (Speak button) | 14px | 6.42 | ✅ |
 | **Warming** pill: `#A05000` on 15% `#F9AB00` | 11px | 5.01 | ✅ |
 | **Offline** pill: `#B71C1C` on 12% `#D93025` | 11px | 5.27 | ✅ |
 | **Connected** pill: `#0A7A42` on 15% `#0F9D58` | 11px | **4.38** | ❌ (by 0.12) |
 | Error message: `#B71C1C` on 10% `#D93025` | 12px | 5.43 | ✅ |
 | Warning message: `#A05000` on 10% `#F9AB00` | 12px | 5.18 | ✅ |
 | Success message: `#0A7A42` on 10% `#0F9D58` | 12px | 4.64 | ✅ |
-| **Info message**: primary `#076BE3` on 10% `#1A73E8` | 12px | **4.21** | ❌ (by 0.29) |
+| Info message: primary `#3D4ED7` on 8% `#3D4ED7` | 12px | 5.47 | ✅ |
 
-**Focus Indicators**: the primary colour against `#FAFAFA` is 4.79:1, above the 3:1 that WCAG 2.1 asks of
+**Focus Indicators**: the primary colour against `#FAFAFA` is 6.15:1, above the 3:1 that WCAG 2.1 asks of
 non-text contrast.
 
 #### Font Sizes
@@ -186,7 +185,7 @@ Accessible error handling:
 ### This review (2026-09-24, v1.5.0)
 1. **Code review** of `popup.html`, `popup.ts`, `options.html`, `options.ts`, `popup.css`, `options.css` and
    `variables.css`, with the line anchors above
-2. **Contrast**: computed from the tokens (the `oklch()` primary converted to sRGB), alpha backgrounds blended
+2. **Contrast**: computed from the tokens, alpha backgrounds blended
    over `#FAFAFA`
 3. **Automated**: the unit suite (`bun test`) covers the popup and options behaviour, including the status
    labels and message roles
@@ -204,8 +203,8 @@ These are the open items for the next review; `TESTING_CHECKLIST.md` §6.2-6.3 l
 
 1. **Connected pill contrast, 4.38:1** (needs 4.5:1 at 11px). Darkening `--color-success-text` slightly, or
    lowering the pill's background tint, would clear it.
-2. **Info message contrast, 4.21:1** with the `oklch()` primary (the `#3D4ED7` fallback would give a higher
-   ratio). The info style also tints its background with `#1A73E8`, an older blue, rather than the primary.
+2. *Fixed in 1.5.0:* the info message was 4.21:1 with the old `oklch()` primary (`#076BE3`) on a `#1A73E8`
+   tint. With the brand `#3D4ED7` on its own 8% tint it is 5.47:1.
 3. **Popup slider and arrow keys** (confirmed in headless Chromium 153 against the built popup, 2026-09-24).
    The slider's range is a 0-1 position with `step="0.001"`, and `handleSpeedChange` snaps every input to the
    nearest 0.1×. An arrow press moves the position by 0.001, which rounds back to the same speed: five
@@ -290,7 +289,7 @@ explicit `type="button"` guards future edits.
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
-| 1.4.3 Contrast (Minimum) | ❌ 2 items | Connected pill 4.38:1, info message 4.21:1; everything else ≥ 4.64:1 |
+| 1.4.3 Contrast (Minimum) | ❌ 1 item | Connected pill 4.38:1; everything else ≥ 4.64:1 |
 | 1.4.5 Images of Text | ✅ Pass | No images of text |
 | 2.4.5 Multiple Ways | n/a | Two single-screen pages |
 | 2.4.6 Headings and Labels | ✅ Pass | Descriptive headings/labels |
@@ -303,7 +302,7 @@ explicit `type="button"` guards future edits.
 | 3.3.3 Error Suggestion | ✅ Pass | Actionable error messages |
 | 3.3.4 Error Prevention | ✅ Pass | Confirmation for reset |
 
-**Overall**: WCAG 2.1 Level AA **except 1.4.3** (two colours, see [Known issues](#known-issues)), by code review.
+**Overall**: WCAG 2.1 Level AA **except 1.4.3** (one colour, see [Known issues](#known-issues)), by code review.
 
 ---
 
