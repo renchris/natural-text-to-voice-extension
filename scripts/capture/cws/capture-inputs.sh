@@ -19,7 +19,7 @@ set -euo pipefail
 LOUT=${1:?usage: capture-inputs.sh <launch-out-dir> <captures-dir> [port]}; CAPS=${2:?}; PORT=${3:-8250}
 HERE="$(cd "$(dirname "$0")/.." && pwd)"; REPO="$(cd "$HERE/../.." && pwd)"
 # shellcheck disable=SC1091
-source "$LOUT/env.txt"; mkdir -p "$CAPS"
+source "$LOUT/env.txt"; mkdir -p "$CAPS"; CAPS="$(cd "$CAPS" && pwd)"   # absolute: node require()s voice-groups.json
 curl -sf "127.0.0.1:$PORT/health" | grep -q '"status":"ok"' || { echo "no healthy helper on $PORT" >&2; exit 1; }
 SW="chrome-extension://$EXT_ID/background"; P="chrome-extension://$EXT_ID/popup/popup.html"; ID='document.getElementById'
 TXT=$(node -pe 'JSON.stringify(require(process.argv[1]).selections.find(s=>s.id==="hero").text)' "$REPO/assets/media/src/selections.json")
