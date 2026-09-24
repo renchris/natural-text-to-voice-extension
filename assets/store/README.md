@@ -14,7 +14,7 @@ continue outward as a faint motif. Palette: `assets/brand/README.md`.
 
 | Store field | File | Size | Bytes | Headline / content | State |
 |---|---|---|---|---|---|
-| Screenshot 1 | `screenshot-1-right-click.png` | 1280×800 | — | **"Select text. Right-click. Listen."** The native context menu over the demo article, with "Speak selected text" highlighted | **Waiting for the GUI pass.** The native menu has no headless equivalent. The template is `cws/shot1.html`, and it needs `src/contextmenu-crop.png` (`scripts/capture/GUI_PASS.md`) |
+| Screenshot 1 | `screenshot-1-right-click.png` | 1280×800 | 207,708 | **"Select text. Right-click. Listen."** The native macOS context menu over the demo article (`https://essays.example/article.html`), paragraph 2 selected, "Speak selected text" highlighted by a real cursor hover | Done (GUI pass, 2026-09-24): `src/contextmenu-crop.png`, a 560×660 CSS px crop at 2x of the headed CfT 153 window, converted to sRGB |
 | Screenshot 2 | `screenshot-2-voices.png` | 1280×800 | 136,883 | **"Natural voices, at your speed."** Emma (UK) is speaking at 1.3×: "Speaking your selection…", "Kokoro · Emma (UK)", Stop, with a lens (2.4× CSS) on the first two so they read at 640×400. The counts (20 American English: 11 female, 9 male; 8 British English: 4 female, 4 male) are the live popup's four voice groups (`src/voice-groups.json`) | Done |
 | Screenshot 3 | `screenshot-3-on-device.png` | 1280×800 | 154,981 | **"Made on your Mac. Not in the cloud."** A "Your Mac" boundary around Chrome → 127.0.0.1 → Natural TTS helper (Kokoro-82M) → Apple GPU (MLX), beside the popup with Heart (US) speaking and a lens on "Kokoro · Heart (US)" | Done |
 | Screenshot 4 | `screenshot-4-no-helper.png` | 1280×800 | 130,261 | **"Works without the helper, too."** The popup with no helper: Offline, "a system voice will read your selection" and the Homebrew install hint, shown at 1.9× CSS (the top of `assets/media/fallback.png`), the cut fading into the page. This **replaces "PDFs too, with ligatures fixed"** (see below) | Done |
@@ -29,9 +29,8 @@ filtering; this machine has no oxipng or pngquant, and lossy quantisation would 
 and full bleed, as the store asks. The Chrome Web Store icon is `chrome-extension/public/icons/icon128.png` (128×128,
 `docs/publishing/CHROME_WEB_STORE.md` §2.2); `assets/brand/icon-512.png` is for the README and other listings.
 
-**Recommended upload order:** the store shows screenshot 1 first. Until the GUI pass fills it, upload 2, 3, 5 and 4 in
-that order. That leads with the voice, then privacy, then setup, then the fallback. Put the right-click shot first once
-it exists.
+**Recommended upload order:** 1, 2, 3, 5, 4. The store shows screenshot 1 first, so the listing leads with the gesture
+(right-click, speak), then the voice, privacy, setup, and the fallback last.
 
 ## Why screenshot 4 is not the PDF shot
 
@@ -81,12 +80,13 @@ scripts/capture/cws/render.sh
 
 Then stop only the pids in `/tmp/ntts-cap/env.txt` and the helper you started.
 
-`src/` holds the committed inputs: the two popup captures below and `voice-groups.json`.
+`src/` holds the committed inputs: the two popup captures, the context-menu crop below, and `voice-groups.json`.
 
 | Input | File | Size |
 |---|---|---|
 | The popup with Emma (UK) speaking at 1.3× (360×440 CSS at 2x) | `src/popup-emma-speaking.png` | 720×880 |
 | The popup with Heart (US) speaking at 1.0× (360×440 CSS at 2x) | `src/popup-heart-speaking.png` | 720×880 |
+| The native context menu over the article, "Speak selected text" highlighted (560×660 CSS at 2x, GUI pass) | `src/contextmenu-crop.png` | 1120×1320 |
 
 `scripts/verify-all.sh docs` checks every image in this directory against the Size column of these two tables.
 
