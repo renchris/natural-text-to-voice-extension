@@ -19,7 +19,7 @@ The package is built by `cd chrome-extension && bun run package`, which writes t
 | --- | --- | --- | --- |
 | 1 | Land the W3 lanes on `main`: the store images in `assets/store/`, the README, this kit | agents | Normal merges. `release.sh` refuses to run anywhere but `origin/main` |
 | 2 | Preview the release | **you** run one command; it drives the checks | `scripts/release/release.sh`: verify-all, versions, the package, and every gated command printed. Changes nothing (exit 2) |
-| 3 | Release | **you** confirm; it drives | Rerun with the confirms it printed: tag `v1.5.0`, GitHub Release with the zip, the Homebrew tap, private vulnerability reporting. After this `brew install renchris/tap/natural-tts` works |
+| 3 | Release | **you** confirm; it drives | Rerun with the confirms it printed: tag `v1.5.0`, GitHub Release with the zip, the README's hero as a playable video (`embed-hero-video.sh`), the Homebrew tap, private vulnerability reporting. After this `brew install renchris/tap/natural-tts` works |
 | 4 | Smoke-test the tap | **you**, or an agent on a machine without a running helper | `brew install renchris/tap/natural-tts && brew test natural-tts` (`brew test` uses a free port, so it does not collide with a running helper) |
 | 5 | Upload the demo video | **you** (YouTube sign-in) | [YOUTUBE.md](YOUTUBE.md). Then `release.sh --youtube-url <URL>` prints the reviewer's test instructions with the link in them |
 | 6 | Create the store listing and submit | **you** (Google sign-in, US$5 fee, 2-Step Verification) | [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md), top to bottom. Submit with **deferred publishing** |
