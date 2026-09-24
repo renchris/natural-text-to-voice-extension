@@ -394,6 +394,26 @@ describe('popup voice list (IN-10)', () => {
     await until(() => !retry.disabled, 'second retry finished');
   });
 
+  test('Retry while the helper is warming polls until it is ready, instead of reporting an error (EXT-7)', async () => {
+    const saved = { ...healthPayload };
+    healthPayload.status = 'warming';
+    healthPayload.model_loaded = false;
+    const retry = el<HTMLButtonElement>('retryButton');
+    retry.click();
+    await until(() => !retry.disabled, 'retry finished');
+    expect(el('statusLabel').textContent).toBe('Warming');
+    expect(el('messageContainer').textContent).toContain('Loading TTS model');
+    expect(el('messageContainer').className).not.toContain('message-error');
+    expect(el<HTMLButtonElement>('speakButton').disabled).toBe(true);
+
+    Object.assign(healthPayload, saved);
+    for (let i = 0; i < 100 && el('statusLabel').textContent !== 'Connected'; i++) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+    expect(el('statusLabel').textContent).toBe('Connected');
+    await until(() => !el<HTMLButtonElement>('speakButton').disabled, 'speak enabled');
+  });
+
   test('every request went to the mocked 127.0.0.1:18249', () => {
     const urls = fetchMock.mock.calls.map(call => String(call[0]));
     expect(urls.length).toBeGreaterThan(0);

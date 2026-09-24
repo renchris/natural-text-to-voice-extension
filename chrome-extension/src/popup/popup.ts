@@ -116,12 +116,7 @@ async function init(): Promise<void> {
     // Hide retry button when connected
     elements.retryButton.style.display = 'none';
   } else if (state.helperStatus === 'warming') {
-    showMessage('Loading TTS model… this can take 30 seconds on first run.', 'info');
-    elements.speakButton.disabled = true;
-    setPlaceholderOption('Loading TTS model…');
-    elements.voiceSelect.disabled = true;
-    elements.retryButton.style.display = 'none';
-    schedulePollWhileWarming();
+    enterWarmingState();
   } else {
     showMessage(disconnectedMessage(), 'error');
     elements.speakButton.disabled = true;
@@ -139,6 +134,20 @@ async function init(): Promise<void> {
   if (footerVersion) footerVersion.textContent = `v${chrome.runtime.getManifest().version}`;
   const shortcutChip = document.getElementById('shortcutChip');
   if (shortcutChip) await renderShortcutChip(shortcutChip);
+}
+
+/**
+ * The helper answers but its model is (re)loading: say so, keep the controls
+ * off, and poll until it is ready. Used on open and by Retry (the helper
+ * reports warming while it restarts a worker).
+ */
+function enterWarmingState(): void {
+  showMessage('Loading TTS model… this can take 30 seconds on first run.', 'info');
+  elements.speakButton.disabled = true;
+  setPlaceholderOption('Loading TTS model…');
+  elements.voiceSelect.disabled = true;
+  elements.retryButton.style.display = 'none';
+  schedulePollWhileWarming();
 }
 
 /**
@@ -300,6 +309,9 @@ async function handleRetryConnection(): Promise<void> {
       elements.retryButton.style.display = 'none';
       elements.speakButton.disabled = false;
       elements.voiceSelect.disabled = false;
+    } else if (state.helperStatus === 'warming') {
+      // Reachable, still loading: not an error, and it must not stay stuck.
+      enterWarmingState();
     } else {
       showMessage(state.engineFailed ? ENGINE_FAILED_MESSAGE : 'Still unable to connect. Ensure the helper is running.', 'error');
     }
