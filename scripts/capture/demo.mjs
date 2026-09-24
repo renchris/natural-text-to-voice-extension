@@ -1,9 +1,12 @@
 // Timed hero-demo driver over raw CDP (CfT --load-extension, or branded Chrome + Extensions.loadUnpacked).
-// Usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector] [--menu-only]
+// Usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector] [--text <exact text>]
+//                     [--menu-only]
 //   paragraphSelector defaults to '#mw-content-text p' (a Wikipedia article); the first match longer
 //   than 200 characters is selected.
 // Steps: animate a text selection -> open the REAL toolbar popup -> bump speed x3 inside the popup
 //        -> close popup -> native right-click context menu.
+// --text "<exact text>": select only that text inside the paragraph (a clip that is one sentence, such as
+//   s1-rightclick), instead of the whole paragraph. The paragraph is then the first match that contains it.
 // --menu-only (the README hero, GUI_PASS.md "Hero video"): animate the selection, then open the native context menu
 //   at 2.4 s. No popup and no speed change, so the speech stays at the 1.0x of hero.wav. It exits with the menu open;
 //   the caller hovers and clicks "Speak selected text" with the native tools and records that click's wall time.
@@ -14,10 +17,16 @@
 // Writes wall-clock timestamps per step so audio can be muxed at the exact offset later.
 import { writeFileSync } from 'node:fs';
 const args = process.argv.slice(2);
-const MENU_ONLY = args.includes('--menu-only');
-const [wsUrl, extId, match, outJson, paraSel = '#mw-content-text p'] = args.filter((a) => a !== '--menu-only');
+let MENU_ONLY = false, ONLY = null;
+const pos = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--menu-only') MENU_ONLY = true;
+  else if (args[i] === '--text') ONLY = args[++i];
+  else pos.push(args[i]);
+}
+const [wsUrl, extId, match, outJson, paraSel = '#mw-content-text p'] = pos;
 if (!wsUrl || !extId || !match || !outJson) {
-  console.error('usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector] [--menu-only]');
+  console.error('usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector] [--text <exact text>] [--menu-only]');
   process.exit(64);
 }
 const ws = new WebSocket(wsUrl);
@@ -44,18 +53,25 @@ ws.onopen = async () => {
     mark('start');
     // 1) animated selection of the lead paragraph, word by word (~1.2 s)
     await until(0.6);
-    const words = await evalIn(ps, `(()=>{const p=[...document.querySelectorAll(${JSON.stringify(paraSel)})].find(x=>x.innerText.trim().length>200);
-      p.scrollIntoView({block:'center'}); window.__p=p; const w=p.innerText.split(/\\s+/).length; return w})()`);
+    const words = await evalIn(ps, `(()=>{const only=${JSON.stringify(ONLY)};
+      const p=[...document.querySelectorAll(${JSON.stringify(paraSel)})].find(x=>only?x.textContent.includes(only):x.innerText.trim().length>200);
+      if(!p) throw new Error('no paragraph matches');
+      const from=only?p.textContent.indexOf(only):0; window.__from=from; window.__to=only?from+only.length:p.textContent.length;
+      p.scrollIntoView({block:'center'}); window.__p=p; return (only||p.innerText).split(/\\s+/).length})()`);
     mark('select-begin');
     const steps = 24;
     for (let i = 1; i <= steps; i++) {
       await evalIn(ps, `(()=>{const p=window.__p;const walker=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,total=0,chars=[];while(n=walker.nextNode()){chars.push([n,total]);total+=n.length}
-        const target=Math.floor(total*${i}/${steps});let endNode=chars[0][0],endOff=0;for(const [nd,start] of chars){if(start<=target){endNode=nd;endOff=Math.min(nd.length,target-start)}}
-        const r=document.createRange();r.setStart(chars[0][0],0);r.setEnd(endNode,endOff);const s=getSelection();s.removeAllRanges();s.addRange(r);return 1})()`);
+        const at=(pos)=>{let node=chars[0][0],o=0;for(const [nd,start] of chars){if(start<=pos){node=nd;o=Math.min(nd.length,pos-start)}}return [node,o]};
+        const target=window.__from+Math.floor((window.__to-window.__from)*${i}/${steps});
+        const r=document.createRange();r.setStart(...at(window.__from));r.setEnd(...at(target));const s=getSelection();s.removeAllRanges();s.addRange(r);return 1})()`);
       await sleep(50);
     }
     mark('select-done');
-    const box = await evalIn(ps, `(()=>{const b=window.__p.getBoundingClientRect();return {x:b.x+120,y:b.y+12}})()`);
+    // Right-click INSIDE the selection (its first line): a right-click outside it makes macOS select the word under
+    // the pointer instead, which would replace a one-sentence selection.
+    const box = await evalIn(ps, `(()=>{const r=getSelection().getRangeAt(0).getClientRects()[0];
+      return {x:r.x+Math.min(120,r.width/2),y:r.y+r.height/2}})()`);
     if (MENU_ONLY) {
       await until(2.4);
       await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: box.x, y: box.y }, ps);
