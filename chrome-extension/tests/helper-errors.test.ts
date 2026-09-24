@@ -98,6 +98,20 @@ describe('helper error codes (one per code)', () => {
     expect((await speakError() as HelperError).code).toBe('text_too_long');
   });
 
+  test('audio_too_long: the worker code wrapped in generation_failed', async () => {
+    speakResponse = json(500, { error: 'generation_failed', message: 'Audio generation failed: audio_too_long' });
+    const error = await speakError();
+    expect((error as HelperError).code).toBe('audio_too_long');
+    expect(userMessageForError(error)).toContain('20 minutes');
+  });
+
+  test('an oversized body: 413 payload_too_large reads as text too long', async () => {
+    speakResponse = json(413, { error: 'payload_too_large', message: 'Request too long (max 1048576 bytes)' });
+    const error = await speakError();
+    expect((error as HelperError).code).toBe('text_too_long');
+    expect(userMessageForError(error)).toContain('too long');
+  });
+
   test('helper down: nothing listening on the port', async () => {
     speakResponse = () => { throw new TypeError('Failed to fetch'); };
     const error = await speakError();

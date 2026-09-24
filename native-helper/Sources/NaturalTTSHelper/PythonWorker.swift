@@ -51,6 +51,10 @@ actor PythonWorker {
     /// Every line tts_worker.py's own logger writes starts with this.
     static let workerLinePrefix = "[worker] "
 
+    /// Largest response frame accepted from the worker. tts_worker.py keeps a
+    /// response well under it (MAX_AUDIO_SECONDS, audio_too_long).
+    static let maxResponseBytes = 100 * 1024 * 1024
+
     init(config: Config) {
         self.config = config
     }
@@ -262,6 +266,37 @@ actor PythonWorker {
         }
     }
 
+    /// Replace a worker whose pipes can no longer be trusted (framing error,
+    /// failed write). Not counted as a crash: the next request gets a fresh,
+    /// in-sync worker once it has warmed up; until then /health says "warming".
+    private func recycle(reason: String) async {
+        logger.error("Replacing the Python worker: \(reason)")
+        let old = process
+        generation += 1 // callbacks from the old worker are ignored from here on
+        isWarm = false
+        health.withLock { $0 = .starting }
+        try? stdin?.fileHandleForWriting.close()
+        process = nil
+        stdin = nil
+        stdout = nil
+
+        if let old, old.isRunning {
+            old.terminate()
+            let pid = old.processIdentifier
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+                if old.isRunning { kill(pid, SIGKILL) }
+            }
+        }
+
+        guard !shuttingDown else { return }
+        do {
+            try await start()
+        } catch {
+            logger.error("Could not restart the Python worker: \(error)")
+            health.withLock { $0 = .failed }
+        }
+    }
+
     /// An unexpected worker exit (crash, Metal OOM, a bad frame) restarts the
     /// worker, bounded by maxRestarts per crashWindow. Past the bound /health
     /// reports "error" instead of an eternal "warming".
@@ -298,22 +333,30 @@ actor PythonWorker {
             throw WorkerError.processNotRunning
         }
 
-        // Encode message as JSON
-        let encoder = JSONEncoder()
-        let jsonData = try encoder.encode(message)
+        // Encode message as JSON, behind its length prefix (4 bytes, little-endian)
+        let jsonData = try JSONEncoder().encode(message)
+        var frame = Data()
+        withUnsafeBytes(of: UInt32(jsonData.count).littleEndian) { frame.append(contentsOf: $0) }
+        frame.append(jsonData)
 
-        // Write length prefix (4 bytes, little-endian)
-        var length = UInt32(jsonData.count).littleEndian
-        withUnsafeBytes(of: &length) { bytes in
-            stdin.fileHandleForWriting.write(Data(bytes))
+        // The throwing write: with SIGPIPE ignored (App.swift) a worker that
+        // has gone away is an EPIPE error here, not a signal that kills the
+        // helper. A partial frame may have been written, so the pipe cannot be
+        // trusted any more either way.
+        do {
+            try stdin.fileHandleForWriting.write(contentsOf: frame)
+        } catch {
+            await recycle(reason: "could not write the request to the worker (\(error))")
+            throw WorkerError.invalidResponse
         }
-
-        // Write message body
-        stdin.fileHandleForWriting.write(jsonData)
 
         logger.debug("Sent message: \(jsonData.count) bytes")
     }
 
+    /// Reads one response frame. A framing error (a short read, a length of 0
+    /// or past maxResponseBytes) leaves the rest of the frame in the pipe, where
+    /// every later read would take payload bytes for a length: the worker is
+    /// replaced (recycle) before the error is thrown.
     private func receiveMessage<T: Decodable>() async throws -> T {
         guard let stdout = stdout else {
             throw WorkerError.processNotRunning
@@ -322,6 +365,7 @@ actor PythonWorker {
         // Read length prefix (4 bytes)
         guard let lengthData = try? stdout.fileHandleForReading.read(upToCount: 4),
               lengthData.count == 4 else {
+            await recycle(reason: "short read of a response length")
             throw WorkerError.invalidResponse
         }
 
@@ -329,19 +373,16 @@ actor PythonWorker {
             bytes.load(as: UInt32.self).littleEndian
         }
 
-        guard length > 0 && length < 100 * 1024 * 1024 else { // Max 100MB
-            logger.error("Invalid message length: \(length) (0x\(String(length, radix: 16)))")
-            // Log first few bytes for debugging
-            if let peek = try? stdout.fileHandleForReading.read(upToCount: 16) {
-                logger.error("Next bytes (hex): \(peek.map { String(format: "%02x", $0) }.joined())")
-                logger.error("Next bytes (ascii): \(redactor.redact(String(data: peek, encoding: .ascii) ?? "non-ascii"))")
-            }
+        guard length > 0 && Int(length) < Self.maxResponseBytes else {
+            // Never log the frame's bytes: they can be request-derived.
+            await recycle(reason: "invalid response length \(length)")
             throw WorkerError.invalidResponse
         }
 
         // Read message body
         guard let messageData = try? stdout.fileHandleForReading.read(upToCount: Int(length)),
               messageData.count == Int(length) else {
+            await recycle(reason: "short read of a \(length)-byte response")
             throw WorkerError.invalidResponse
         }
 

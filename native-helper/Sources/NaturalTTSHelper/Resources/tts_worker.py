@@ -67,44 +67,63 @@ def describe_exception(e):
 MODEL_ID = "prince-canuma/Kokoro-82M"
 SETUP_HINT = "run Scripts/setup-python-env.sh (model not cached or dependency missing)"
 PEAK_LIMIT = 0.98
+SAMPLE_RATE = 24000
+# Largest request frame the worker accepts. The helper caps request text far below this (HTTPServer.swift
+# maxTextBytes), so a bigger frame is a bug or a hostile client, and it is drained and answered rather than
+# treated as a shutdown.
+MAX_MESSAGE_BYTES = 10 * 1024 * 1024
+# Longest audio one response may carry. The helper rejects a response frame of 100 MiB or more
+# (PythonWorker.swift maxResponseBytes); 20 minutes of 16-bit mono WAV is 57.6 MB, 76.8 MB as base64.
+# 5,000 digit-dense characters at 1.0x made ~38 minutes, which used to desync the pipe for good.
+MAX_AUDIO_SECONDS = float(os.environ.get("NTTS_MAX_AUDIO_SECONDS", "1200"))
 
 # Global model cache for reuse across requests
 _model_cache = None
 
 
+class BadFrame(Exception):
+    """A request frame that was read whole but cannot be served. The stream is still in sync, so the worker
+    answers it with an error code instead of exiting (exiting made the helper's next write hit a closed
+    pipe, and SIGPIPE killed the helper)."""
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
 def read_message():
-    """Read length-prefixed JSON message from stdin (Native Messaging protocol)"""
-    try:
-        # Read 4-byte length prefix (little-endian)
-        length_bytes = sys.stdin.buffer.read(4)
-        if len(length_bytes) == 0:
-            return None
+    """Read one length-prefixed JSON message from stdin (Native Messaging protocol).
 
-        length = int.from_bytes(length_bytes, "little")
-        if length == 0 or length > 10 * 1024 * 1024:  # Max 10MB message
-            logger.error(f"Invalid message length: {length} (0x{length:08x})")
-            # Log next few bytes for debugging
-            try:
-                peek = sys.stdin.buffer.read(min(16, sys.stdin.buffer.readable()))
-                logger.error(f"Next bytes (hex): {peek.hex()}")
-                logger.error(f"Next bytes (ascii): {repr(peek)}")
-            except:
-                pass
-            return None
-
-        # Read message body
-        message_bytes = sys.stdin.buffer.read(length)
-        if len(message_bytes) != length:
-            logger.error(
-                f"Incomplete message: expected {length}, got {len(message_bytes)}"
-            )
-            return None
-
-        message = json.loads(message_bytes.decode("utf-8"))
-        return message
-    except Exception as e:
-        logger.error(f"Error reading message: {describe_exception(e)}")
+    Returns the message, or None on EOF or the zero-length shutdown frame. Raises BadFrame for an oversized
+    frame (drained first) or a body that is not UTF-8 JSON. Never logs the frame's bytes: they are the
+    request text."""
+    length_bytes = sys.stdin.buffer.read(4)
+    if len(length_bytes) < 4:
         return None
+
+    length = int.from_bytes(length_bytes, "little")
+    if length == 0:
+        return None
+    if length > MAX_MESSAGE_BYTES:
+        logger.error(f"Oversized request frame: {length} bytes; draining it")
+        remaining = length
+        while remaining:
+            chunk = sys.stdin.buffer.read(min(remaining, 1 << 20))
+            if not chunk:
+                return None
+            remaining -= len(chunk)
+        raise BadFrame("text_too_long")
+
+    message_bytes = sys.stdin.buffer.read(length)
+    if len(message_bytes) != length:
+        logger.error(f"Incomplete message: expected {length}, got {len(message_bytes)}")
+        return None
+
+    try:
+        return json.loads(message_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+        logger.error(f"Undecodable request frame: {describe_exception(e)}")
+        raise BadFrame("bad_request")
 
 
 def write_message(obj):
@@ -247,10 +266,15 @@ def generate_audio_mlx(text, voice, speed):
                 result_gen = model.generate(
                     text, voice=voice, speed=speed, lang_code=lang_code
                 )
-                # Collect all audio chunks from the generator
+                # Collect all audio chunks from the generator, stopping at the response-size bound.
                 audio_chunks = []
+                samples = 0
                 for chunk in result_gen:
                     audio_chunks.append(chunk.audio)
+                    samples += int(chunk.audio.size)
+                    if samples > MAX_AUDIO_SECONDS * SAMPLE_RATE:
+                        logger.error(f"Audio longer than {MAX_AUDIO_SECONDS:.0f}s; not returning it")
+                        return {"error": "audio_too_long"}
                 logger.info(f"Generated {len(audio_chunks)} audio chunks")
         t_gen_end = time.time()
         logger.info(f"MLX generation: {t_gen_end - t_gen_start:.3f}s")
@@ -332,7 +356,11 @@ def main():
     # Event loop: read requests, generate audio, write responses
     while True:
         try:
-            request = read_message()
+            try:
+                request = read_message()
+            except BadFrame as e:
+                write_message({"error": e.code})
+                continue
             if request is None:
                 logger.info("Received shutdown signal")
                 break

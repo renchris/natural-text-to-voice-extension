@@ -8,6 +8,17 @@ actor HTTPServer {
     private let logger = Logger(label: "com.naturaltts.helper.http")
     private let config: Config
     private let worker: PythonWorker
+    /// config.port, readable from the channel handler without entering the actor.
+    nonisolated let port: Int
+
+    /// Largest request body buffered. A /speak body is 5,000 characters of
+    /// JSON; anything past this is answered 413 without reading the rest.
+    static let maxBodyBytes = 1024 * 1024
+    /// Largest request text in UTF-8 bytes. The 5,000 limit counts grapheme
+    /// clusters, and one cluster can be kilobytes ("e" + 1,100 combining
+    /// accents): 5,000 of them made an 11 MB worker frame, past the worker's
+    /// 10 MB frame limit.
+    static let maxTextBytes = 100_000
 
     private var channel: Channel?
     private var eventLoopGroup: MultiThreadedEventLoopGroup?
@@ -17,6 +28,7 @@ actor HTTPServer {
     init(config: Config, worker: PythonWorker) {
         self.config = config
         self.worker = worker
+        self.port = config.port
     }
 
     func start() async throws {
@@ -78,6 +90,31 @@ actor HTTPServer {
         requestCount += 1
         logger.debug("[\(requestCount)] \(head.method) \(head.uri)")
 
+        let origin = head.headers.first(name: "Origin")
+        if let rejection = rejection(for: head) {
+            return rejection
+        }
+
+        switch (head.method, head.uri) {
+        case (.GET, "/health"):
+            return await handleHealth(origin: origin)
+
+        case (.POST, "/speak"):
+            return await handleSpeak(body: body, origin: origin)
+
+        case (.GET, "/voices"):
+            return await handleVoices(origin: origin)
+
+        default:
+            return notFound(origin: origin)
+        }
+    }
+
+    /// The Host and Origin gates. Needs only the request head, so HTTPHandler
+    /// runs it as soon as the head arrives and a rejected request is answered
+    /// without buffering its body (a 400 MB body used to be read in full
+    /// before the 403). handleRequest runs it again.
+    nonisolated func rejection(for head: HTTPRequestHead) -> (HTTPResponseHead, ByteBuffer?)? {
         // DNS-rebinding defence, on every endpoint. A web page that rebinds
         // its own hostname to 127.0.0.1 reaches this port as a same-origin
         // request, so neither CORS nor the Origin check below stops it, but
@@ -88,7 +125,7 @@ actor HTTPServer {
             logger.warning("Rejected request with Host \(host.map { String($0.prefix(100)) } ?? "<missing>") on \(head.uri)")
             let error = ErrorResponse(
                 error: "bad_host",
-                message: "Host must be 127.0.0.1:\(config.port), localhost:\(config.port) or [::1]:\(config.port)",
+                message: "Host must be 127.0.0.1:\(port), localhost:\(port) or [::1]:\(port)",
                 retryAfterSeconds: nil
             )
             return jsonResponse(error, status: .forbidden, origin: nil)
@@ -112,24 +149,23 @@ actor HTTPServer {
         //   header a web page cannot read the response anyway.
         if head.uri == "/speak" || head.uri == "/voices" {
             if let origin = origin, !isExtensionOrigin(origin) {
-                logger.warning("Rejected non-extension origin on \(head.uri): \(origin)")
+                logger.warning("Rejected non-extension origin on \(head.uri): \(origin.prefix(100))")
                 return forbidden(origin: nil)
             }
         }
+        return nil
+    }
 
-        switch (head.method, head.uri) {
-        case (.GET, "/health"):
-            return await handleHealth(origin: origin)
-
-        case (.POST, "/speak"):
-            return await handleSpeak(body: body, origin: origin)
-
-        case (.GET, "/voices"):
-            return await handleVoices(origin: origin)
-
-        default:
-            return notFound(origin: origin)
-        }
+    /// 413 for a body past maxBodyBytes. "too long" in the message is what the
+    /// extension maps to its text-too-long advice.
+    nonisolated func payloadTooLarge(origin: String?) -> (HTTPResponseHead, ByteBuffer?) {
+        logger.warning("Rejected a request body over \(Self.maxBodyBytes) bytes")
+        let error = ErrorResponse(
+            error: "payload_too_large",
+            message: "Request too long (max \(Self.maxBodyBytes) bytes)",
+            retryAfterSeconds: nil
+        )
+        return jsonResponse(error, status: .payloadTooLarge, origin: origin)
     }
 
     private func handleHealth(origin: String?) async -> (HTTPResponseHead, ByteBuffer?) {
@@ -184,8 +220,8 @@ actor HTTPServer {
             return badRequest("Text cannot be empty", origin: origin)
         }
 
-        guard request.text.count <= 5000 else {
-            return badRequest("Text too long (max 5000 characters)", origin: origin)
+        guard request.text.count <= 5000, request.text.utf8.count <= Self.maxTextBytes else {
+            return badRequest("Text too long (max 5000 characters, \(Self.maxTextBytes) bytes)", origin: origin)
         }
 
         // Validate voice against the catalogue. An unknown ID used to reach
@@ -264,19 +300,18 @@ actor HTTPServer {
 
     // MARK: - CORS / Origin / Host
 
-    private func isAllowedHost(_ host: String?) -> Bool {
+    private nonisolated func isAllowedHost(_ host: String?) -> Bool {
         guard let host = host?.lowercased() else { return false }
-        let port = config.port
         return host == "127.0.0.1:\(port)" || host == "localhost:\(port)" || host == "[::1]:\(port)"
     }
 
-    private func isExtensionOrigin(_ origin: String) -> Bool {
+    private nonisolated func isExtensionOrigin(_ origin: String) -> Bool {
         return origin.hasPrefix("chrome-extension://") ||
                origin.hasPrefix("moz-extension://") ||
                origin.hasPrefix("safari-web-extension://")
     }
 
-    private func corsHeaders(for origin: String?) -> [(String, String)] {
+    private nonisolated func corsHeaders(for origin: String?) -> [(String, String)] {
         guard let origin = origin, isExtensionOrigin(origin) else { return [] }
         return [
             ("Access-Control-Allow-Origin", origin),
@@ -286,7 +321,7 @@ actor HTTPServer {
 
     // MARK: - Response Helpers
 
-    private func jsonResponse<T: Encodable>(_ data: T, status: HTTPResponseStatus, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
+    private nonisolated func jsonResponse<T: Encodable>(_ data: T, status: HTTPResponseStatus, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         guard let jsonData = try? JSONEncoder().encode(data) else {
             return internalError()
         }
@@ -303,22 +338,22 @@ actor HTTPServer {
         return (head, buffer)
     }
 
-    private func badRequest(_ message: String, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
+    private nonisolated func badRequest(_ message: String, origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         let error = ErrorResponse(error: "bad_request", message: message, retryAfterSeconds: nil)
         return jsonResponse(error, status: .badRequest, origin: origin)
     }
 
-    private func notFound(origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
+    private nonisolated func notFound(origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         let error = ErrorResponse(error: "not_found", message: "Endpoint not found", retryAfterSeconds: nil)
         return jsonResponse(error, status: .notFound, origin: origin)
     }
 
-    private func forbidden(origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
+    private nonisolated func forbidden(origin: String? = nil) -> (HTTPResponseHead, ByteBuffer?) {
         let error = ErrorResponse(error: "forbidden", message: "Origin not allowed", retryAfterSeconds: nil)
         return jsonResponse(error, status: .forbidden, origin: origin)
     }
 
-    private func internalError() -> (HTTPResponseHead, ByteBuffer?) {
+    private nonisolated func internalError() -> (HTTPResponseHead, ByteBuffer?) {
         var head = HTTPResponseHead(version: .http1_1, status: .internalServerError)
         head.headers.add(name: "Content-Type", value: "text/plain")
         return (head, nil)
@@ -334,6 +369,9 @@ final class HTTPHandler: ChannelInboundHandler {
     private let server: HTTPServer
     private var requestHead: HTTPRequestHead?
     private var bodyBuffer: ByteBuffer?
+    /// Set once this request has been answered early (Host/Origin rejection
+    /// or an oversized body): the rest of it is ignored, not buffered.
+    private var answered = false
 
     init(server: HTTPServer) {
         self.server = server
@@ -346,8 +384,20 @@ final class HTTPHandler: ChannelInboundHandler {
         case .head(let head):
             requestHead = head
             bodyBuffer = nil
+            answered = false
+            if let rejection = server.rejection(for: head) {
+                answered = true
+                respond(context: context, rejection)
+            }
 
         case .body(var buffer):
+            guard !answered else { return }
+            if (bodyBuffer?.readableBytes ?? 0) + buffer.readableBytes > HTTPServer.maxBodyBytes {
+                answered = true
+                bodyBuffer = nil
+                respond(context: context, server.payloadTooLarge(origin: requestHead?.headers.first(name: "Origin")))
+                return
+            }
             if bodyBuffer == nil {
                 bodyBuffer = buffer
             } else {
@@ -355,6 +405,12 @@ final class HTTPHandler: ChannelInboundHandler {
             }
 
         case .end:
+            defer {
+                requestHead = nil
+                bodyBuffer = nil
+                answered = false
+            }
+            guard !answered else { return }
             guard let head = requestHead else {
                 context.close(promise: nil)
                 return
@@ -366,24 +422,25 @@ final class HTTPHandler: ChannelInboundHandler {
 
             // Handle request asynchronously
             Task {
-                let (responseHead, responseBody) = await server.handleRequest(head: savedHead, body: savedBody)
+                let response = await server.handleRequest(head: savedHead, body: savedBody)
 
                 // Execute response writing on the EventLoop
                 context.eventLoop.execute {
-                    context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
-
-                    if let body = responseBody {
-                        context.write(self.wrapOutboundOut(.body(.byteBuffer(body))), promise: nil)
-                    }
-
-                    context.writeAndFlush(self.wrapOutboundOut(.end(nil))).whenComplete { _ in
-                        context.close(promise: nil)
-                    }
+                    self.respond(context: context, response)
                 }
             }
+        }
+    }
 
-            requestHead = nil
-            bodyBuffer = nil
+    /// Write a whole response and close the connection. Event loop only.
+    private func respond(context: ChannelHandlerContext, _ response: (HTTPResponseHead, ByteBuffer?)) {
+        let (responseHead, responseBody) = response
+        context.write(wrapOutboundOut(.head(responseHead)), promise: nil)
+        if let body = responseBody {
+            context.write(wrapOutboundOut(.body(.byteBuffer(body))), promise: nil)
+        }
+        context.writeAndFlush(wrapOutboundOut(.end(nil))).whenComplete { _ in
+            context.close(promise: nil)
         }
     }
 }

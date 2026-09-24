@@ -4,6 +4,10 @@ import Logging
 @main
 struct NaturalTTSHelper {
     static func main() async {
+        // A write to a worker that has exited must be an EPIPE error the
+        // helper handles (PythonWorker.sendMessage), not a signal that kills it.
+        signal(SIGPIPE, SIG_IGN)
+
         // Configure logging
         LoggingSystem.bootstrap { label in
             var handler = StreamLogHandler.standardOutput(label: label)

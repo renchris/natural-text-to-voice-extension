@@ -201,6 +201,42 @@ section_swift() {
       -H 'Content-Type: application/json' -d '{"text":"Hi","voice":"af_bella"}' || echo 000)"
   if [[ "$c" == 403 ]]; then pass "Host: evil.example /speak -> 403"; else fail "Host: evil.example /speak -> 403" "HTTP $c"; fi
 
+  # Rejected requests are answered from their head, before any body is read: a foreign Origin or Host
+  # with a declared 500 MB body gets its 403 at once (it used to be buffered in full first).
+  local early
+  early="$(python3 - "$PORT" <<'PY' 2>&1
+import socket, sys
+port = int(sys.argv[1])
+out = []
+for host, origin in ((f"127.0.0.1:{port}", "https://evil.example"), ("evil.example", None)):
+    s = socket.create_connection(("127.0.0.1", port)); s.settimeout(5)
+    head = f"POST /speak HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: 500000000\r\n"
+    if origin: head += f"Origin: {origin}\r\n"
+    s.sendall((head + "\r\n").encode())
+    try: out.append(s.recv(64).split(b"\r\n")[0].decode())
+    except OSError as e: out.append(f"no answer ({e.__class__.__name__})")
+    s.close()
+print(" | ".join(out))
+PY
+)"
+  if [[ "$early" == "HTTP/1.1 403 Forbidden | HTTP/1.1 403 Forbidden" ]]; then pass "rejected before the body" "$early"
+  else fail "rejected before the body" "$early"; fi
+
+  # Size bounds: 5,000 graphemes of 'e' + 1,100 combining accents (11 MB) used to pass the character
+  # check, make the worker exit on its 10 MB frame limit, and kill the helper with SIGPIPE.
+  python3 -c 'import json; print(json.dumps({"text": ("e" + "́" * 1100) * 5000}))' >"$LOGDIR/zalgo-11mb.json"
+  python3 -c 'import json; print(json.dumps({"text": ("e" + "́" * 100) * 1000}))' >"$LOGDIR/zalgo-200kb.json"
+  local big_code mid_code
+  big_code="$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$base/speak" -H 'Content-Type: application/json' \
+      --data-binary @"$LOGDIR/zalgo-11mb.json" || echo 000)"
+  mid_code="$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$base/speak" -H 'Content-Type: application/json' \
+      --data-binary @"$LOGDIR/zalgo-200kb.json" || echo 000)"
+  c="$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -X POST "$base/speak" -H 'Content-Type: application/json' \
+      -d '{"text":"Still here.","voice":"af_bella"}' || echo 000)"
+  if [[ "$big_code" == 413 && "$mid_code" == 400 && "$c" == 200 ]] && kill -0 "$HELPER_PID" 2>/dev/null; then
+    pass "oversized text refused, helper up" "11 MB body 413, 200 KB text 400, then /speak 200"
+  else fail "oversized text refused, helper up" "11 MB body $big_code, 200 KB text $mid_code, then /speak $c"; fi
+
   # British voice synthesises a 24 kHz mono 16-bit WAV.
   c="$(curl -s --max-time 60 -o "$LOGDIR/bf_emma.wav" -w '%{http_code}' -X POST "$base/speak" \
       -H 'Content-Type: application/json' -d "{\"text\":\"Good morning from $sentinel in London.\",\"voice\":\"bf_emma\"}" || echo 000)"

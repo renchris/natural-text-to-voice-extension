@@ -85,6 +85,61 @@ REQUESTS = [
 ]
 
 
+def bounds_phase(py, worker, env, check):
+    """A second worker, with NTTS_MAX_AUDIO_SECONDS=2: an oversized request frame is drained and answered
+    `text_too_long` (it used to be read as a shutdown, and the helper then died of SIGPIPE writing the
+    rest), a request past the audio bound is answered `audio_too_long` (it used to produce a response
+    frame over the helper's 100 MiB cap, which desynced the pipe for good), and the worker still serves a
+    normal request afterwards, so the stream stayed in sync."""
+    p = subprocess.Popen(
+        [py, worker],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        env=dict(env, NTTS_MAX_AUDIO_SECONDS="2"),
+    )
+
+    def recv():
+        h = p.stdout.read(4)
+        if len(h) != 4:
+            return None
+        return json.loads(p.stdout.read(struct.unpack("<I", h)[0]))
+
+    def send(o):
+        b = json.dumps(o).encode()
+        p.stdin.write(struct.pack("<I", len(b)) + b)
+        p.stdin.flush()
+
+    try:
+        big = 11 * 1024 * 1024
+        p.stdin.write(struct.pack("<I", big) + b"x" * big)
+        p.stdin.flush()
+        r = recv()
+        print(f"BOUNDS oversized frame -> {r}")
+        check(r == {"error": "text_too_long"}, f"oversized frame answered {r}, want text_too_long")
+        send({"text": "This sentence is certainly longer than two seconds when it is read aloud at normal speed.", "voice": "af_bella", "speed": 1.0})
+        r = recv()
+        print(f"BOUNDS long audio -> {r}")
+        check(r == {"error": "audio_too_long"}, f"audio past the bound answered {r}, want audio_too_long")
+        send({"text": "Hi.", "voice": "af_bella", "speed": 1.0})
+        r = recv()
+        ok = isinstance(r, dict) and "audio_base64" in r
+        print(f"BOUNDS short after -> {'audio' if ok else r}")
+        check(ok, f"worker did not serve a normal request after the bounded ones: {r}")
+    except (BrokenPipeError, OSError) as e:
+        check(False, f"bounds phase: worker pipe broke: {e}")
+    finally:
+        try:
+            p.stdin.close()
+        except OSError:
+            pass
+        try:
+            p.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait()
+
+
 def main():
     py = sys.argv[1] if len(sys.argv) > 1 else sys.executable
     worker = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_WORKER
@@ -202,6 +257,8 @@ def main():
         any(line.rstrip().endswith(SENTINEL) for line in stderr.splitlines()),
         f"stderr lacks the sentinel line {SENTINEL!r}",
     )
+
+    bounds_phase(py, worker, env, check)
 
     if failures:
         print("verify_worker: FAIL", file=sys.stderr)

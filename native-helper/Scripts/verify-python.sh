@@ -7,7 +7,7 @@
 #   1 lock      uv lock --check (pyproject.toml and uv.lock agree)
 #   2 no-torch  uv.lock resolves no torch
 #   3 imports   Python 3.12, mlx 0.32.2, mlx-audio 0.5.5, en_core_web_sm installed, no torch
-#   4 worker    Scripts/verify_worker.py      (3 OK WAVs, empty_text + invalid_speed, clean stdout)
+#   4 worker    Scripts/verify_worker.py      (4 OK WAVs, error codes, clean stdout, private stderr, frame/audio bounds)
 #   5 probe     Scripts/kokoro_probe.py       (ok == 30, any_nan false, max_peak <= 0.98)
 #   6 g2p       Scripts/verify_g2p.py         (normalize_text + misaki rows)
 #   7 fidelity  Scripts/ref_compare.py        (|level| <= NTTS_MAX_LEVEL_DB, log-mel L1 <= NTTS_MAX_L1)

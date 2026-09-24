@@ -18,6 +18,7 @@ export type HelperErrorCode =
   | 'nan_audio'
   | 'bad_host'
   | 'text_too_long'
+  | 'audio_too_long'
   | 'empty_text'
   | 'warmup_timeout'
   | 'helper_down';
@@ -27,6 +28,7 @@ const WRAPPED_CODES: readonly HelperErrorCode[] = [
   'unknown_voice',
   'invalid_speed',
   'nan_audio',
+  'audio_too_long',
   'empty_text',
   'text_too_long',
   'bad_host',
@@ -116,6 +118,8 @@ const MESSAGES: Record<HelperErrorCode, string> = {
   bad_host:
     'The helper refused the request address. Update the Natural TTS helper and the extension, and check that no proxy rewrites 127.0.0.1.',
   text_too_long: 'The selection is too long (5,000 characters at most). Select less text.',
+  audio_too_long:
+    'This selection makes more than 20 minutes of speech, more than the helper returns at once. Select less text or raise the speed.',
   empty_text: 'There is no speakable text in the selection.',
   warmup_timeout: 'The helper is still loading its voice model. Try again in a few seconds.',
   helper_down: 'The Natural TTS helper is not running. Start it, then try again.',
