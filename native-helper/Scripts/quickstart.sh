@@ -207,6 +207,16 @@ check_prerequisites() {
     fi
     log_success "Xcode Command Line Tools: $(xcode-select -p)"
 
+    # Swift 6.0+: the pinned swift-nio / swift-log manifests declare swift-tools-version 6.0, which an
+    # older toolchain cannot even parse (Package.swift, "Build floor").
+    SWIFT_VERSION=$(swift --version 2>/dev/null | sed -nE 's/.*Swift version ([0-9]+)\.([0-9]+).*/\1.\2/p' | head -n 1)
+    if [ -z "$SWIFT_VERSION" ] || [ "${SWIFT_VERSION%%.*}" -lt 6 ]; then
+        log_error "Swift 6.0+ required, found: ${SWIFT_VERSION:-none}"
+        log_info "Install Xcode 16.2 or newer (or its Command Line Tools)"
+        exit 1
+    fi
+    log_success "Swift: $SWIFT_VERSION"
+
     # Check Homebrew
     if ! command -v brew &>/dev/null; then
         log_error "Homebrew not found"
@@ -331,11 +341,23 @@ build_binary() {
     cd "$PROJECT_ROOT"
 
     log_info "Compiling (30-60 seconds)..."
+    # Fail closed on swift build's own exit status. The old "| grep ... || true" hid a failed build, and
+    # the existence check below then passed on the PREVIOUS binary: an update run reported success and
+    # started the old helper again.
+    BUILD_LOG="$(mktemp "${TMPDIR:-/tmp}/ntts-swift-build.XXXXXX")"
+    BUILD_STATUS=0
     if [ "$VERBOSE" = true ]; then
-        swift build -c release
+        swift build -c release 2>&1 | tee "$BUILD_LOG" || BUILD_STATUS=$?
     else
-        swift build -c release 2>&1 | grep -E "(Compiling|Linking|Build complete|error)" || true
+        swift build -c release >"$BUILD_LOG" 2>&1 || BUILD_STATUS=$?
     fi
+    if [ "$BUILD_STATUS" -ne 0 ]; then
+        log_error "Swift build failed (exit $BUILD_STATUS; full log: $BUILD_LOG):"
+        tail -n 20 "$BUILD_LOG"
+        log_info "The helper needs a Swift 6.0+ toolchain (Xcode 16.2 or its Command Line Tools)."
+        exit 1
+    fi
+    rm -f "$BUILD_LOG"
 
     BINARY_PATH="$PROJECT_ROOT/.build/release/natural-tts-helper"
     if [ -f "$BINARY_PATH" ]; then
@@ -428,6 +450,13 @@ wait_for_health() {
 
         if echo "$HEALTH" | jq -e '.model_loaded == true' &>/dev/null; then
             echo ""
+            # A helper without apiVersion 2 is an older build (a stale binary, or an old helper still
+            # holding the port): the update did not take, whatever the steps above printed.
+            if ! echo "$HEALTH" | jq -e '(.apiVersion // 0) >= 2' &>/dev/null; then
+                log_error "The helper on port $PORT is an older build (no apiVersion 2): $(echo "$HEALTH" | jq -c .)"
+                log_info "Stop it (tmux kill-session -t $SESSION_NAME, or quit the old helper) and run this script again."
+                exit 1
+            fi
             log_success "Helper is ready!"
 
             if [ "$VERBOSE" = true ]; then
