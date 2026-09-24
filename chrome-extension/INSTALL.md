@@ -12,7 +12,8 @@ built-in system voices, but the natural Kokoro voices need the helper.
 
 ## Prerequisites
 
-✅ **A Mac with Apple silicon on macOS 14 (Sonoma) or later**
+✅ **A Mac with Apple silicon on macOS 14 (Sonoma) or later**; building the helper needs **14.5+** with Xcode 16.2 or its
+Command Line Tools
    - Check: Apple menu → About This Mac → Chip (an Apple M-series chip) and macOS version
 
 ✅ **A Chromium browser, version 148 or later**
@@ -219,8 +220,8 @@ swift --version   # must report Swift 6.0 or later
 
 ### Issue: Python setup or the model download fails
 
-`quickstart.sh` runs `native-helper/Scripts/setup-python-env.sh`, which builds the environment with uv (Python
-3.12 is fetched by uv, not taken from your system) and downloads the Kokoro model from Hugging Face once. It stops
+`quickstart.sh` runs `native-helper/Scripts/setup-python-env.sh`, which builds the environment with uv (uv provides
+Python 3.12, downloading it if no 3.12 is installed; no system Python is required) and downloads the Kokoro model from Hugging Face once. It stops
 at the first failed step. Check your connection to huggingface.co and run it again: it reuses what it already
 built. `brew install uv` if uv is missing.
 
@@ -279,7 +280,7 @@ uses them.
 - The helper answers a 15-word sentence in about a third of a second and a 400-word passage in about 6.5 s on an
   M1 Max. Audio starts when the whole passage is ready, so long selections take a moment.
 - While speaking, the helper's worker uses up to ~3.6 GB of memory for the longest (5,000-character) selections,
-  and falls back to ~0.6 GB between requests.
+  and falls back to ~0.7 GB between requests.
 
 ---
 

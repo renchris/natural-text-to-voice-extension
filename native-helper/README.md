@@ -38,7 +38,8 @@ and `/speak`; the helper answers `/speak` with a WAV.
 - **Supervision**: a worker that exits is restarted, up to 3 times in 2 minutes
 
 **Performance** (M1 Max, helper 1.5.0, GPU otherwise idle): ~26.5× faster than real time at every text length,
-0.35 s for the first request, 1.95 s from launch to ready. See [Performance](#performance).
+0.35 s for the first request, about 3-4 s from launch to ready (1.95 s before the British pipeline was also warmed at
+startup). See [Performance](#performance).
 
 <!-- Diagram source: assets/diagrams/architecture.mmd. Edit it, run `bun run diagrams` at the repo root, commit the SVGs. -->
 <picture>
@@ -95,8 +96,9 @@ curl -X POST http://127.0.0.1:8249/speak \
   --output test.wav && afplay test.wav
 ```
 
-Step 3 is the only step that needs the network: ~0.65 GB for the Python environment plus a ~0.36 GB
-Kokoro-82M download. After that the helper runs offline (the worker sets `HF_HUB_OFFLINE=1`).
+Steps 1-4 use the network once: Homebrew, the clone, the Python environment (~0.66 GB, 655 MB) and the Kokoro model
+(~0.35 GB, 349 MB) in step 3, and the Swift packages on the first build in step 4. After that the helper runs offline
+(the worker sets `HF_HUB_OFFLINE=1`).
 
 `Scripts/quickstart.sh` does steps 1-5 for you and runs the helper in a background tmux session; with Homebrew,
 `brew install renchris/tap/natural-tts && brew services start natural-tts` does the same as a login service
@@ -108,9 +110,11 @@ Kokoro-82M download. After that the helper runs offline (the worker sets `HF_HUB
 
 ### Required
 
-- **macOS 14+** (Sonoma or later) on **Apple silicon** (M1 or later). Current MLX ships macOS 14+ wheels only
+- **macOS 14 (Sonoma) or later** on **Apple silicon** (M1 or later); building the helper needs **14.5+** with Xcode 16.2
+  or its Command Line Tools (every install path builds it). Current MLX ships macOS 14+ wheels only
 - **Xcode Command Line Tools** with a Swift 6.0+ toolchain (Xcode 16.2 or later): `xcode-select --install`
-- **uv** 0.11.28 or later. It installs and pins **Python 3.12** itself, so no system Python is needed
+- **uv** 0.11.28 or later. It provides **Python 3.12** (an installed 3.12 if there is one, else it downloads one), so
+  no system Python is needed
 - **espeak-ng** (phoneme data for Kokoro)
   ```bash
   brew install uv espeak-ng
@@ -144,8 +148,8 @@ cd native-helper
 ```
 
 This syncs the hash-locked uv project in `python/` (`pyproject.toml` + `uv.lock`) into
-`Sources/NaturalTTSHelper/Resources/python-env/` (~0.65 GB, Python 3.12, no torch). It then pre-fetches
-Kokoro-82M (~0.36 GB, into `~/.cache/huggingface/hub/`) and runs `Scripts/verify_worker.py` end to end. Key pins:
+`Sources/NaturalTTSHelper/Resources/python-env/` (~0.66 GB, 655 MB; Python 3.12, no torch). It then pre-fetches
+Kokoro-82M (~0.35 GB, 349 MB, into `~/.cache/huggingface/hub/`) and runs `Scripts/verify_worker.py` end to end. Key pins:
 - `mlx==0.32.2` (Apple Metal ML framework)
 - `mlx-audio==0.5.5` (Kokoro TTS implementation)
 - `misaki==0.9.4` + `spacy==3.8.16` + `en_core_web_sm` 3.8.0 (G2P)
@@ -168,7 +172,8 @@ The binary will be at: `.build/release/natural-tts-helper`
 .build/release/natural-tts-helper
 ```
 
-**Startup** (~2 s on an M1 Max): loads the cached model and runs one warm-up sentence, so the first request
+**Startup** (about 3-4 s on an M1 Max): loads the cached model and runs one warm-up sentence per English pipeline
+(American and British), so the first request
 is as fast as later ones. Nothing is downloaded at run time; if the model is missing, the worker exits at
 startup with a hint to re-run `Scripts/setup-python-env.sh`.
 
@@ -375,7 +380,7 @@ seconds ÷ client wall time. Full method and raw numbers:
 
 | Startup and memory | Value |
 |---|---|
-| Launch to ready (includes the warm-up generation) | 1.95 s |
+| Launch to ready (includes the warm-up generations) | about 3-4 s (`bench/results.json`, 3.8-3.9 s on a busy machine); 1.95 s before the British pipeline was also warmed at startup |
 | First `/speak` after launch (15 words) | 0.35 s |
 | `/health` during a long `/speak` | under 1 ms |
 | Worker memory between requests | 0.6-0.7 GB |
@@ -421,9 +426,10 @@ A source install reads and writes `~/Library/Application Support/NaturalTTS/conf
 
 A `secret` field written by helpers before 1.5 was never checked; it is ignored and dropped on the next save.
 
-**Overrides**, which are never saved: `--port`, `--python`, `--worker` (or `NATURAL_TTS_PORT`,
-`NATURAL_TTS_PYTHON`, `NATURAL_TTS_WORKER`; flags win). With any override the helper does not write the shared
-`config.json`, and without `NATURAL_TTS_CONFIG_DIR` it does not read it either. An explicit port that is taken
+**Overrides** (`--port`, `--python`, `--worker`, or `NATURAL_TTS_PORT`, `NATURAL_TTS_PYTHON`, `NATURAL_TTS_WORKER`;
+flags win) are never written to the shared `~/Library/Application Support/NaturalTTS/config.json`, and without
+`NATURAL_TTS_CONFIG_DIR` the helper does not read it either. With `NATURAL_TTS_CONFIG_DIR` set, they are saved into
+`<dir>/config.json`: this is how the Homebrew service pins its `opt/` paths. An explicit port that is taken
 is an error, never a silent fallback. The Homebrew service uses these overrides and keeps its own config in
 `$(brew --prefix)/var/natural-tts`.
 
@@ -480,7 +486,7 @@ example mlx-audio's phoneme dump of a long token), so keep `.debug` for local de
 ### Iterating on the worker
 
 1. Edit `Sources/NaturalTTSHelper/Resources/tts_worker.py`
-2. Restart the helper; the model is already cached, so startup takes about 2 s
+2. Restart the helper; the model is already cached, so startup takes about 3-4 s
 3. `Sources/NaturalTTSHelper/Resources/python-env/bin/python3 Scripts/verify_worker.py` (from `native-helper/`)
    exercises the worker without the Swift side
 
@@ -662,7 +668,7 @@ components installed into your own environment (espeak-ng, phonemizer-fork, num2
 
 - [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad (Apache-2.0), in the MLX conversion
   [prince-canuma/Kokoro-82M](https://huggingface.co/prince-canuma/Kokoro-82M)
-- [mlx-audio](https://github.com/Blaizzy/mlx-audio) and [MLX](https://github.com/ml-explore/mlx) by Apple — Kokoro on the Apple GPU
+- [mlx-audio](https://github.com/Blaizzy/mlx-audio) by Prince Canuma, and [MLX](https://github.com/ml-explore/mlx) by Apple: Kokoro on the Apple GPU
 - [SwiftNIO](https://github.com/apple/swift-nio) by Apple — asynchronous networking
 - [misaki](https://github.com/hexgrad/misaki) and [espeak-ng](https://github.com/espeak-ng/espeak-ng) — text to phonemes
 

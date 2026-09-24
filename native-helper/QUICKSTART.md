@@ -12,10 +12,10 @@ with the store listing).
 Before starting, ensure you have:
 
 ```bash
-# Check macOS version (need 14+)
+# Check macOS version (need 14.5+ to build; the helper runs on 14.0+)
 sw_vers
 # ProductName:            macOS
-# ProductVersion:         14.0  (or higher)
+# ProductVersion:         14.5  (or higher)
 
 # Check Xcode Command Line Tools
 xcode-select -p
@@ -61,8 +61,8 @@ cd natural-text-to-voice-extension/native-helper
 
 **What this does**:
 - Syncs the hash-locked uv project in `python/` into `Sources/NaturalTTSHelper/Resources/python-env/`
-  (Python 3.12, MLX 0.32.2, mlx-audio 0.5.5; ~0.65 GB, no torch)
-- Pre-fetches Kokoro-82M once (~0.36 GB); after that the helper runs offline
+  (Python 3.12, MLX 0.32.2, mlx-audio 0.5.5; ~0.66 GB (655 MB), no torch)
+- Pre-fetches Kokoro-82M once (~0.35 GB, 349 MB); after that the helper runs offline
 - Verifies the worker end to end (`Scripts/verify_worker.py`)
 - Moves a pre-1.5 environment to `native-helper/.python-env.pre-1.5` as a rollback
 
@@ -105,10 +105,10 @@ Binary will be at: `.build/release/natural-tts-helper`
 ```
 
 Nothing is downloaded here: Step 2 fetched the model. The helper loads it, runs one short warm-up sentence per
-English pipeline, and only then opens its port, so the first request is as fast as later ones. About 2 s on an
-idle M1 Max.
+English pipeline, and only then opens its port, so the first request is as fast as later ones. About 3-4 s on an
+M1 Max (1.95 s before the British pipeline was also warmed at startup).
 
-**Expected output** (abridged; timestamps and logger labels trimmed):
+**Expected output** (abridged; in a terminal the helper prints each message without a timestamp or label):
 ```
 info: Natural TTS Helper 1.5.0 (API 2) starting...
 info: Starting Python MLX worker...
@@ -334,7 +334,7 @@ You now have:
 
 **Config saved to**: `~/Library/Application Support/NaturalTTS/config.json`
 
-**Next time**: run `.build/release/natural-tts-helper` (or `Scripts/quickstart.sh`); startup takes about 2 s.
+**Next time**: run `.build/release/natural-tts-helper` (or `Scripts/quickstart.sh`); startup takes about 3-4 s.
 
 ---
 

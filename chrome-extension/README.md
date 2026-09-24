@@ -28,7 +28,8 @@ This is the developer README for the extension. Install steps for users are in t
 
 ## Requirements
 
-- **A Mac with Apple silicon on macOS 14 (Sonoma) or later**, for the helper. Without it the extension still
+- **A Mac with Apple silicon on macOS 14 (Sonoma) or later**, for the helper (building it needs 14.5+ with Xcode 16.2
+  or its Command Line Tools). Without it the extension still
   speaks, with system voices.
 - **Chromium 148 or later** (`minimum_chrome_version`): Chrome, Edge, Brave, Opera, Vivaldi, Arc or Dia.
 - **The Natural TTS helper** on `127.0.0.1`. The extension looks for it on ports 8249 to 8260. The helper's
@@ -242,7 +243,7 @@ chrome-extension/
 ├── public/
 │   ├── manifest.json    # Extension manifest (Manifest V3)
 │   └── icons/           # Extension icons (16, 32, 48, 128 px), from assets/brand/
-├── scripts/             # verify-permissions.cjs
+├── scripts/             # verify-permissions.cjs, package.mjs (store zip)
 ├── tests/               # Bun unit tests, opt-in integration, headed e2e
 ├── build.ts             # tsc-checked sources → dist/ with Bun.build
 ├── dist/                # Build output (load this in Chrome; gitignored)
@@ -266,6 +267,12 @@ bun run type-check
 # Chrome's install-time permission warnings for dist/ (needs Chrome for Testing:
 # bunx playwright-core install chromium)
 bun run verify:permissions
+
+# Deterministic store zip in release/, re-read and checked
+bun run package
+
+# Headed end-to-end suite against a mock helper (builds first; needs Chrome for Testing)
+bun run test:e2e
 ```
 
 ### Technology Stack
@@ -377,7 +384,9 @@ See [PRIVACY.md](./PRIVACY.md) for full privacy policy.
 ### Speech (the helper)
 On an M1 Max with helper 1.5.0, voice `af_bella`, speed 1.0: ~26.5× faster than real time at every length
 (0.34 s for 15 words, 6.5 s for 407 words), 0.35 s for the first request after start, and 1.95 s from launch to
-ready. Method and raw numbers: [W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md).
+ready, measured before the British pipeline was also warmed at startup (now about 3-4 s). Method and raw numbers:
+[W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md); the re-measured
+chart (af_heart, a busy machine, ~22×) is [bench/results.json](../bench/results.json).
 
 ---
 

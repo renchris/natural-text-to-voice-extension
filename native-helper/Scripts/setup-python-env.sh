@@ -104,7 +104,7 @@ print(f"  Python {sys.version.split()[0]} | mlx {mx.__version__} | mlx-audio {m.
 EOF
 
 echo
-echo "Fetching the Kokoro model once (weights + voices, ~360 MB on first run)..."
+echo "Fetching the Kokoro model once (weights + voices, ~350 MB on first run)..."
 # The worker pins the model commit (MODEL_REVISION in tts_worker.py); fetch exactly that commit and the
 # files the worker loads (MODEL_FILES), so a fresh install gets the weights and voices the gate measured,
 # not whatever upstream main holds today.
