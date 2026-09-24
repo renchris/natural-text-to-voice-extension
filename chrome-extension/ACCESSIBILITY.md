@@ -123,10 +123,10 @@ override that rendered `#076BE3` was removed in 1.5.0, so the popup matches the 
 | White on deep ink `#1B2060` (Stop button, while speaking) | 14px | 14.77 | ✅ |
 | **Warming** pill: `#A05000` on 15% `#F9AB00` | 11px | 5.01 | ✅ |
 | **Offline** pill: `#B71C1C` on 12% `#D93025` | 11px | 5.27 | ✅ |
-| **Connected** pill: `#0A7A42` on 15% `#0F9D58` | 11px | **4.38** | ❌ (by 0.12) |
+| Connected pill: `#09713D` on 15% `#0F9D58` | 11px | 4.94 | ✅ |
 | Error message: `#B71C1C` on 10% `#D93025` | 12px | 5.43 | ✅ |
 | Warning message: `#A05000` on 10% `#F9AB00` | 12px | 5.18 | ✅ |
-| Success message: `#0A7A42` on 10% `#0F9D58` | 12px | 4.64 | ✅ |
+| Success message: `#09713D` on 10% `#0F9D58` | 12px | 5.23 | ✅ |
 | Info message: primary `#3D4ED7` on 8% `#3D4ED7` | 12px | 5.47 | ✅ |
 
 **Focus Indicators**: the primary colour against `#FAFAFA` is 6.15:1, above the 3:1 that WCAG 2.1 asks of
@@ -202,8 +202,8 @@ These are the open items for the next review; `TESTING_CHECKLIST.md` §6.2-6.3 l
 
 ## Known issues
 
-1. **Connected pill contrast, 4.38:1** (needs 4.5:1 at 11px). Darkening `--color-success-text` slightly, or
-   lowering the pill's background tint, would clear it.
+1. *Fixed in 1.5.0:* the Connected pill was 4.38:1 at 11px. `--color-success-text` is now `#09713D` (4.94:1 on
+   the pill).
 2. *Fixed in 1.5.0:* the info message was 4.21:1 with the old `oklch()` primary (`#076BE3`) on a `#1A73E8`
    tint. With the brand `#3D4ED7` on its own 8% tint it is 5.47:1.
 3. **Popup slider and arrow keys** (confirmed in headless Chromium 153 against the built popup, 2026-09-24).
@@ -290,7 +290,7 @@ explicit `type="button"` guards future edits.
 
 | Criterion | Status | Evidence |
 |-----------|--------|----------|
-| 1.4.3 Contrast (Minimum) | ❌ 1 item | Connected pill 4.38:1; everything else ≥ 4.64:1 |
+| 1.4.3 Contrast (Minimum) | ✅ | every text colour ≥ 4.94:1 |
 | 1.4.5 Images of Text | ✅ Pass | No images of text |
 | 2.4.5 Multiple Ways | n/a | Two single-screen pages |
 | 2.4.6 Headings and Labels | ✅ Pass | Descriptive headings/labels |
@@ -303,7 +303,7 @@ explicit `type="button"` guards future edits.
 | 3.3.3 Error Suggestion | ✅ Pass | Actionable error messages |
 | 3.3.4 Error Prevention | ✅ Pass | Confirmation for reset |
 
-**Overall**: WCAG 2.1 Level AA **except 1.4.3** (one colour, see [Known issues](#known-issues)), by code review.
+**Overall**: WCAG 2.1 Level AA, by code review (see [Known issues](#known-issues) for what is still open).
 
 ---
 
