@@ -11,6 +11,7 @@ func post(_ t: CGEventType, _ at: CGPoint) {
   e.post(tap: .cghidEventTap)
 }
 post(.mouseMoved, p); Thread.sleep(forTimeInterval: hover)
+let downAt = Int(Date().timeIntervalSince1970 * 1000)
 post(.leftMouseDown, p); Thread.sleep(forTimeInterval: 0.06); post(.leftMouseUp, p)
 Thread.sleep(forTimeInterval: 0.2); post(.mouseMoved, orig)
-print("clicked \(p), cursor restored to \(orig)")
+print("clicked \(p), cursor restored to \(orig) down_at=\(downAt)")

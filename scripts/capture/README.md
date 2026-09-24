@@ -17,16 +17,19 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `sckrec.swift` | ScreenCaptureKit recorder for one app's windows, with audio. macOS 15+ |
 | `sckapps.swift` | Lists the Chrome-like apps ScreenCaptureKit can share (diagnoses audio filter problems) |
 | `hover.swift` | Moves the real cursor, runs a capture command, restores the cursor (highlights a menu item) |
-| `click.swift` | One real OS left click at a screen point, then restores the cursor |
+| `click.swift` | One real OS left click at a screen point, then restores the cursor; prints the mouse-down time (`down_at=`, epoch ms) |
+| `move.swift` | Moves the real cursor and leaves it there (parks it off the capture window); prints where it was |
+| `axmenu.swift` | Lists the items of an app's open native menu (context menu, `<select>` list) with screen frames, through the Accessibility API; with a title, prints that item's centre |
 | `key.swift` | Posts one key press by virtual key code (does **not** dismiss Chrome's native menu) |
 | `cdp.mjs` | Evaluates a JS expression in the first CDP target whose URL contains a substring (`--list` lists targets) |
 | `cdp-browser.mjs` | Sends one browser-level CDP command (`Extensions.*`, `Browser.*`) |
 | `demo.mjs` | The timed demo driver: selection → real popup → speed ×3 → close → native context menu. `--menu-only` (the hero: selection → context menu only) and `--text` (select one exact sentence). Writes a timeline |
+| `hero.mjs` | The hero driver on the demo article: `--mode prep` (scroll), `menu` (store screenshot 1: the menu with "Speak selected text" highlighted), `full` (select → right-click → real hover and click on the item, optional anchored popup). Writes a timeline with the click's mouse-down time |
 | `cws/*.html`, `cws/base.css`, `cws/arcs.js`, `cws/glyph.svg` | Store-image templates: screenshots 1–5, small tile, marquee, YouTube thumbnail, GitHub social preview |
 | `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
 | `versions.sh` | Prints the toolchain versions; save its output next to every capture set |
-| `launch.sh` | Launches the capture browser (headed, or `HEADLESS=1`), seeds the helper port/voice/speed, arms `port-guard.mjs`, writes `env.txt` |
+| `launch.sh` | Launches the capture browser (headed, or `HEADLESS=1`), seeds the helper port/voice/speed, arms `port-guard.mjs`, writes `env.txt`. `CDP_PORT`, `BLOCK` and `HOLD=1` let a second capture run sit beside another |
 | `port-guard.mjs` | CDP `Fetch` guard in every target: refuses every port 8249-8260 but the capture helper's (`launch.sh`), logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
 | `shoot.mjs` | Headless-safe capture of the popup page (or any page) through CDP: `--fit` PNG at 2x, `--cast`/`--grab` frame sequences with timestamps |
 | `assemble-loop.mjs` | Resamples a `shoot.mjs` frame sequence onto a constant rate, merges identical frames, encodes lossless `img2webp -m 6` (near-lossless ghosted earlier frames) |
