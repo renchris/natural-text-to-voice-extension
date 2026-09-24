@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # verify-all.sh — the fail-closed integration gate for the v1.5 upgrade (UPGRADE_RESEARCH.md §6).
 #
-# Usage: scripts/verify-all.sh [python] [swift] [extension] [consistency]     (no argument = all four)
+# Usage: scripts/verify-all.sh [python] [swift] [extension] [consistency] [packaging]   (no argument = all five)
 #
 # Every check is an assertion. A missing prerequisite is a FAIL naming the missing path, never a skip.
 # Prints a PASS/FAIL table and exits non-zero if any check failed. Logs go to a fresh $TMPDIR/ntts-verify.* dir.
@@ -14,7 +14,10 @@
 #   - it kills only the helper PID it launched and that helper's own worker child, via an EXIT trap.
 #
 # Env overrides: VERIFY_PORT (18249), VERIFY_NODE_PATH ($HOME/Development/node_modules, playwright-core for
-# verify-permissions.cjs), VERIFY_READY_TIMEOUT (180 s).
+# verify-permissions.cjs), VERIFY_READY_TIMEOUT (180 s), VERIFY_BRITISH_WARM_MAX (0.8 s: first bf_ /speak
+# after ready; 0.17 s measured warm, 1.1-2.6 s before the British pipeline was warmed at startup),
+# VERIFY_FOOTPRINT_MAX_MB (4500: worker phys_footprint_peak after a ~5,000-character /speak; 3.5-3.6 GB
+# measured with the 256 MB MLX cache cap, 7.9 GB without it), VERIFY_E2E (1: run the headless extension E2E).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,6 +28,11 @@ READY_TIMEOUT="${VERIFY_READY_TIMEOUT:-180}"
 NODE_PATH_FOR_PERMS="${VERIFY_NODE_PATH:-$HOME/Development/node_modules}"
 EXPECTED_WARNINGS='["Read and change your data on 127.0.0.1"]'
 EXPECTED_VOICES=28
+EXPECTED_DEFAULT_VOICE=af_heart                       # OD-5, both sides
+EXPECTED_NAME='Natural TTS: Private Kokoro Voices for Mac'   # OD-7
+BRITISH_WARM_MAX="${VERIFY_BRITISH_WARM_MAX:-0.8}"
+FOOTPRINT_MAX_MB="${VERIFY_FOOTPRINT_MAX_MB:-4500}"
+RUN_E2E="${VERIFY_E2E:-1}"
 CONFIG_DIR="$HOME/Library/Application Support/NaturalTTS"
 CONFIG_JSON="$CONFIG_DIR/config.json"
 
@@ -71,6 +79,19 @@ trap 'exit 130' INT TERM
 
 json() { # json <file> <python expression over d>
   python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$1" "$2"
+}
+# wavinfo <file>: "<frames> <seconds>" of a WAV, or "0 0" when it is not one.
+wavinfo() {
+  python3 -c 'import sys,wave; w=wave.open(sys.argv[1]); n=w.getnframes(); print(n, "%.2f" % (n / w.getframerate()))' "$1" 2>/dev/null || echo "0 0"
+}
+# speak <out> <json-body> [max-time]: POST /speak on our helper; prints "<http code> <seconds>".
+speak() {
+  curl -s --max-time "${3:-120}" -o "$1" -w '%{http_code} %{time_total}\n' -X POST "http://127.0.0.1:$PORT/speak" \
+    -H 'Content-Type: application/json' --data-binary "$2" 2>/dev/null || echo "000 0"
+}
+# body <text> [voice] [speed]: a /speak JSON body; an empty voice is left out of the body.
+body() {
+  python3 -c 'import json,sys; b={"text": sys.argv[1]}; sys.argv[2] and b.update(voice=sys.argv[2]); sys.argv[3] and b.update(speed=float(sys.argv[3])); print(json.dumps(b))' "$1" "${2:-}" "${3:-}"
 }
 
 # ---------------------------------------------------------------- python
@@ -159,6 +180,38 @@ section_swift() {
   else
     rm -f "$VOICES_IDS"; fail "/voices count" "HTTP $vcode"
   fi
+
+  # The British pipeline is built at startup too, so the FIRST bf_ request after ready does not pay for it.
+  # This must stay the first bf_ request of the run.
+  local wc wt
+  read -r wc wt < <(speak "$LOGDIR/bf-first.wav" "$(body 'Good evening, and welcome.' bf_isabella)" 60)
+  if [[ "$wc" == 200 ]] && awk -v t="$wt" -v m="$BRITISH_WARM_MAX" 'BEGIN{exit !(t < m)}'; then
+    pass "first bf_ /speak is warm" "${wt}s (< ${BRITISH_WARM_MAX}s)"
+  else fail "first bf_ /speak is warm" "HTTP $wc in ${wt}s (want 200 in < ${BRITISH_WARM_MAX}s)"; fi
+
+  # OD-5: a /speak naming no voice speaks af_heart (this helper runs with no config.json, i.e. a new install).
+  # Kokoro's durations are a deterministic function of text + voice (only the vocoder's phase noise is
+  # random), so the voiceless WAV must have af_heart's frame count, and af_bella's must differ.
+  local dtext="Checking the default voice: seven tired painters carry heavy ladders home through the quiet rain."
+  local dn dh db
+  speak "$LOGDIR/default-none.wav" "$(body "$dtext")" >/dev/null
+  speak "$LOGDIR/default-heart.wav" "$(body "$dtext" af_heart)" >/dev/null
+  speak "$LOGDIR/default-bella.wav" "$(body "$dtext" af_bella)" >/dev/null
+  dn="$(wavinfo "$LOGDIR/default-none.wav" | cut -d' ' -f1)"; dh="$(wavinfo "$LOGDIR/default-heart.wav" | cut -d' ' -f1)"
+  db="$(wavinfo "$LOGDIR/default-bella.wav" | cut -d' ' -f1)"
+  if [[ "$dn" != 0 && "$dn" == "$dh" && "$dh" != "$db" ]]; then
+    pass "/speak default voice == $EXPECTED_DEFAULT_VOICE" "frames: no voice $dn, af_heart $dh, af_bella $db"
+  else fail "/speak default voice == $EXPECTED_DEFAULT_VOICE" "frames: no voice $dn, af_heart $dh, af_bella $db"; fi
+
+  # A bad request is the client's fault: 400 with a machine-readable code, never 500.
+  local sc ec se ee
+  read -r sc _ < <(speak "$LOGDIR/bad-speed.json" "$(body 'Too slow.' af_heart 0.1)" 30)
+  read -r ec _ < <(speak "$LOGDIR/empty-text.json" "$(body '' af_heart)" 30)
+  se="$(json "$LOGDIR/bad-speed.json" "d.get('error')" 2>/dev/null || echo '?')"
+  ee="$(json "$LOGDIR/empty-text.json" "d.get('error')" 2>/dev/null || echo '?')"
+  if [[ "$sc" == 400 && "$se" == invalid_speed && "$ec" == 400 && "$ee" == empty_text ]]; then
+    pass "bad speed / empty text -> 400" "speed 0.1: 400 $se; text '': 400 $ee"
+  else fail "bad speed / empty text -> 400" "speed 0.1: $sc $se; text '': $ec $ee"; fi
 
   # A ~400-word /speak in flight: /health must answer in < 0.1 s, the worker holds no network connection.
   local sentinel="Quillfeatherverify" text
@@ -259,19 +312,36 @@ PY
     fail "bf_emma -> WAV" "HTTP $c, $fmt"
   fi
 
-  # Privacy, long token: one chunk over 510 phonemes made mlx-audio log its whole phoneme string (the
-  # number, spelled out), and a 320-digit number made the worker return str(OverflowError) quoting it.
-  local digits="4111411141114111" big
+  # Long tokens. Privacy: one chunk over 510 phonemes made mlx-audio log its whole phoneme string (the
+  # number, spelled out), and a 320-digit number once came back as a 500 quoting str(OverflowError).
+  # Now a digit run of 16+ is read in groups and a long unbroken token is split, so both are SPOKEN WHOLE:
+  # 200 with audio as long as the whole token takes to say (measured 189 s for 320 digits, 91 s for the
+  # 600-character URL; a token cut at 510 phonemes says about 40 s).
+  local digits="4111411141114111" big url
   big="$(python3 -c 'print("7" * 320)')"
-  c="$(curl -s --max-time 120 -o /dev/null -w '%{http_code}' -X POST "$base/speak" -H 'Content-Type: application/json' \
-      -d "{\"text\":\"My card number is ${digits}${digits}${digits}${digits} and my PIN is 9876.\",\"voice\":\"af_bella\"}" || echo 000)"
-  local c2; c2="$(curl -s --max-time 60 -o "$LOGDIR/overflow.json" -w '%{http_code}' -X POST "$base/speak" \
-      -H 'Content-Type: application/json' -d "{\"text\":\"The modulus is $big and that is all.\",\"voice\":\"af_bella\"}" || echo 000)"
+  url="$(python3 -c 'print(("https://docs.example.com/" + "chapter-7/section-42/item-913?view=full&lang=en/" * 13)[:600])')"
+  read -r c _ < <(speak /dev/null "$(body "My card number is ${digits}${digits}${digits}${digits} and my PIN is 9876." af_bella)")
+  local c2 c3 s2 s3
+  read -r c2 _ < <(speak "$LOGDIR/digits-320.wav" "$(body "The modulus is $big and that is all." af_heart)" 180)
+  read -r c3 _ < <(speak "$LOGDIR/url-600.wav" "$(body "$url" af_heart)" 180)
+  s2="$(wavinfo "$LOGDIR/digits-320.wav" | cut -d' ' -f2)"; s3="$(wavinfo "$LOGDIR/url-600.wav" | cut -d' ' -f2)"
   if [[ "$c" != 200 ]]; then fail "no phonemes/digits in helper log" "64-digit /speak HTTP $c"
   elif grep -qE 'ps ==|len\(ps\)' "$hlog"; then fail "no phonemes/digits in helper log" "phoneme dump in $hlog"
-  elif grep -qE "$digits|7777777777777777" "$hlog" "$LOGDIR/overflow.json"; then
-    fail "no phonemes/digits in helper log" "request digits in $hlog or the error body"
-  else pass "no phonemes/digits in helper log" "64-digit HTTP $c, 320-digit HTTP $c2"; fi
+  elif grep -qE "$digits|7777777777777777" "$hlog"; then fail "no phonemes/digits in helper log" "request digits in $hlog"
+  else pass "no phonemes/digits in helper log" "64-digit HTTP $c, 320-digit HTTP $c2, URL HTTP $c3"; fi
+  if [[ "$c2" == 200 && "$c3" == 200 ]] && awk -v a="$s2" -v b="$s3" 'BEGIN{exit !(a >= 90 && b >= 60)}'; then
+    pass "320 digits + 600-char URL spoken" "HTTP 200 ${s2}s (>= 90), HTTP 200 ${s3}s (>= 60)"
+  else fail "320 digits + 600-char URL spoken" "digits HTTP $c2 ${s2}s (want >= 90), URL HTTP $c3 ${s3}s (want >= 60)"; fi
+
+  # A 250-word run-on with no punctuation is split for synthesis but spoken at a normal pace
+  # (the band verify_worker.py uses; 3.0 words/s measured).
+  local runon rc rs
+  runon="$(python3 -c 'w = ("the quick brown fox jumps over the lazy dog while seven tired painters carry heavy ladders home").split() * 20; print(" ".join(w[:250]))')"
+  read -r rc _ < <(speak "$LOGDIR/run-on.wav" "$(body "$runon" af_heart 1.0)" 180)
+  rs="$(wavinfo "$LOGDIR/run-on.wav" | cut -d' ' -f2)"
+  if [[ "$rc" == 200 ]] && awk -v s="$rs" 'BEGIN{exit !(s > 0 && 250 / s >= 1.8 && 250 / s <= 4.5)}'; then
+    pass "250-word run-on pace" "${rs}s = $(awk -v s="$rs" 'BEGIN{printf "%.2f", 250 / s}') words/s (band 1.8-4.5)"
+  else fail "250-word run-on pace" "HTTP $rc, ${rs}s (want 250 words at 1.8-4.5 words/s)"; fi
 
   # Privacy: the spoken text never reaches the helper's log.
   if grep -q "$sentinel" "$hlog"; then fail "text absent from helper log" "sentinel found in $hlog"
@@ -303,11 +373,51 @@ PY
     fail "worker restarted after death" "no worker pid of ours to kill"
   fi
 
+  # Memory: the MLX buffer cache is capped, so a ~5,000-character request peaks near the ~3.2 GB active-array
+  # floor instead of 7.9 GB. Measured on the (restarted) worker's lifetime peak.
+  if [[ -n "$WORKER_PID" ]] && kill -0 "$WORKER_PID" 2>/dev/null; then
+    local xtext xc peak
+    xtext="$(python3 -c '
+s = ("Text to speech has come a long way. The helper runs Kokoro on this Mac, so nothing leaves the machine. "
+     "Seven tired painters carry heavy ladders home through the quiet rain, and the quick brown fox naps. "
+     "Every paragraph is split into sentences, and every sentence is spoken at an even, natural pace. ")
+t = s * 20
+print(t[:t.rfind(" ", 0, 4985)])')"
+    read -r xc _ < <(speak "$LOGDIR/x5000.wav" "$(body "$xtext" af_heart)" 300)
+    peak="$(footprint -j "$LOGDIR/worker-footprint.json" "$WORKER_PID" >/dev/null 2>&1 && python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1])); pid = int(sys.argv[2])
+p = next(p for p in d["processes"] if p["pid"] == pid)
+print(p["auxiliary"]["phys_footprint_peak"] * d["bytes per unit"] // 1048576)' "$LOGDIR/worker-footprint.json" "$WORKER_PID" 2>/dev/null || echo '?')"
+    if [[ "$xc" == 200 && "$peak" =~ ^[0-9]+$ ]] && (( peak < FOOTPRINT_MAX_MB )); then
+      pass "worker peak footprint (5k chars)" "${peak} MB (< $FOOTPRINT_MAX_MB), ${#xtext} chars HTTP $xc"
+    else fail "worker peak footprint (5k chars)" "HTTP $xc, peak ${peak} MB (want < $FOOTPRINT_MAX_MB)"; fi
+  else
+    fail "worker peak footprint (5k chars)" "no worker pid of ours to measure"
+  fi
+
   # The machine-wide config.json is untouched (the sandbox also denies the write).
   local cfg_after="absent"
   [[ -f "$CONFIG_JSON" ]] && cfg_after="$(shasum -a 256 "$CONFIG_JSON" | cut -d' ' -f1)"
   if [[ "$cfg_before" == "$cfg_after" ]]; then pass "config.json untouched"
   else fail "config.json untouched" "changed; pre-run copy at $LOGDIR/config.json.before"; fi
+
+  # SIGTERM (launchd, brew services stop) stops the worker and exits 0 within 3 s. The helper is our own
+  # child, so a zombie ('Z') counts as exited; wait then collects its status.
+  local hp="$HELPER_PID" wp="$WORKER_PID" t0 gone=0 code worker_left
+  t0="$(python3 -c 'import time; print(time.time())')"
+  kill -TERM "$hp" 2>/dev/null || true
+  for _ in $(seq 1 30); do
+    case "$(ps -o stat= -p "$hp" 2>/dev/null | tr -d ' ')" in ''|Z*) gone=1; break ;; esac
+    sleep 0.1
+  done
+  local dt; dt="$(python3 -c 'import sys,time; print("%.2f" % (time.time() - float(sys.argv[1])))' "$t0")"
+  if (( gone )); then wait "$hp" 2>/dev/null && code=0 || code=$?; HELPER_PID=""; else code="still running"; fi
+  worker_left=none
+  [[ -n "$wp" ]] && ps -o command= -p "$wp" 2>/dev/null | grep -q tts_worker.py && worker_left="$wp"
+  if (( gone )) && [[ "$code" == 0 && "$worker_left" == none ]]; then
+    WORKER_PID=""; pass "SIGTERM: exit 0 < 3 s, worker gone" "exited in ${dt}s, worker $wp gone"
+  else fail "SIGTERM: exit 0 < 3 s, worker gone" "after ${dt}s: exit $code, worker left: $worker_left"; fi
 }
 
 # ---------------------------------------------------------------- extension
@@ -352,6 +462,57 @@ print(json.dumps(found[-1]) if found else "")' "$LOGDIR/extension-perms.log" 2>/
   fi
   if grep -q '<all_urls>' "$dist/manifest.json"; then fail "no <all_urls> in dist manifest"
   else pass "no <all_urls> in dist manifest"; fi
+  # OD-2: the system-voice fallback needs "tts", which adds no install warning (checked above).
+  if [[ "$(json "$dist/manifest.json" "'tts' in d.get('permissions', [])" 2>/dev/null)" == True ]]; then
+    pass "dist manifest has tts permission"
+  else fail "dist manifest has tts permission" "permissions: $(json "$dist/manifest.json" "d.get('permissions')" 2>/dev/null)"; fi
+  local mname; mname="$(json "$dist/manifest.json" "d.get('name')" 2>/dev/null || echo '?')"
+  if [[ "$mname" == "$EXPECTED_NAME" ]]; then pass "manifest name (OD-7)" "$mname"
+  else fail "manifest name (OD-7)" "got '$mname', want '$EXPECTED_NAME'"; fi
+  # OD-10: the 128 px icon is 96 px of artwork inside a fully transparent 16 px border.
+  if need "$dist/icons/icon128.png" "icon128 96 px art, 16 px clear"; then
+    local icon; icon="$(python3 - "$dist/icons/icon128.png" <<'PY' 2>&1
+import struct, sys, zlib
+raw = open(sys.argv[1], "rb").read()
+assert raw[:8] == b"\x89PNG\r\n\x1a\n", "not a PNG"
+pos, idat, ihdr = 8, b"", None
+while pos < len(raw):
+    n, kind = struct.unpack(">I4s", raw[pos:pos + 8]); data = raw[pos + 8:pos + 8 + n]; pos += 12 + n
+    if kind == b"IHDR": ihdr = struct.unpack(">IIBBBBB", data)
+    elif kind == b"IDAT": idat += data
+w, h, depth, ctype, _, _, interlace = ihdr
+if (depth, ctype, interlace) != (8, 6, 0):
+    sys.exit(f"{w}x{h} depth {depth} colour type {ctype} interlace {interlace}: want 8-bit RGBA, not interlaced")
+px, stride, rows, prev = zlib.decompress(idat), w * 4, [], bytearray(w * 4)
+for y in range(h):
+    f, line = px[y * (stride + 1)], bytearray(px[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+    for i in range(stride):
+        a = line[i - 4] if i >= 4 else 0; b = prev[i]; c = prev[i - 4] if i >= 4 else 0
+        if f == 1: line[i] = (line[i] + a) & 255
+        elif f == 2: line[i] = (line[i] + b) & 255
+        elif f == 3: line[i] = (line[i] + (a + b) // 2) & 255
+        elif f == 4:
+            p = a + b - c; pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+            line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+    rows.append(line); prev = line
+alpha = [[r[x * 4 + 3] for x in range(w)] for r in rows]
+opaque = [(x, y) for y in range(h) for x in range(w) if alpha[y][x]]
+xs = [x for x, _ in opaque]; ys = [y for _, y in opaque]
+bbox = (min(xs), min(ys), max(xs), max(ys)) if opaque else None
+print(f"{w}x{h} art bbox {bbox}")
+sys.exit(0 if (w, h) == (128, 128) and bbox == (16, 16, 111, 111) else 1)
+PY
+)" && pass "icon128 96 px art, 16 px clear" "$icon" || fail "icon128 96 px art, 16 px clear" "$icon (want 128x128, art bbox (16, 16, 111, 111))"
+  fi
+  # Headless E2E: the built extension in Chrome for Testing against the mock helper. Every request to
+  # 127.0.0.1:8249-8260 is intercepted over CDP, so it never reaches a real helper.
+  if [[ "$RUN_E2E" == 1 ]]; then
+    if logged e2e bash -c 'cd "$1" && E2E_HEADLESS=1 node tests/e2e/run-e2e.mjs' _ "$EXT_DIR"; then
+      pass "e2e (headless)" "$(grep -Eo '[0-9]+/[0-9]+ passed[^)]*' "$LOGDIR/extension-e2e.log" | tail -1)"
+    else fail "e2e (headless)" "$(logtail e2e)"; fi
+  else
+    fail "e2e (headless)" "VERIFY_E2E=$RUN_E2E: skipped, so the gate is not green"
+  fi
   local hits
   hits="$(grep -rl --include='*.js' 'console\.log' "$dist" || true)"
   if [[ -z "$hits" ]]; then pass "no console.log in dist"; else fail "no console.log in dist" "$(echo "$hits" | sed "s|$dist/||" | tr '\n' ' ')"; fi
@@ -379,6 +540,10 @@ section_consistency() {
       fi
     fi
   fi
+  # OD-5 on the extension side: its DEFAULT_VOICE is the helper's default (checked in the swift section).
+  local dv; dv="$(cd "$EXT_DIR" && bun -e 'import { DEFAULT_VOICE } from "./src/shared/voices.ts"; console.log(DEFAULT_VOICE);' 2>/dev/null || echo '?')"
+  if [[ "$dv" == "$EXPECTED_DEFAULT_VOICE" ]]; then pass "extension DEFAULT_VOICE" "$dv"
+  else fail "extension DEFAULT_VOICE" "got $dv, want $EXPECTED_DEFAULT_VOICE"; fi
   local mf="$EXT_DIR/public/manifest.json" pj="$EXT_DIR/package.json"
   if need "$mf" "manifest version == package version" && need "$pj" "manifest version == package version"; then
     local mv pv
@@ -388,14 +553,34 @@ section_consistency() {
   fi
 }
 
+# ---------------------------------------------------------------- packaging
+section_packaging() {
+  SECTION=packaging
+  local formula="$REPO/packaging/homebrew/Formula/natural-tts.rb" publish="$REPO/packaging/homebrew/publish-tap.sh"
+  if need "$formula" "formula: ruby -c"; then
+    if logged ruby ruby -c "$formula"; then pass "formula: ruby -c" "Syntax OK"
+    else fail "formula: ruby -c" "$(logtail ruby)"; fi
+    # brew style runs offline (Homebrew's vendored rubocop); a missing brew is a FAIL, not a skip.
+    if ! command -v brew >/dev/null 2>&1; then fail "formula: brew style" "brew not on PATH"
+    elif logged style env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1 brew style "$formula"; then
+      pass "formula: brew style" "$(grep -E 'inspected' "$LOGDIR/packaging-style.log" | tail -1)"
+    else fail "formula: brew style" "$(logtail style 4)"; fi
+  fi
+  if need "$publish" "publish-tap.sh: bash -n"; then
+    if logged bashn bash -n "$publish"; then pass "publish-tap.sh: bash -n"
+    else fail "publish-tap.sh: bash -n" "$(logtail bashn)"; fi
+  fi
+}
+
 # ---------------------------------------------------------------- main
 sections=("$@")
-(( ${#sections[@]} )) || sections=(python swift extension consistency)
+(( ${#sections[@]} )) || sections=(python swift extension consistency packaging)
 echo "ntts verify-all — repo $REPO @ $(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?') — logs $LOGDIR"
 for s in "${sections[@]}"; do
   case "$s" in
     python) section_python ;; swift) section_swift ;; extension) section_extension ;; consistency) section_consistency ;;
-    *) SECTION=args; fail "section '$s'" "unknown (use python|swift|extension|consistency)" ;;
+    packaging) section_packaging ;;
+    *) SECTION=args; fail "section '$s'" "unknown (use python|swift|extension|consistency|packaging)" ;;
   esac
 done
 cleanup; HELPER_PID=""; WORKER_PID=""
