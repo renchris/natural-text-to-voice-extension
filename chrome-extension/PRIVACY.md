@@ -1,8 +1,8 @@
 # Privacy Policy
 **Natural Text-to-Speech Chrome Extension**
 
-**Last Updated**: November 2025
-**Version**: 1.4.0
+**Last Updated**: September 2026
+**Version**: 1.5.0
 
 ---
 
@@ -40,11 +40,11 @@ The extension stores minimal settings data **locally on your device only**:
 
 | Data Type | Storage Location | Purpose | Synced? |
 |-----------|------------------|---------|---------|
-| Voice preference | Chrome Storage Sync | Remember your selected voice | Yes (via Chrome Sync) |
-| Playback speed | Chrome Storage Sync | Remember your speed setting | Yes (via Chrome Sync) |
-| Helper status cache | Chrome Storage Local | Optimize connection checks | No |
+| Voice preference | Chrome Storage Local | Remember your selected voice | No |
+| Playback speed | Chrome Storage Local | Remember your speed setting | No |
+| Helper port | Chrome Storage Local | Reconnect to the helper without probing every port | No |
 
-**Chrome Storage Sync**: If you enable Chrome Sync in your browser, these settings will sync across your devices using Google's encrypted sync service. You can disable this in Chrome settings.
+All three live in `chrome.storage.local` on this device. The extension does not use `chrome.storage.sync`, so nothing is copied to your other devices, even with Chrome Sync on.
 
 ---
 
@@ -58,7 +58,7 @@ When you use the extension to convert text to speech:
 2. **Local API call**: Extension sends text to `localhost:8249` (your own computer)
 3. **Native helper processes**: The helper (running on your Mac) converts text to audio
 4. **Audio plays locally**: Generated audio is played through your browser
-5. **Nothing is stored**: Text and audio are discarded after playback
+5. **Nothing is stored**: Text and audio are discarded after playback. The helper's log records sizes, timings and error codes, never the text, its phonetic transcription, or an error message that quotes it
 
 **Network diagram**:
 ```
@@ -78,12 +78,17 @@ When you use the extension to convert text to speech:
 
 The extension makes **zero external network requests**. The only network communication is:
 
-- **Destination**: `http://127.0.0.1:8249` (localhost)
+- **Destination**: `http://127.0.0.1:8249` (localhost), or the next free port in 8250-8260 if something else already holds 8249
 - **Purpose**: Communicate with the native TTS helper running on your Mac
 - **Data sent**: Text to convert, voice name, playback speed
 - **Data received**: Generated audio (WAV format)
 
-**Security**: The native helper only accepts connections from `localhost` and rejects all external requests.
+Before sending any text, the extension checks that the port answers `/health` as the helper (it names the helper's model). Another local service on 8249, or a tunnel forwarded there, is skipped and never receives your text.
+
+**Security**: The native helper listens on `127.0.0.1` only, so no other computer can reach it. On this Mac it applies two more rules:
+
+- **Host check**: a request whose `Host` header is not `127.0.0.1`, `localhost` or `[::1]` with the helper's port is refused. This stops a web page that re-points its own hostname at your computer (DNS rebinding). The refusal is sent before any of the request body is read.
+- **Origin check**: `/speak` and `/voices` refuse requests from web pages (any `http://`, `https://` or `null` origin), so no website can make the helper read text or list voices. Requests from browser extensions (`chrome-extension://` and the Firefox and Safari equivalents) are accepted, and so are requests with no `Origin` header, which come from programs running under your account (for example `curl`). The helper treats your installed extensions and your own programs as trusted, like any other per-user service on `localhost`. `/health` answers anyone, and says only whether the helper is ready and which version it is.
 
 ### No External Servers
 
@@ -227,7 +232,7 @@ We may update this privacy policy as the extension evolves. Changes will be:
 - Reflected in the "Last Updated" date above
 - Published in the repository before release
 
-**Current version**: 1.4.0 (Documentation Release)
+**Current version**: 1.5.0
 
 ---
 
