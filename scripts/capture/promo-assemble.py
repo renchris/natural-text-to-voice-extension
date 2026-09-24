@@ -3,56 +3,79 @@
 
 Usage: python3 scripts/capture/promo-assemble.py <takes-dir> <out-master.mp4> <out-demo.mp4>
 
-<takes-dir> holds the raw takes (sckrec, 1612x907 pt at 2x, live audio) and the other inputs named in SCENES below.
+<takes-dir> holds the raw takes (sckrec, 1612x907 pt at 2x, live audio), tapes/privacy.mp4 and cards/ (video-cards.sh:
+title and end cards and the caption overlays). Render the cards into a directory no other capture run writes to.
 Every number in SCENES was MEASURED on that take (scripts/capture/GUI_PASS.md, assets/media/PROVENANCE.md):
-  keep   raw-time ranges kept; a gap between ranges is a jump cut. The script refuses a cut that falls inside a clip or
-         inside a click-to-speech gap, so a cut can only remove dead time, never shorten a measured latency.
-  clips  (wav, raw time of its first sample, raw time of the click that caused it). The raw time is where the clip
-         cross-correlates into the take's own live audio (10 ms log-RMS envelopes, then 1 ms), i.e. click + lag.
-  live   use the take's own recorded audio instead (the system-voice scene: there is no canonical clip for it).
+  keep     raw-time ranges kept; a gap between ranges is a jump cut. The script refuses a cut that falls inside a clip or
+           inside a click-to-speech gap, so a cut can only remove dead time, never shorten a measured latency.
+  clips    (wav, raw time of its first sample, raw time of the click that caused it). The raw time is where the clip
+           cross-correlates into the take's own live audio (10 ms log-RMS envelopes, then 1 ms), i.e. click + lag.
+  live     use the take's own recorded audio instead (the system-voice scene: there is no canonical clip for it).
+  caption  (png in cards/, from, to): a lower-third overlay, seconds in the scene's own (cut) time; None = to the end.
 Video is converted to 30 fps CFR BEFORE cutting (cutting a variable-frame-rate recording first re-zeroes on the first
-changed frame and shifts the picture against the audio), then scaled with Lanczos. Clips are never gain-edited or cut.
+changed frame and shifts the picture against the audio), then scaled with Lanczos.
+Audio: every clip is the helper's mono WAV, put on BOTH channels unchanged (pan=stereo|c0=c0|c1=c0). An upmix
+(aformat=channel_layouts=stereo) would apply swresample's -3 dB centre mix and lower every clip by 3 dB per channel.
+No clip is gain-edited or cut; the live scene's audio is left exactly as recorded.
+Scenes are joined with a short crossfade (FADE s of picture and sound together, so sync inside each scene holds); the
+script refuses a clip whose sound would fall inside a crossfade.
+Also writes <out-master>.timeline.json (duration, each clip's start, chapters, the live scene's speech) for
+scripts/capture/youtube-meta.mjs, which makes the chapter list and youtube-master.srt from it.
 """
 
-import os, subprocess, sys
+import array, json, os, subprocess, sys, wave
 
 takes, out_master, out_demo = sys.argv[1:4]
-AUD = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "../../assets/media/src/audio"
-)
+HERE = os.path.dirname(os.path.abspath(__file__))
+AUD = os.path.join(HERE, "../../assets/media/src/audio")
 T = lambda f: os.path.join(takes, f)
+FADE = 0.3
 
 SCENES = {
     "title": {"image": T("cards/title-1920x1080.png"), "dur": 2.5},
-    # (b) right-click speak on the article, Heart 1.0x. Click flash 11.167 s; clip at 12.251 s (lag 1.084 s).
+    # (b) right-click speak on the article, Heart 1.0x, cursor recorded: a real drag selects the sentence, a real
+    # right-click opens the menu, the pointer clicks "Speak selected text". Click flash 12.233 s; clip at 14.108 s
+    # (lag 1.875 s).
     "b": {
         "src": T("sb-raw.mov"),
-        "keep": [(8.0, 18.1)],
-        "clips": [("s1-rightclick.wav", 12.251, 11.167)],
+        "keep": [(7.7, 20.3)],
+        "clips": [("s1-rightclick.wav", 14.108, 12.233)],
     },
-    # (c) popup: native list -> Emma, Speak (click 12.107, clip 12.647); + x3 -> 1.3x; Speak (click 24.392, clip 24.791).
+    # (c) the popup, cursor recorded: a real drag selects sentence 1, a real click on the pinned toolbar button opens
+    # the popup, a real click opens the native voice list, the pointer walks it to Emma and picks her, Speak
+    # (mouse-down 19.107, clip 20.355, lag 1.248 s); + three times -> 1.3x; a real wheel scroll brings sentence 2 up
+    # (the page has 700 px of bottom padding for that: another app's window sat over the right of the screen, so the
+    # drag had to start above it), a real drag selects it (that click closes the popup), the toolbar button opens it
+    # again on Emma at 1.3x, Speak (mouse-down 38.877, clip 40.129, lag 1.252 s). Every cut falls inside a stretch
+    # where no pixel moves (mpdecimate), so the pointer never jumps.
     "c": {
         "src": T("sc-raw.mov"),
         "keep": [
-            (4.35, 6.9),
-            (7.25, 10.9),
-            (11.7, 19.95),
-            (20.35, 22.35),
-            (22.75, 28.6),
+            (6.7, 9.6),
+            (10.45, 12.2),
+            (12.7, 13.75),
+            (14.35, 16.1),
+            (16.75, 17.4),
+            (18.25, 27.6),
+            (28.0, 30.1),
+            (30.75, 32.95),
+            (33.35, 35.5),
+            (36.2, 44.05),
         ],
-        "clips": [("s2-british.wav", 12.647, 12.107), ("s3-speed.wav", 24.791, 24.392)],
-    },
-    # the short README cut starts (b) at the open menu (the sentence is already selected on screen)
-    "b1": {
-        "src": T("sb-raw.mov"),
-        "keep": [(9.5, 18.1)],
-        "clips": [("s1-rightclick.wav", 12.251, 11.167)],
+        "clips": [("s2-british.wav", 20.355, 19.107), ("s3-speed.wav", 40.129, 38.877)],
     },
     # the first half of (c) only, for the short README cut
     "c1": {
         "src": T("sc-raw.mov"),
-        "keep": [(4.35, 6.9), (7.25, 10.9), (11.9, 19.8)],
-        "clips": [("s2-british.wav", 12.647, 12.107)],
+        "keep": [
+            (6.7, 9.6),
+            (10.45, 12.2),
+            (12.7, 13.75),
+            (14.35, 16.1),
+            (16.75, 17.4),
+            (18.25, 27.9),
+        ],
+        "clips": [("s2-british.wav", 20.355, 19.107)],
     },
     # (d) helper stopped: right-click speak, the system voice reads it (live audio of the take). Click flash 11.105 s.
     "d": {
@@ -60,21 +83,46 @@ SCENES = {
         "keep": [(9.45, 16.55)],
         "live": True,
         "clicks": [11.105],
+        "speech": (
+            12.37,
+            16.2,
+            "A story spoken is a story shared, and the listener fills in the rest.",
+        ),
+        "caption": ("cap-d.png", 0.4, None),
     },
-    # (e1) the helper's sockets (VHS, real shell, the same helper pid as e2)
-    "e1": {"src": T("tapes/privacy.mp4"), "keep": [(0.3, 8.92)]},
-    # the same, final output held 1.7 s instead of 3 s (README cut)
-    "e1s": {"src": T("tapes/privacy.mp4"), "keep": [(0.3, 7.6)]},
-    # (e2) speak again through that helper. Click flash 10.942 s; clip at 12.227 s (lag 1.285 s).
+    # (e1) the helper's sockets (VHS, real shell): the same helper pid that spoke (b) and (c); final output held 2.8 s
+    "e1": {
+        "src": T("tapes/privacy.mp4"),
+        "keep": [(0.3, 9.0)],
+        "caption": ("cap-e1.png", 5.9, None),
+    },
+    # the same with its idle stretches removed (typing and every output kept), for the README cut
+    "e1s": {
+        "src": T("tapes/privacy.mp4"),
+        "keep": [(0.3, 2.2), (2.8, 3.97), (4.7, 8.9)],
+        "caption": ("cap-e1.png", 4.5, None),
+    },
+    # (e2) speak again through that helper. Click flash 10.942 s; clip at 12.227 s (lag 1.285 s). Not in the cut since
+    # the 2026-09-24 retake round: it repeated (b) and added nothing on screen. The captioned terminal carries the
+    # claim, and the helper it shows is the one that spoke (b) and (c).
     "e2": {
         "src": T("se-raw.mov"),
         "keep": [(9.3, 19.25)],
         "clips": [("s5-offline.wav", 12.227, 10.942)],
+        "caption": ("cap-e2.png", 1.2, None),
     },
     "end": {"image": T("cards/end-1920x1080.png"), "dur": 4.0},
+    "end-short": {"image": T("cards/end-1920x1080.png"), "dur": 3.0},
 }
-MASTER = ["title", "b", "c", "d", "e1", "e2", "end"]
-DEMO = ["b1", "c1", "e1s"]
+MASTER = ["title", "b", "c", "d", "e1", "end"]
+# The README cut: the popup half of (c) (it opens on a real drag selection) and the privacy terminal. The hero already
+# shows the right-click, and with real gestures (b) + (c1) alone would run past 30 s.
+DEMO = ["c1", "e1s", "end-short"]
+CHAPTERS = [
+    ("title", "Select text, right-click, listen"),
+    ("c", "Pick a voice and a speed"),
+    ("d", "No helper, no network: what still works"),
+]
 
 
 def run(cmd):
@@ -83,25 +131,36 @@ def run(cmd):
         sys.exit(f"FAIL {' '.join(cmd[:6])}...\n{r.stderr[-2000:]}")
 
 
+def wav_len(wav):
+    return float(
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                os.path.join(AUD, wav),
+            ],
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
+
+
+def speech_end(wav):
+    """Seconds to the last sample above -40 dBFS (each clip ends in ~0.5 s of silence, which may sit in a crossfade)."""
+    w = wave.open(os.path.join(AUD, wav))
+    x = array.array("h", w.readframes(w.getnframes()))
+    last = max(i for i, v in enumerate(x) if abs(v) > 327)
+    return (last + 1) / w.getframerate()
+
+
 def check(name, s):
     for wav, at, click in s.get("clips", []):
-        dur = float(
-            subprocess.run(
-                [
-                    "ffprobe",
-                    "-v",
-                    "error",
-                    "-show_entries",
-                    "format=duration",
-                    "-of",
-                    "csv=p=0",
-                    os.path.join(AUD, wav),
-                ],
-                capture_output=True,
-                text=True,
-            ).stdout
-        )
-        span = (click, at + dur)
+        span = (click, at + wav_len(wav))
         if not any(a <= span[0] and span[1] <= b for a, b in s["keep"]):
             sys.exit(
                 f"{name}: {wav} (click {click} .. clip end {span[1]:.3f}) is not inside one kept range"
@@ -120,8 +179,26 @@ def seg_time(s, t):
     raise ValueError(t)
 
 
+def frames(s):
+    return dict(
+        s, keep=[(round(a * 30) / 30, round(b * 30) / 30) for a, b in s["keep"]]
+    )
+
+
 def segment(name, w, h, out):
     s = SCENES[name]
+    enc = [
+        "-c:v",
+        "libx264",
+        "-crf",
+        "12",
+        "-preset",
+        "fast",
+        "-r",
+        "30",
+        "-c:a",
+        "pcm_s16le",
+    ]
     if "image" in s:
         run(
             [
@@ -145,23 +222,14 @@ def segment(name, w, h, out):
                 "anullsrc=r=48000:cl=stereo",
                 "-vf",
                 f"scale={w}:{h}:flags=lanczos,format=yuv420p",
-                "-c:v",
-                "libx264",
-                "-crf",
-                "12",
-                "-preset",
-                "fast",
-                "-r",
-                "30",
-                "-c:a",
-                "pcm_s16le",
+                *enc,
                 "-shortest",
                 out,
             ]
         )
-        return sum([s["dur"]])
+        return s["dur"]
     # Cut on whole frames: every range becomes [A/30, B/30), so video and audio lengths match exactly at each join.
-    s = dict(s, keep=[(round(a * 30) / 30, round(b * 30) / 30) for a, b in s["keep"]])
+    s = frames(s)
     check(name, s)
     n = len(s["keep"])
     total = sum(b - a for a, b in s["keep"])
@@ -172,25 +240,37 @@ def segment(name, w, h, out):
         )
     fc.append(
         "".join(f"[v{i}]" for i in range(n))
-        + f"concat=n={n}:v=1:a=0,scale={w}:{h}:flags=lanczos,format=yuv420p[v]"
+        + f"concat=n={n}:v=1:a=0,scale={w}:{h}:flags=lanczos[vs]"
     )
     inputs = ["-i", s["src"]]
+    k0 = 1
+    if s.get("caption"):
+        png, a, b = s["caption"]
+        inputs += ["-i", T(f"cards/{png}")]
+        fc.append(f"[1:v]scale={w}:{h}:flags=lanczos,format=rgba[cap]")
+        fc.append(
+            f"[vs][cap]overlay=0:0:enable='between(t,{a},{total if b is None else b})',format=yuv420p[v]"
+        )
+        k0 = 2
+    else:
+        fc.append("[vs]format=yuv420p[v]")
     if s.get("live"):
         fc.append(f"[0:a]asplit={n}" + "".join(f"[t{i}]" for i in range(n)))
         for i, (a, b) in enumerate(s["keep"]):
             fc.append(f"[t{i}]atrim=start={a}:end={b},asetpts=PTS-STARTPTS[u{i}]")
+        # the take's own stereo 48 kHz track: resampling and the layout are no-ops, kept only as guards
         fc.append(
             "".join(f"[u{i}]" for i in range(n))
             + f"concat=n={n}:v=0:a=1,aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:{total}[a]"
         )
     else:
         inputs += ["-f", "lavfi", "-t", f"{total}", "-i", "anullsrc=r=48000:cl=stereo"]
-        mix = ["[1:a]"]
+        mix = [f"[{k0}:a]"]
         for k, (wav, at, _click) in enumerate(s.get("clips", [])):
             inputs += ["-i", os.path.join(AUD, wav)]
             ms = round(seg_time(s, at) * 1000)
             fc.append(
-                f"[{k + 2}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={ms}|{ms}[c{k}]"
+                f"[{k0 + 1 + k}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay={ms}|{ms}[c{k}]"
             )
             mix.append(f"[c{k}]")
         fc.append(
@@ -210,16 +290,7 @@ def segment(name, w, h, out):
             "[v]",
             "-map",
             "[a]",
-            "-c:v",
-            "libx264",
-            "-crf",
-            "12",
-            "-preset",
-            "fast",
-            "-r",
-            "30",
-            "-c:a",
-            "pcm_s16le",
+            *enc,
             "-t",
             f"{total}",
             out,
@@ -228,21 +299,41 @@ def segment(name, w, h, out):
     return total
 
 
-def build(order, w, h, out, venc):
-    work = os.path.join(takes, f"seg-{w}")
+def build(order, w, h, out, venc, no_editlist=False):
+    work = os.path.join(os.path.dirname(os.path.abspath(out)), f"seg-{w}")
     os.makedirs(work, exist_ok=True)
-    parts, t = [], 0.0
-    for name in order:
+    parts, durs, starts = [], [], {}
+    t = 0.0
+    for i, name in enumerate(order):
         p = os.path.join(work, f"{name}.mov")
         d = segment(name, w, h, p)
+        start = 0.0 if i == 0 else t - FADE
+        s = SCENES[name]
+        if "keep" in s:
+            for wav, at, _ in s.get("clips", []):
+                st = seg_time(frames(s), at)
+                if st < FADE or st + speech_end(wav) > d - FADE:
+                    sys.exit(f"{name}: {wav} would sound inside a {FADE} s crossfade")
+        starts[name] = start
         parts.append(p)
-        print(f"  {name:5s} starts {t:6.2f}s  length {d:5.2f}s")
-        t += d
+        durs.append(d)
+        print(f"  {name:9s} starts {start:6.2f}s  length {d:5.2f}s")
+        t = start + d
     ins = sum((["-i", p] for p in parts), [])
-    fc = (
-        "".join(f"[{i}:v][{i}:a]" for i in range(len(parts)))
-        + f"concat=n={len(parts)}:v=1:a=1[v][a]"
-    )
+    fc, vprev, aprev, acc = [], "[0:v]", "[0:a]", durs[0]
+    for i in range(1, len(parts)):
+        fc.append(
+            f"{vprev}[{i}:v]xfade=transition=fade:duration={FADE}:offset={acc - FADE:.4f}[xv{i}]"
+        )
+        fc.append(f"{aprev}[{i}:a]acrossfade=d={FADE}:c1=tri:c2=tri[xa{i}]")
+        vprev, aprev, acc = f"[xv{i}]", f"[xa{i}]", acc + durs[i] - FADE
+    if no_editlist:
+        # Without an edit list (-use_editlist 0) the muxer starts the video at its 2-frame B-frame delay (66.7 ms)
+        # while the audio keeps its 1024-sample AAC priming (21.3 ms) at the front, so a decoder puts every sound
+        # 45.3 ms ahead of its picture. Delaying the mix by the difference (2176 samples at 48 kHz) puts them back
+        # together; measured in the finished file, click flash to clip onset equals the take's lag.
+        fc.append(f"{aprev}adelay=2176S|2176S[xaout]")
+        aprev = "[xaout]"
     run(
         [
             "ffmpeg",
@@ -251,20 +342,76 @@ def build(order, w, h, out, venc):
             "-y",
             *ins,
             "-filter_complex",
-            fc,
+            ";".join(fc),
             "-map",
-            "[v]",
+            vprev,
             "-map",
-            "[a]",
+            aprev,
             *venc,
             out,
         ]
     )
-    print(f"{out}: {t:.2f}s")
+    print(f"{out}: {acc:.2f}s")
+    return starts, acc
 
 
+def timeline(order, starts, total, out):
+    clips, live = [], []
+    for name in order:
+        s = SCENES[name]
+        for wav, at, _ in s.get("clips", []):
+            clips.append(
+                {"id": wav[:-4], "at": round(starts[name] + seg_time(frames(s), at), 3)}
+            )
+        if s.get("speech"):
+            a, b, text = s["speech"]
+            live.append(
+                {
+                    "from": round(starts[name] + seg_time(frames(s), a), 3),
+                    "to": round(starts[name] + seg_time(frames(s), b), 3),
+                    "text": text,
+                }
+            )
+    chapters = [
+        {"at": round(0 if starts[n] == 0 else starts[n] + FADE / 2, 1), "title": title}
+        for n, title in CHAPTERS
+        if n in starts
+    ]
+    json.dump(
+        {
+            "duration": round(total, 3),
+            "clips": clips,
+            "live": live,
+            "chapters": chapters,
+        },
+        open(out, "w"),
+        indent=2,
+    )
+    print(f"{out}: {len(clips)} clips, {len(chapters)} chapters")
+
+
+VENC_COMMON = [
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    "30",
+    "-colorspace",
+    "bt709",
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-bsf:v",
+    "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1",
+    "-ar",
+    "48000",
+    "-ac",
+    "2",
+    "-movflags",
+    "+faststart",
+]
 print("master")
-build(
+starts, total = build(
     MASTER,
     1920,
     1080,
@@ -292,30 +439,17 @@ build(
         "0",
         "-flags",
         "+cgop",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
-        "-colorspace",
-        "bt709",
-        "-color_primaries",
-        "bt709",
-        "-color_trc",
-        "bt709",
         "-c:a",
         "aac",
         "-b:a",
         "192k",
-        "-ar",
-        "48000",
-        "-ac",
-        "2",
-        "-movflags",
-        "+faststart",
+        *VENC_COMMON,
         "-use_editlist",
         "0",
     ],
+    no_editlist=True,
 )
+timeline(MASTER, starts, total, os.path.splitext(out_master)[0] + ".timeline.json")
 print("demo")
 build(
     DEMO,
@@ -331,25 +465,10 @@ build(
         "slow",
         "-crf",
         "23",
-        "-pix_fmt",
-        "yuv420p",
-        "-r",
-        "30",
-        "-colorspace",
-        "bt709",
-        "-color_primaries",
-        "bt709",
-        "-color_trc",
-        "bt709",
         "-c:a",
         "aac",
         "-b:a",
         "128k",
-        "-ar",
-        "48000",
-        "-ac",
-        "2",
-        "-movflags",
-        "+faststart",
+        *VENC_COMMON,
     ],
 )
