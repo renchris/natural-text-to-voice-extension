@@ -22,6 +22,59 @@ A Chrome Manifest V3 extension providing natural text-to-speech with **productio
 
 ---
 
+## Install
+
+Natural TTS has two parts: the Chrome extension, and a small helper app that runs the Kokoro voices on
+your Mac. Without the helper, the extension reads with your Mac's built-in system voices.
+
+**Requirements:** a Mac with Apple silicon, macOS 14 (Sonoma) or later.
+
+### The helper, with Homebrew (recommended)
+
+```bash
+brew install renchris/tap/natural-tts
+brew services start natural-tts
+```
+
+The formula builds the helper from source (it needs Xcode 16.2+ or its Command Line Tools) and downloads
+the Kokoro model once, at install time; after that the helper runs offline. `brew services` starts it
+now and at every login. Details: [packaging/homebrew/README.md](packaging/homebrew/README.md).
+
+### The helper, from source
+
+```bash
+brew install uv espeak-ng
+git clone https://github.com/renchris/natural-text-to-voice-extension.git
+cd natural-text-to-voice-extension
+native-helper/Scripts/quickstart.sh
+```
+
+`quickstart.sh` builds the locked Python 3.12 environment and the release binary, then starts the helper
+in a tmux session named `natural-tts-helper` (stop it with `tmux kill-session -t natural-tts-helper`).
+Step by step: [native-helper/QUICKSTART.md](native-helper/QUICKSTART.md).
+
+### Updating a helper installed from source
+
+Every helper older than 1.5 was installed from source. In your checkout, run:
+
+```bash
+git pull && native-helper/Scripts/quickstart.sh
+```
+
+It rebuilds the helper, moves a pre-1.5 Python environment aside once, and restarts the helper in its
+tmux session. If you started the old helper some other way, stop it first so the new one can take its
+port. To switch to Homebrew instead, stop the source helper before `brew services start natural-tts`:
+while the old helper still answers on port 8249, the extension keeps using it.
+
+### The extension
+
+Install **Natural TTS: Private Kokoro Voices for Mac** from the Chrome Web Store, or build it yourself:
+`cd chrome-extension && bun install && bun run build`, then open `chrome://extensions`, turn on
+Developer mode, choose **Load unpacked** and select `chrome-extension/dist`. The extension finds the
+helper on 127.0.0.1, ports 8249-8260.
+
+---
+
 ## Project Status
 
 | Phase | Status | Description | Performance |
@@ -187,7 +240,10 @@ natural-text-to-voice-extension/
 
 ---
 
-## Setup Instructions
+## Phase 0 Setup (historical)
+
+> **Do not follow this section.** It set up the abandoned TTS.cpp + Parler pipeline, which is no longer
+> in the repository. To install Natural TTS, see [Install](#install).
 
 ### Prerequisites
 - macOS with Apple Silicon (M1/M2/M3)
@@ -279,7 +335,8 @@ Build a Chrome Manifest V3 extension that integrates with the production-ready n
 
 ### For Local Usage (Native Helper Only)
 
-See [native-helper/QUICKSTART.md](native-helper/QUICKSTART.md) for a 5-minute setup guide.
+To install or update the helper, see [Install](#install). For a 5-minute setup guide, see
+[native-helper/QUICKSTART.md](native-helper/QUICKSTART.md).
 
 **Quick start**:
 ```bash
