@@ -50,6 +50,12 @@ cross-correlating the clip against a live recording of the same take (research m
 changed: no music, no gain edits, no cuts inside a clip. See `scripts/capture/README.md` and
 `docs/research/2026-09-upgrade/UPGRADE_RESEARCH.md` §12.
 
+**As done in the GUI pass (2026-09-24):** every take was recorded with `sckrec --exclude-others`, so the picture and
+the live audio of the same take are in one file; the published audio is still the canonical clip, placed where it
+cross-correlates into that live audio. The lag is **not** constant: measured per take it ran from 0.40 s (the popup's
+own Speak button) through 1.08–1.29 s (a sentence from the menu) to 2.08 s (a whole paragraph after the service worker
+had idled out). The research figure above came from three events and does not hold in general.
+
 - **README hero MP4:** `hero.wav` only.
 - **Store / YouTube video:** `s1-rightclick.wav`, `s2-british.wav`, `s3-speed.wav`, `s4-pdf.wav`,
   `s5-offline.wav` in that order, each under its own scene; title and end cards are silent. (As of step 3 the
@@ -116,7 +122,8 @@ misstate the latency.
 **Caveat on the PDF scene (checked 2026-09-24).** `article.pdf` does not, on its own, demonstrate the ligature fix:
 Skia writes a ToUnicode map that already turns each fi/fl/ffi glyph back into plain letters, so
 `pdftotext src/article.pdf -` returns 0 code points in U+FB00–FB06, and a selection in Chrome's viewer carries none either. That was confirmed headless on 2026-09-24:
-the viewer's own `getSelectedText()` returned 0 of them (`assets/store/README.md`). The glyphs on the page are real ligatures; the "fixed" part needs a PDF whose text layer carries
+the viewer's own `getSelectedText()` returned 0 of them (`assets/store/README.md`). With a display (GUI pass, 2026-09-24), the viewer's native
+menu lists "Speak selected text" and clicking it speaks through the helper (`assets/store/README.md`). The glyphs on the page are real ligatures; the "fixed" part needs a PDF whose text layer carries
 U+FB01-style code points before any store image or scene claims it (`scripts/capture/GUI_PASS.md`).
 
 ## Screens and loops (capture step 2, headless, 2026-09-24)

@@ -10,6 +10,14 @@ may take over the operator's screen). Everything that can be captured through CD
 | `assets/media/status.webp` | done, headless (720×700, 4.5 s Checking → Connected loop) |
 | `assets/media/helper.webp`, `assets/media/gate.webp` | done, VHS (renders headlessly) |
 | `assets/store/screenshot-{2,3,4,5}-*.png`, `small-tile-440x280.png`, `marquee-1400x560.png`, `youtube-thumbnail-1280x720.png`, `assets/brand/social-preview.png` | done, headless (capture step 3): `cws/capture-inputs.sh` + `cws/render.sh`, listed in `assets/store/README.md` |
+| `assets/store/screenshot-1-right-click.png` (+ `assets/store/src/contextmenu-crop.png`) | **done, GUI pass 2026-09-24**: the native menu over the article, "Speak selected text" highlighted by a real hover (`hero.mjs --mode menu`) |
+| PDF viewer check (`article.pdf`, native menu) | **done, GUI pass 2026-09-24: PASS**, recorded in `assets/store/README.md` |
+| `assets/media/hero.mp4`, `hero-poster.png`, `hero-preview.webp` | **done, GUI pass 2026-09-24** (`hero.mjs`); lag measured on the take 2.083 s, in `assets/media/PROVENANCE.md` |
+| `assets/media/voices.webp` | **done, GUI pass 2026-09-24** (`voices.mjs`): the anchored popup's native grouped list, Heart → Emma |
+| `assets/media/demo-30s.mp4` + `/tmp/ntts-w3-out/youtube-master.mp4` (not committed) | **done, GUI pass 2026-09-24** (`popup-scene.mjs`, `tapes/privacy.tape`, `video-cards.sh`, `promo-assemble.py`); master 64.6 s, demo 30.0 s |
+
+**Nothing in this file is outstanding after the 2026-09-24 GUI pass.** The recipe below is kept to remake the assets;
+the lessons from that pass are in "What the GUI pass learned" at the end.
 
 What remains needs the window server: the **native context menu**, the **anchored toolbar popup** (headless opens
 `popup.html` as a tab, not the anchored bubble) and the **native `<select>` dropdown**. This file is the one-go
@@ -254,3 +262,31 @@ node scripts/capture/youtube-meta.mjs "$OUT/master-timeline.json" /tmp/ntts-w3-o
 Kill only `$CHROME_PID`, `$GUARD_PID` and the pid in `$OUT/helper.pid`; stop `caffeinate`; `rm -rf "$PROFILE"`.
 Then contact-sheet every video (`ffmpeg -i x.mp4 -vf "fps=1,scale=320:-1,tile=5x4" -frames:v 1 sheet.png`) and
 look at it: no cursor, no infobar, no other app, menu not clipped, audio in sync.
+
+## What the GUI pass learned (2026-09-24)
+
+- **`article p:nth-of-type(2)` is the dek, not paragraph 2** (the kicker and dek are `<p>` too). `hero.mjs` finds
+  the paragraph by its opening words (`--para`) or a sentence (`--sel`).
+- **Locate native menu items through Accessibility, never by offset.** `axmenu <pid> "Speak selected text"` returns
+  the item's centre for Chrome's page context menu and for a `<select>` list. The PDF viewer's menu is not in the AX
+  tree; there, check the menu window (`winlist … layer=101`) contains the point before clicking.
+- **Never click a menu blind.** If the operator clicks elsewhere the menu closes, and a click at its old position lands
+  on whatever window is behind it (this happened once, on another app's window, before the check existed). The
+  drivers re-read the menu right before the click and refuse if it has gone.
+- **Cut variable-frame-rate recordings only after converting to 30 fps.** `trim` + `setpts=PTS-STARTPTS` on the raw
+  SCK file re-zeroes on the first *changed* frame and shifted the hero 0.37 s against its audio; cut with
+  `fps=30` first, on whole frames (`trim=start_frame/end_frame`), and re-measure sync in the finished file.
+- **`-ss` before `-i` is not frame-accurate on these files**: find click frames by a full decode (luma trace of the
+  menu region), never by seeking.
+- **Measure the lag on every take.** It is not a constant: 2.08 s for a whole paragraph after a service-worker wake,
+  1.08–1.29 s for a sentence from the menu, 0.40–0.54 s from the popup's own Speak button.
+- **Interference to watch for in contact sheets:** the macOS volume display (the operator changed the volume during
+  two takes), a Space switch (the window goes `onscreen=false`, SCK stops delivering frames, and the last frame is
+  stale), and the pick of a native list whose repaint never reached the recording. Retake, never patch.
+- **Ports for a second capture run beside another:** `CDP_PORT=9556 BLOCK=8249,8250 HOLD=1 scripts/capture/launch.sh
+  <out> 8251`, the helper on 8251. The extension's discovery probes 8249–8260, so check nothing else listens there
+  before a fallback scene.
+- **`sckrec --exclude-others` records the live audio in the same take** as the picture, which makes the lag
+  measurement direct: cross-correlate the canonical clip against it on 10 ms log-RMS envelopes (Kokoro's random
+  phase defeats waveform correlation), then refine at 1 ms.
+
