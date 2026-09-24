@@ -40,7 +40,7 @@ const fetchMock = mock(async (input: RequestInfo | URL) => {
 });
 
 const storage: Record<string, unknown> = {
-  native_tts_helper_config: { port: 18249, secret: '', default_voice: 'af_bella' },
+  native_tts_helper_config: { port: 18249, default_voice: 'af_bella' },
   selectedVoice: 'am_adam',
 };
 let onStorageChanged: ((changes: unknown) => void) | null = null;

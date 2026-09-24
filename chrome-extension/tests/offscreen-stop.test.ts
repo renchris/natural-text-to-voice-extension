@@ -124,7 +124,7 @@ function installGlobals(): void {
     },
     storage: {
       local: {
-        get: async () => ({ native_tts_helper_config: { port: 18249, secret: '', default_voice: 'af_bella' } }),
+        get: async () => ({ native_tts_helper_config: { port: 18249, default_voice: 'af_bella' } }),
         set: async () => {},
       },
     },

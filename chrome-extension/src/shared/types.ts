@@ -4,7 +4,6 @@
  */
 export interface HelperConfig {
   port: number;
-  secret: string;
   python_path: string;
   worker_script_path: string;
   default_voice: string;

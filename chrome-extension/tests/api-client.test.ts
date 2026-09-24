@@ -57,7 +57,6 @@ describe('ApiClient', () => {
     (chrome.storage.local.get as any).mockImplementation(async () => ({
       native_tts_helper_config: {
         port: 8249,
-        secret: 'test-secret',
         default_voice: 'af_bella',
       },
     }));
@@ -104,7 +103,6 @@ describe('ApiClient', () => {
           method: 'GET',
           headers: expect.objectContaining({
             'Accept': 'application/json',
-            'X-Secret': 'test-secret',
           }),
         })
       );
@@ -211,7 +209,10 @@ describe('ApiClient', () => {
       );
     });
 
-    test('should include secret header if configured', async () => {
+    test('never sends X-Secret, even with a secret left in a 1.4 stored config', async () => {
+      (chrome.storage.local.get as any).mockImplementation(async () => ({
+        native_tts_helper_config: { port: 8249, secret: 'left-over-from-1.4', default_voice: 'af_bella' },
+      }));
       answerWith({
         ok: true,
         json: async () => ({ voices: [] }),
@@ -219,14 +220,9 @@ describe('ApiClient', () => {
 
       await client.getVoices();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'X-Secret': 'test-secret',
-          }),
-        })
-      );
+      for (const [, init] of mockFetch.mock.calls) {
+        expect(Object.keys((init as RequestInit)?.headers ?? {})).not.toContain('X-Secret');
+      }
     });
   });
 

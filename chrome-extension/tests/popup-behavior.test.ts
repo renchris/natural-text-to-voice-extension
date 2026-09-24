@@ -75,7 +75,7 @@ let urlCounter = 0;
 
 let pageSelection = 'Hello from the page';
 const storage: Record<string, unknown> = {
-  native_tts_helper_config: { port: 18249, secret: '', default_voice: 'af_bella' },
+  native_tts_helper_config: { port: 18249, default_voice: 'af_bella' },
 };
 let onMessage: ((message: unknown) => boolean) | null = null;
 // Runtime messages the popup sends (the offscreen status query, a Stop); the

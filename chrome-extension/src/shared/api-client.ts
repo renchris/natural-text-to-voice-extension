@@ -103,8 +103,6 @@ export class ApiClient implements NativeTTSClient {
     timeout: number = 10000,
     maxRetries: number = 2
   ): Promise<T> {
-    const config = await this.getConfig();
-
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}${endpoint}`;
 
@@ -132,11 +130,6 @@ export class ApiClient implements NativeTTSClient {
           'Accept': 'application/json',
           ...(options.headers as Record<string, string> || {}),
         };
-
-        // Add secret header if available
-        if (config.secret) {
-          headers['X-Secret'] = config.secret;
-        }
 
         const response = await fetch(url, {
           ...options,

@@ -62,18 +62,20 @@ export async function getStoredPort(): Promise<number | undefined> {
 }
 
 /**
- * Save a port the helper was found on, keeping the rest of the stored config.
+ * Save a port the helper was found on, keeping the stored default voice.
+ * Anything else in an older stored config (a 1.4 `secret`) is dropped.
  */
 export async function saveHelperPort(port: number): Promise<void> {
   if (!isValidPort(port)) return;
-  let stored: Partial<HelperConfig> | undefined;
+  let defaultVoice = DEFAULT_VOICE;
   try {
     const result = await chrome.storage.local.get<Record<string, Partial<HelperConfig> | undefined>>(STORAGE_KEY);
-    stored = result[STORAGE_KEY];
+    const stored = result[STORAGE_KEY]?.default_voice;
+    if (typeof stored === 'string' && stored) defaultVoice = stored;
   } catch {
-    stored = undefined;
+    // No storage here: save with the default voice.
   }
-  await saveConfig({ default_voice: DEFAULT_VOICE, ...stored, port });
+  await saveConfig({ port, default_voice: defaultVoice });
 }
 
 /**
@@ -103,14 +105,12 @@ export async function getStoredConfig(): Promise<Partial<HelperConfig>> {
     // Return minimal config with default port
     return {
       port: DEFAULT_PORT,
-      secret: '', // Will be discovered via health check or user input
       default_voice: DEFAULT_VOICE
     };
   } catch (error) {
     console.warn('Failed to read config from storage:', error);
     return {
       port: DEFAULT_PORT,
-      secret: '',
       default_voice: DEFAULT_VOICE
     };
   }
@@ -161,7 +161,6 @@ export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Pr
         // Found a running helper on this port
         const config: Partial<HelperConfig> = {
           port,
-          secret: '', // Secret is not exposed via health endpoint
           default_voice: DEFAULT_VOICE
         };
 
@@ -198,7 +197,7 @@ export async function discoverConfig(portsToTry: number[] = DISCOVERY_PORTS): Pr
  */
 export async function getConfig(preferredPort?: number): Promise<Partial<HelperConfig>> {
   const storedConfig: Partial<HelperConfig> = isValidPort(preferredPort)
-    ? { port: preferredPort, secret: '', default_voice: DEFAULT_VOICE }
+    ? { port: preferredPort, default_voice: DEFAULT_VOICE }
     : await getStoredConfig();
 
   if (storedConfig.port) {

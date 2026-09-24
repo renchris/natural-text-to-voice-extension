@@ -29,7 +29,7 @@ describe.skipIf(!LIVE_PORT)('ApiClient Integration Tests (Live Helper)', () => {
       storage: {
         local: {
           get: async () => ({
-            native_tts_helper_config: { port: LIVE_PORT, secret: '', default_voice: 'af_bella' },
+            native_tts_helper_config: { port: LIVE_PORT, default_voice: 'af_bella' },
           }),
           set: async () => {},
           remove: async () => {},
