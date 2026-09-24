@@ -67,11 +67,17 @@ extension finds the helper on 127.0.0.1, ports 8249-8260.
 
 ## Releasing a new version
 
-1. Bump the version everywhere it lives: `HelperInfo.version` in
-   `native-helper/Sources/NaturalTTSHelper/Models.swift`, `native-helper/python/pyproject.toml`,
-   the extension manifest and `CHANGELOG.md`. Then land it on `main`. The formula's `url`
-   version is rewritten by the script, so it does not need editing.
-2. Preview. This changes nothing, prints the resolved plan and exits 2:
+Releases go through **`scripts/release/release.sh`** ([docs/publishing/RELEASE.md](../../docs/publishing/RELEASE.md)).
+Its preflight (one version everywhere, verify-all green, the store zip), the tag, the GitHub Release and then this
+script, which it calls with `--confirm renchris/homebrew-tap`, in that order.
+
+1. Bump the version in all five places, add a dated `CHANGELOG.md` section, and land it on `main`:
+   `chrome-extension/package.json`, `chrome-extension/public/manifest.json`, `HelperInfo.version` in
+   `native-helper/Sources/NaturalTTSHelper/Models.swift`, `native-helper/python/pyproject.toml`, and the formula's
+   `url` (release.sh's preflight refuses a formula whose url does not already name the new tag; it lists
+   `docs/publishing/README.md` "Next release" too).
+2. Run `scripts/release/release.sh`. The steps below are the **manual fallback** for the tap alone, when the
+   release program cannot run. Preview; this changes nothing, prints the resolved plan and exits 2:
 
    ```
    packaging/homebrew/publish-tap.sh --version X.Y.Z

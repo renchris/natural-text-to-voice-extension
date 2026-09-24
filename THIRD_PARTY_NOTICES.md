@@ -22,6 +22,9 @@ script and the setup scripts. It contains **no third-party binaries, model weigh
      dynamic library (`ctypes`); nothing in this repository links against it or copies it.
 - The **Swift packages** are fetched by SwiftPM when the user builds the helper and are statically linked into the
   `natural-tts-helper` binary the user builds locally. This repository does not ship that binary.
+- The **Homebrew formula** (`packaging/homebrew/Formula/natural-tts.rb`, the primary install path) does the same on
+  the user's Mac: it builds the helper, runs `uv sync --frozen` into the keg's `libexec/python-env`, and fetches the
+  pinned model into `libexec/hf-cache`. No prebuilt bottle of the formula is published, so nothing is redistributed.
 - **Bun, TypeScript and the npm dev-dependencies** are build and test tools only. The built extension (`dist/`)
   contains no third-party code: `chrome-extension/package.json` has no runtime `dependencies`.
 

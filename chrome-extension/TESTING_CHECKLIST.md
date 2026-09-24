@@ -27,7 +27,8 @@ This checklist ensures all functionality works correctly before tagging and rele
   - Verify: No console errors on load
 
 - [ ] **Clean State**
-  - Clear extension storage: `chrome://extensions` → Details → "Clear storage"
+  - Clear extension storage: `chrome://extensions` → Natural TTS → Inspect views: service worker, then run
+    `await chrome.storage.local.clear()` in its console (or remove and reload the unpacked extension)
   - Restart Chrome
   - Reload extension
 
@@ -551,7 +552,8 @@ bun run test:e2e                                        # headed Chrome for Test
 - [ ] No critical or high-priority bugs
 - [ ] Documentation is complete and accurate
 - [ ] CHANGELOG.md updated with v1.5.0 changes
-- [ ] Version numbers synced (manifest.json, package.json)
+- [ ] Version numbers synced: package.json, manifest.json, Models.swift, pyproject.toml, the formula url and a dated
+  CHANGELOG section (`scripts/release/release.sh` preflight checks all six)
 - [ ] Store images and README media captured (see `scripts/capture/README.md`)
 - [ ] Clean git state (no uncommitted changes)
 

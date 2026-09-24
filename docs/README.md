@@ -11,7 +11,10 @@ Where each document lives, by what you want to do.
 | Know what data the extension handles | [chrome-extension/PRIVACY.md](../chrome-extension/PRIVACY.md) |
 | Check accessibility | [chrome-extension/ACCESSIBILITY.md](../chrome-extension/ACCESSIBILITY.md) |
 | Test a release by hand | [chrome-extension/TESTING_CHECKLIST.md](../chrome-extension/TESTING_CHECKLIST.md); the automated gate is `scripts/verify-all.sh` |
-| Capture README media or store images | [scripts/capture/README.md](../scripts/capture/README.md) |
+| Release or publish to the Chrome Web Store | [publishing/README.md](publishing/README.md) ([RELEASE.md](publishing/RELEASE.md), [CHROME_WEB_STORE.md](publishing/CHROME_WEB_STORE.md), [YOUTUBE.md](publishing/YOUTUBE.md), [PRIVACY_TRACEABILITY.md](publishing/PRIVACY_TRACEABILITY.md)) |
+| Capture README media or store images | [scripts/capture/README.md](../scripts/capture/README.md); what still needs a display: [scripts/capture/GUI_PASS.md](../scripts/capture/GUI_PASS.md) |
+| Store images, and where every image and sound came from | [assets/store/README.md](../assets/store/README.md), [assets/media/PROVENANCE.md](../assets/media/PROVENANCE.md) |
+| Re-measure speed | [bench/README.md](../bench/README.md) |
 | Change a diagram | [assets/diagrams/README.md](../assets/diagrams/README.md) (`bun run diagrams` at the repo root) |
 | Use the icon or the brand colours | [assets/brand/README.md](../assets/brand/README.md) |
 | See what changed in each release | [CHANGELOG.md](../CHANGELOG.md) |

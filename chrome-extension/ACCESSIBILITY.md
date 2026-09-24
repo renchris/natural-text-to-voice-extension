@@ -33,13 +33,13 @@ the − and + buttons beside it do the same job from the keyboard). See [Known i
 
 #### Popup Interface (`src/popup/popup.html`)
 - **Tab Navigation**: all interactive elements are native and reachable with Tab, in visual order
-  - Settings button: lines 15-24
+  - Settings button: lines 15-25
   - Voice dropdown: lines 64-70
   - Speed − button, slider, + button: lines 85-100
-  - Speak / Stop button: lines 111-125
-  - Retry button (shown when offline): lines 127-135
-  - Footer shortcut chip (opens `chrome://extensions/shortcuts`): line 139
-  - The install and update notices' links, when shown: lines 50 and 56
+  - Speak / Stop button: lines 111-124
+  - Retry button (shown when offline): lines 127-136
+  - Footer shortcut chip (opens `chrome://extensions/shortcuts`): line 140
+  - The install and update notices' links, when shown: lines 51 and 57
 
 - **Keys**:
   - Enter or Space on the focused Speak button activates it once (native `<button>` behaviour; the popup adds
@@ -50,7 +50,7 @@ the − and + buttons beside it do the same job from the keyboard). See [Known i
     they never take a key from a page or from macOS Option-key typing; users bind them at
     `chrome://extensions/shortcuts`
 
-- **Focus Indicators**: `src/popup/popup.css:369-376`
+- **Focus Indicators**: `src/popup/popup.css:407-415`
   - `*:focus-visible` draws a 2px solid outline in the brand primary colour, offset 2px (3px on the Speak button)
 
 #### Options Page (`src/options/options.html`)
@@ -68,7 +68,7 @@ the − and + buttons beside it do the same job from the keyboard). See [Known i
 **Popup**:
 - Settings button: `aria-label="Open settings"` (line 19)
 - Status pill: `role="status" aria-live="polite"`, `aria-label="Helper status: checking"` (lines 29-31),
-  updated to `connected`, `warming` or `offline` by `updateStatusIndicator` (`popup.ts:397-408`)
+  updated to `connected`, `warming` or `offline` by `updateStatusIndicator` (`popup.ts:414-425`)
 - Voice select: `aria-label="Select voice for text-to-speech"` (line 67), plus `<label for="voiceSelect">`;
   each option carries its group, e.g. `aria-label="British Female: Emma"` (`shared/voice-options.ts`)
 - Speed slider: `aria-label="Adjust speech speed"` (line 94); − and + buttons: `aria-label="Decrease speed"` /
@@ -90,7 +90,7 @@ the − and + buttons beside it do the same job from the keyboard). See [Known i
 #### ARIA Live Regions
 - **Message Container** (popup line 42, options line 26): `role="status" aria-live="polite"` by default. For
   warnings and errors the popup switches it to `role="alert" aria-live="assertive"`, and back for info and
-  success (`popup.ts:885-893`).
+  success (`popup.ts:902-910`).
 - **Engine line** (popup line 45): `aria-live="polite"`, announces "Kokoro · Bella (US)" or "System voice".
 - **Speed Value** (popup line 81, options line 52): `aria-live="polite"`.
 
@@ -99,7 +99,7 @@ the − and + buttons beside it do the same job from the keyboard). See [Known i
   `aria-valuetext="1.0 times speed"`, updated in `options.ts:160-161`.
 - **Popup**: a **log-scale** slider. The input's own range is a position from 0 to 1 (`step="0.001"`), so
   `aria-valuemin="0.5"`, `aria-valuemax="2.0"`, `aria-valuenow` and `aria-valuetext` report the speed instead
-  (updated in `popup.ts:559-560`).
+  (updated in `popup.ts:576-577`).
 
 #### Semantic HTML
 - `<header>`, `<main>`, `<footer>` (popup), `<section>` with `<h2>` headings (options)
@@ -138,7 +138,7 @@ non-text contrast.
 
 #### Motion
 `@media (prefers-reduced-motion: reduce)` stops the status-dot pulse, the message slide-in, the spinner and the
-button press transforms (`popup.css:397-403`, `options.css:565`).
+button press transforms (`popup.css:435-441`, `options.css:565`).
 
 #### Color independence
 The status pill always carries a text label (Checking, Warming, Connected, Offline); colour is never the only
