@@ -7,15 +7,16 @@ The Chrome Web Store's promo video field takes only a YouTube URL, so the demo l
 
 | Item | Value |
 | --- | --- |
-| Master | `/tmp/ntts-w3-out/youtube-master.mp4`, made by the W3 capture lane with the spec in `scripts/capture/GUI_PASS.md` (item 4). **Not committed** (too large for the repository); the capture lane records its exact path, size and sha256 |
+| Master | `~/ntts-captures/2026-09-24/work/out/youtube-master.mp4`: 65.3 s, 37,626,810 bytes, sha256 `ef688c5dbb1410964f6dc4a12f5b340306afaedaf18699fd0d60290f26579613`, made with the spec in `scripts/capture/GUI_PASS.md` (item 4). **Not committed** (too large for the repository); kept outside `/tmp`, which is wiped on reboot. Where it came from: [`assets/media/PROVENANCE.md`](../../assets/media/PROVENANCE.md) ("Where the master lives"). The copy in `/tmp/ntts-w3-out` is an older first pass: do not upload it |
 | Format | 1920×1080, 30 fps, H.264 High, closed GOP of 15 frames, 2 B-frames, AAC 48 kHz stereo, `+faststart`, no edit list: YouTube's recommended upload settings |
-| Audio | The real output of the upgraded helper for the exact on-screen text and voice, muxed from the `/speak` WAV. **No music under speech**: for a speech product the voice is what viewers judge [R07 §4.6] |
+| Audio | The real output of the upgraded helper for the exact on-screen text and voice, muxed from the `/speak` WAV (loudness-normalized by the helper itself, like every 1.5.0 response). **No music under speech**: for a speech product the voice is what viewers judge [R07 §4.6] |
 | Thumbnail | `assets/store/youtube-thumbnail-1280x720.png`: 1280×720, under 2 MB, PNG (capture lane) |
 
 Check the master before uploading:
 
 ```bash
-ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate,sample_rate -of compact /tmp/ntts-w3-out/youtube-master.mp4
+ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate,sample_rate -of compact ~/ntts-captures/2026-09-24/work/out/youtube-master.mp4
+shasum -a 256 ~/ntts-captures/2026-09-24/work/out/youtube-master.mp4
 magick identify -format '%wx%h %b\n' assets/store/youtube-thumbnail-1280x720.png
 ```
 
@@ -27,8 +28,8 @@ magick identify -format '%wx%h %b\n' assets/store/youtube-thumbnail-1280x720.png
 Natural TTS: Private Kokoro Voices for Mac | Chrome extension demo
 ```
 
-**Description.** Paste this, then fill in the chapter times (see [Chapters](#chapters)). YouTube rejects `<` and `>`
-in descriptions; there are none.
+**Description.** Paste this as it is; the chapter times are the master's, from `chapters.txt` beside it (see
+[Chapters](#chapters)). YouTube rejects `<` and `>` in descriptions; there are none.
 
 ```text
 Select text in Chrome and hear it read aloud in a natural Kokoro voice, generated on your own Mac, not in the cloud. The Kokoro voices you hear are the real output of the Kokoro-82M model running on an M1 Max, with no music over them.
@@ -37,8 +38,8 @@ Natural TTS is a free, open-source Chrome extension with a small companion app, 
 
 Chapters
 0:00 Select text, right-click, listen
-M:SS Voices, speed, and no helper: system voices
-M:SS Private and offline; set up with Homebrew
+0:14 Pick a voice and a speed
+0:46 No helper, no network: what still works
 
 Get it
 Chrome Web Store: STORE_URL
@@ -64,25 +65,27 @@ block is true of 1.5.0: see the claim table in [CHROME_WEB_STORE.md §2.1](CHROM
 The chapters follow the capture lane's storyboard (title card, right-click speak, voices and speed, the no-helper
 fallback, privacy proof, end card: `scripts/capture/GUI_PASS.md` item 4). The fourth scene is the system-voice
 fallback, not a PDF. YouTube shows chapters only when **the first starts at 0:00, there are at least three, and each
-lasts at least 10 seconds**. The master is 30-50 s, so it carries **three** chapters, which is what the block above
+lasts at least 10 seconds**. The master is 65.3 s and carries **three** chapters, which is what the block above
 pastes:
 
 - The 3-second title card opens the first chapter instead of being a chapter of its own, and the 4-second end card
   closes the last one.
-- The `M:SS` times are capture-lane work, not yours: the GUI pass writes them to `chapters.txt` beside the master,
-  from the take's `timeline.json` cut points (never estimated).
+- The times are capture-lane work, not yours: `scripts/capture/youtube-meta.mjs` writes them to `chapters.txt` beside
+  the master, from the take's `timeline.json` cut points (never estimated). If the master is ever re-cut, paste the
+  new `chapters.txt` in place of the three lines above.
 - A beat shorter than 10 seconds merges into its neighbour, and its title joins theirs. Do not pad the video to make
   a chapter fit.
 
 Check a filled-in block against the master (prints `ok` or the first rule it breaks):
 
 ```bash
-python3 - /tmp/ntts-w3-out/youtube-master.mp4 <<'EOF'
+python3 - ~/ntts-captures/2026-09-24/work/out/youtube-master.mp4 <<'EOF'
 import re, subprocess, sys
 dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", sys.argv[1]]))
 block = """0:00 Select text, right-click, listen
-0:15 Voices, speed, and no helper: system voices
-"""  # paste the filled chapter lines here
+0:14 Pick a voice and a speed
+0:46 No helper, no network: what still works
+"""  # the chapter lines from the description
 t = [int(m) * 60 + int(s) for m, s in re.findall(r"^(\d+):(\d\d) ", block, re.M)] + [dur]
 assert t[0] == 0, "first chapter must start at 0:00"
 assert len(t) - 1 >= 3, "YouTube needs at least 3 chapters"
@@ -108,7 +111,7 @@ text to speech, tts, kokoro, kokoro tts, read aloud, chrome extension, local ai,
 | Altered or synthetic content | **Yes** | The voices are AI-generated speech; YouTube asks creators to disclose realistic synthetic audio |
 | Category | Science & Technology | |
 | Video language / caption language | English | |
-| Captions | Upload `/tmp/ntts-w3-out/youtube-master.srt`, which the GUI pass writes from `assets/media/src/audio/selections.json` (the exact text of each clip) and the take's `timeline.json` (when each clip starts) | Accessibility, and the listing's category is Accessibility. Auto-captions of synthetic speech are usually good, but the real text is exact |
+| Captions | Upload `~/ntts-captures/2026-09-24/work/out/youtube-master.srt`, which `scripts/capture/youtube-meta.mjs` writes from `assets/media/src/audio/selections.json` (the exact text of each clip) and the take's `timeline.json` (when each clip starts) | Accessibility, and the listing's category is Accessibility. Auto-captions of synthetic speech are usually good, but the real text is exact |
 | License | Standard YouTube License | |
 | **Allow embedding** | **On** | The Chrome Web Store embeds the video; with embedding off the listing shows an error |
 | Comments | Your choice | |
