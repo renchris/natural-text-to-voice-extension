@@ -297,12 +297,13 @@ def generate_audio_mlx(text, voice, speed):
             f"Array conversion and concatenation: {t_convert_end - t_convert_start:.3f}s"
         )
 
-        # Guard the output: never ship NaN, and keep peaks below full scale so the 16-bit WAV
-        # encode cannot clip.
+        # Guard the output: never ship NaN or ±inf, and keep peaks below full scale so the 16-bit WAV
+        # encode cannot clip. An inf sample (overlap-add overflow in the iSTFT) made the peak inf and the
+        # scaling below turned every other sample into 0: silence returned as a success.
         if audio_np.size == 0:
             return {"error": "empty_audio"}
-        if np.isnan(audio_np).any():
-            logger.error("Generated audio contains NaN")
+        if not np.isfinite(audio_np).all():
+            logger.error("Generated audio contains NaN or inf")
             return {"error": "nan_audio"}
         peak = float(np.max(np.abs(audio_np)))
         if peak > PEAK_LIMIT:

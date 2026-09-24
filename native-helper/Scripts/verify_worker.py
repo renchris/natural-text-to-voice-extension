@@ -140,6 +140,46 @@ def bounds_phase(py, worker, env, check):
             p.wait()
 
 
+def guard_phase(worker, check):
+    """In-process: generate_audio_mlx with a stub model, so the output guard sees exact buffers. A NaN
+    and an inf buffer must both be refused as nan_audio (an isnan-only guard let ±inf through, and the
+    peak scaling then zeroed the whole buffer); a clean buffer is returned as audio."""
+    import importlib.util
+
+    try:
+        import numpy as np
+    except ImportError:
+        check(False, "guard phase needs numpy: run verify_worker.py with the helper's python-env")
+        return
+    spec = importlib.util.spec_from_file_location("tts_worker_guard_test", worker)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    class Chunk:
+        def __init__(self, audio):
+            self.audio = audio
+
+    class StubModel:
+        def __init__(self, audio):
+            self.audio = audio
+
+        def generate(self, text, **kwargs):
+            yield Chunk(self.audio)
+
+    tone = (0.3 * np.sin(np.linspace(0, 200, 24000))).astype(np.float32)
+    for label, buf, want in (
+        ("nan", np.where(np.arange(24000) == 100, np.nan, tone).astype(np.float32), "nan_audio"),
+        ("inf", np.where(np.arange(24000) == 100, np.inf, tone).astype(np.float32), "nan_audio"),
+        ("-inf", np.where(np.arange(24000) == 100, -np.inf, tone).astype(np.float32), "nan_audio"),
+        ("clean", tone, "audio"),
+    ):
+        mod._model_cache = StubModel(buf)
+        r = mod.generate_audio_mlx("Guard test.", "af_bella", 1.0)
+        got = "audio" if "audio_base64" in r else r.get("error")
+        print(f"GUARD {label} -> {got}")
+        check(got == want, f"output guard: {label} buffer gave {got!r}, want {want!r}")
+
+
 def main():
     py = sys.argv[1] if len(sys.argv) > 1 else sys.executable
     worker = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_WORKER
@@ -259,6 +299,7 @@ def main():
     )
 
     bounds_phase(py, worker, env, check)
+    guard_phase(worker, check)
 
     if failures:
         print("verify_worker: FAIL", file=sys.stderr)
