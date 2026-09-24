@@ -8,6 +8,8 @@
 //       "chapters": [ { "at": 0, "title": "Select text, right-click, listen" }, … ] }
 //   Clip ids are the ids in assets/media/src/selections.json; "at" is where the WAV itself starts (the adelay the
 //   mux used), not where the speech starts: each clip opens with ~0.3 s of silence, measured here from the WAV.
+//   Optional "live": [ { "from": 36.2, "to": 40.1, "text": "…" } ] adds captions for speech that is not a clip (the
+//   fallback scene's system voice, recorded live), with times measured in the finished master.
 //
 // Writes <out-dir>/chapters.txt (the lines to paste under "Chapters" in the description) and
 // <out-dir>/youtube-master.srt (one caption per sentence, the exact text of each clip, timed by its share of the
@@ -77,6 +79,10 @@ for (const c of tl.clips ?? []) {
     cues.push({ from: t, to: t + d, text: s });
     t += d;
   }
+}
+for (const l of tl.live ?? []) {
+  if (!(l.to > l.from) || !l.text) fail('each "live" entry needs from < to and a text');
+  cues.push({ from: l.from, to: l.to, text: l.text });
 }
 cues.sort((a, b) => a.from - b.from);
 const srt = cues.map((q, i) => `${i + 1}\n${srtTime(q.from)} --> ${srtTime(q.to)}\n${q.text}\n`).join('\n');
