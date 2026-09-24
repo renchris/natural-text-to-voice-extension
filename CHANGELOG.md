@@ -16,8 +16,8 @@ permission to the local helper only, and it turns every silent failure into a vi
 
 ### Breaking
 - **The helper now needs macOS 14 (Sonoma) or later on Apple silicon.** Every mlx release after 0.29.3 ships macOS
-  14+ wheels only, and the Kokoro fidelity fix needs mlx ≥ 0.31.1. Building from source needs a Swift 6.0 toolchain
-  (Xcode 16.2 or later).
+  14+ wheels only, and the Kokoro fidelity fix needs mlx ≥ 0.31.1. Building it (every install path does, Homebrew
+  included) needs a Swift 6.0 toolchain (Xcode 16.2 or its Command Line Tools), which needs macOS 14.5 or later.
 - **The helper's Python environment is built with [uv](https://docs.astral.sh/uv/)** (`brew install uv`). Re-run
   `native-helper/Scripts/setup-python-env.sh`. It moves the old environment to `native-helper/.python-env.pre-1.5`
   as a rollback.
@@ -67,8 +67,9 @@ permission to the local helper only, and it turns every silent failure into a vi
   installed. The old script pinned 3 packages, let ~178 float, and deleted every `*.dist-info`, which broke a fresh
   install. The environment shrinks from 2.1 GB (183 packages) to 655 MB (89).
 - **Faster start, and the first request is not cold.** The worker runs a warm-up sentence before it reports ready.
-  A missing model or dependency now fails at launch, not on the first `/speak`. Launch to healthy takes 1.95 s
-  (was 5.5 s), and the first `/speak` takes 0.35 s (was 3.0–4.8 s). Warm synthesis runs at ~26.5× real time (was
+  A missing model or dependency now fails at launch, not on the first `/speak`. Launch to healthy took 1.95 s
+  (was 5.5 s) before the British pipeline was also warmed at startup (above); it is now about 3–4 s. The first
+  `/speak` takes 0.35 s (was 3.0–4.8 s). Warm synthesis runs at ~26.5× real time (was
   18.7–22.2×).
 - **Offline by default.** The worker sets `HF_HUB_OFFLINE=1`, and the setup script fetches the model once. Before,
   every `/speak` resolved its voice on huggingface.co.
@@ -80,12 +81,17 @@ permission to the local helper only, and it turns every silent failure into a vi
   `apiVersion: 2`.
 - **A quick restart keeps port 8249.** The port probe now survives TIME_WAIT, so a restart no longer drifts to
   8250 and saves that port into `config.json`. The new `--port`, `--python` and `--worker` overrides are never
-  saved.
+  saved to the shared `config.json`; with `NATURAL_TTS_CONFIG_DIR` set they are saved into `<dir>/config.json`,
+  which is how the Homebrew service pins its `opt/` paths.
 - **Text keeps its punctuation.** Curly quotes, dashes and ellipses now reach the G2P instead of being dropped.
 - **Worker guards.** Invalid speeds, empty text after normalisation and NaN audio return named errors, not raw
   exceptions. Audio that would clip is scaled down.
 - **swift-nio 2.97.1 and swift-log 1.8.0.** These are the newest releases that still build on Xcode 16.2, the
   last Xcode for Sonoma.
+- **A readable log in a terminal.** Run by hand, the helper prints each message bare (warnings and errors keep their
+  level); the `brew services` log file keeps the full timestamp-level-label format. A `/speak` logs "Generated 2.52s
+  audio in 0.20s (12.7× faster than real time)" instead of an inverted "RTF", and `/health` reports
+  `uptime_seconds` in tenths.
 - **The build bundles only `tts_worker.py`.** It used to copy the 2.1 GB venv into `.build`. The empty Swift test
   target that broke fresh-clone builds is gone.
 
@@ -105,6 +111,13 @@ permission to the local helper only, and it turns every silent failure into a vi
   built as text, not HTML. The `autoPlay` and `helperAutoRetry` toggles did nothing and are removed. Retry works
   again after a successful retry.
 - **One voice catalogue** (`src/shared/voices.ts`, 28 voices) is the single source of voice ids and labels.
+- **The popup matches the icon, and clears WCAG AA.** An `oklch()` override had turned the accent into `#076BE3`;
+  every browser now renders the brand indigo `#3D4ED7`. The Stop button is the brand deep ink (14.8:1; the green it
+  replaces was 3.51:1 and read as "go"), the Connected pill and the info message clear 4.5:1, the settings gear has
+  a visible hub, Retry has a refresh icon and an outline style, and the labels use "…", "×" and sentence case.
+- **The install command wraps only after its `&&`**, never between the two ampersands.
+- **Discovery probes all twelve ports at once**, and the lowest port that is the helper wins. With no helper, the
+  fallback no longer waits one timeout per port where a refused loopback connect is slow (Windows).
 - **Production build hygiene.** `console.log`/`info`/`debug` are dropped from `dist`, and no test hooks ship.
 - **The offscreen document starts at the stored helper port**, and the port the helper actually answered on is
   saved back, so a new offscreen document does not rediscover the helper every time.
@@ -136,7 +149,27 @@ permission to the local helper only, and it turns every silent failure into a vi
 - **`quickstart.sh` fails closed** on a failed build (and checks for Swift 6.0+), instead of restarting the old
   helper and reporting success.
 
+### Changed: policy and documentation
+- **Privacy policy rewritten against the 1.5.0 code** (Version 1.5.0, effective 23 September 2026). Every statement
+  is traced to file:line in `docs/publishing/PRIVACY_TRACEABILITY.md`; claims no code proves (GDPR/CCPA
+  compliance, "encrypted by Chrome", `storage.sync`) are gone.
+- **Accessibility review redone for 1.5.0** (`chrome-extension/ACCESSIBILITY.md`): contrast from the tokens, the
+  keyboard paths with line anchors, and the open items.
+
 ### Added
+- The store package: `bun run package` (`chrome-extension/scripts/package.mjs`) builds a deterministic, checked
+  zip.
+- `scripts/release/release.sh`, the release program (preflight, tag, GitHub Release, Homebrew tap, security contact,
+  and the store handoff it prints only when the listing's inputs are true), and the `docs/publishing/` kit: the
+  store listing, the release steps, the YouTube kit and the privacy trace.
+- `bench/` (run.mjs, with an idle-machine gate, and chart.mjs), which generates the README's performance chart.
+- Diagrams rendered with beautiful-mermaid from `assets/diagrams/*.mmd` (`bun run diagrams`), with a CI staleness
+  check (`bun run diagrams:check`).
+- README media (`assets/media/`: popup captures, the status loop, terminal casts, the demo article and its real
+  clips, with `PROVENANCE.md`) and the store images (`assets/store/`, rendered from real captures).
+- `docs/history.md`, the project's story before 1.5.
+- A `docs` section in `scripts/verify-all.sh`: diagrams, the chart, the demo audio, store image sizes, media size
+  budgets, the store zip, the privacy policy and the old name.
 - MIT `LICENSE` and `THIRD_PARTY_NOTICES.md`. The GPL/LGPL components (espeak-ng, phonemizer-fork, num2words,
   libsndfile) are installed into the user's own environment and are not redistributed.
 - Verification tooling:
