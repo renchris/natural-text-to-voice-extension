@@ -52,7 +52,7 @@ Paths are shortened: `ext/` = `chrome-extension/`, `sw` = `ext/src/background/se
 | --- | --- | --- |
 | O1 | Limited Use sentence | Required wording, Chrome Web Store Limited Use policy (R07 §12.8, [S16]) |
 | O2 | Questions via GitHub issues | Issues are enabled (`gh api repos/renchris/natural-text-to-voice-extension --jq .has_issues` → `true`, 2026-09-23) |
-| O3 | Private vulnerability reporting link | **Not true until the release step runs.** Measured 2026-09-23: `gh api repos/renchris/natural-text-to-voice-extension/private-vulnerability-reporting` → `{"enabled":false}`. `scripts/release/release.sh` enables it (gated `--confirm private-vulnerability-reporting`) and its preflight refuses to go further while it is off, so the link works before the listing can be submitted |
+| O3 | Private vulnerability reporting link | **Not true until the release step runs.** Measured 2026-09-23: `gh api repos/renchris/natural-text-to-voice-extension/private-vulnerability-reporting` → `{"enabled":false}`. `scripts/release/release.sh` enables it (gated `--confirm private-vulnerability-reporting`, step 4), and step 5 prints "NOT READY — do not submit" instead of the dashboard steps while step 4 is not `CURRENT` or `DONE`, so the link works before the listing is submitted |
 | O4 | Open source, MIT | `LICENSE` (repo root); `formula:19` |
 
 ## What the rewrite removed, and why

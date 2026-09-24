@@ -32,10 +32,11 @@ Rerun it any time. Steps already done are verified and reported `CURRENT`, never
 | **2. GitHub Release** | `gh release create --verify-tag --latest`, titled "Natural TTS X.Y.Z", notes = the CHANGELOG section plus the zip's size and sha256, assets = the zip and its `.sha256` | `--confirm release/vX.Y.Z` | Exists with a zip whose sha256 matches this build → `CURRENT`. A missing asset is uploaded (same gate). A different hash, or a draft, → **FAIL**, never overwritten |
 | **3. Homebrew tap** | Runs `packaging/homebrew/publish-tap.sh --version X.Y.Z --ref origin/main`, passing it `--confirm renchris/homebrew-tap` (and `--confirm vX.Y.Z` only if you gave it). That script downloads the tag's tarball, writes the formula with its real sha256, runs `brew audit --strict --online`, and pushes the tap | `--confirm renchris/homebrew-tap` | Without the confirm, publish-tap.sh's own read-only plan is shown. It exits 0 "already current" when the published formula matches. Blocked until the tag exists |
 | **4. Security contact** | Turns on GitHub private vulnerability reporting, which `PRIVACY.md` links to | `--confirm private-vulnerability-reporting` | Already on → `CURRENT`. Checked again after enabling |
-| **5. GUI handoff** | Checks each store image exists at its exact size; prints the dashboard and YouTube steps, the zip's path and sha256, and the reviewer's test instructions ready to paste (`--youtube-url <watch URL>` fills in the video link) | none | Missing required images → exit 3 |
+| **5. GUI handoff** | Checks that the listing's inputs are true: steps 1-4 `CURRENT` or `DONE`; each store image at its exact size; `chrome-extension/PRIVACY.md` on GitHub's `main` identical to this commit's (blob sha) and its URL answering; the root README carrying `## Install` and `### Updating a helper installed from source` (the zip links to both) and none of "WebGPU", "Phase 0", "IN PROGRESS". Only then prints the dashboard and YouTube steps, the zip's path and sha256, and the reviewer's test instructions ready to paste (`--youtube-url '<watch URL>'` fills in the video link; quote it, since `?` is a glob in zsh). Otherwise it prints **NOT READY — do not submit** and what is missing | none | Images, policy or README not ready → exit 3 (a refused gated step still exits 2) |
 
 **Exit codes:** `0` released and the listing inputs are ready · `1` a check failed · `2` refused: a gated step needs its
-`--confirm` (the refused steps changed nothing) · `3` released, but required store images are missing · `64` bad usage
+`--confirm` (the refused steps changed nothing) · `3` released, but the listing is not ready (store images, the policy
+on GitHub, or the README) · `64` bad usage
 (including a `--confirm` that names no step, so a typo can never silently confirm nothing).
 
 Every run is logged to `$TMPDIR/ntts-release.XXXXXX/release.log`; the path is printed in the summary.
@@ -52,8 +53,9 @@ Every run is logged to `$TMPDIR/ntts-release.XXXXXX/release.log`; the path is pr
 
 These need a person at a browser, and the program prints them with their URLs at step 5:
 
-1. **YouTube:** upload the demo (see [YOUTUBE.md](YOUTUBE.md)), then rerun with `--youtube-url` to get the test
-   instructions with the link filled in.
+1. **YouTube:** upload the demo (see [YOUTUBE.md](YOUTUBE.md)), then rerun with `--youtube-url '<watch URL>'`
+   (quoted) to get the test instructions with the link filled in. Paste the same URL into the dashboard's Global promo
+   video field yourself; the program does not fill that field.
 2. **Chrome Web Store dashboard** (<https://chrome.google.com/webstore/devconsole>): account setup once (2-Step
    Verification, the US$5 fee, a verified contact email, Non-trader), upload the zip, paste every field from
    [CHROME_WEB_STORE.md](CHROME_WEB_STORE.md), and submit with deferred publishing.

@@ -37,14 +37,12 @@ Natural TTS is a free, open-source Chrome extension with a small companion app, 
 
 Chapters
 0:00 Select text, right-click, listen
-M:SS Voices and speed
-M:SS PDFs, or no helper: system voices
-M:SS Private: nothing leaves your Mac
-M:SS Set up with Homebrew
+M:SS Voices, speed, and no helper: system voices
+M:SS Private and offline; set up with Homebrew
 
 Get it
 Chrome Web Store: STORE_URL
-Helper (macOS 14 or later, Apple silicon):
+Helper (macOS 14.5 or later, Apple silicon):
 brew install renchris/tap/natural-tts
 brew services start natural-tts
 
@@ -56,23 +54,25 @@ Credits: Kokoro-82M by hexgrad (Apache-2.0). Natural TTS is MIT-licensed.
 #texttospeech #accessibility #macos
 ```
 
-Replace `STORE_URL` with the listing's URL (`https://chromewebstore.google.com/detail/<item-id>`) once the item exists.
+**OPERATOR:** replace `STORE_URL` with the listing's URL (`https://chromewebstore.google.com/detail/<item-id>`) once the item exists.
 Until the item is published the link shows "not found", so either upload the video **unlisted** first and edit the
 description after launch, or use the GitHub URL in its place and change it after launch. Everything else in the
 block is true of 1.5.0: see the claim table in [CHROME_WEB_STORE.md §2.1](CHROME_WEB_STORE.md#21-product-details).
 
 ### Chapters
 
-The chapters follow the capture lane's storyboard (title card, right-click speak, voices and speed, PDF or fallback,
-privacy proof, setup). YouTube shows chapters only when **the first starts at 0:00, there are at least three, and
-each lasts at least 10 seconds**. That shapes the list:
+The chapters follow the capture lane's storyboard (title card, right-click speak, voices and speed, the no-helper
+fallback, privacy proof, end card: `scripts/capture/GUI_PASS.md` item 4). The fourth scene is the system-voice
+fallback, not a PDF. YouTube shows chapters only when **the first starts at 0:00, there are at least three, and each
+lasts at least 10 seconds**. The master is 30-50 s, so it carries **three** chapters, which is what the block above
+pastes:
 
-- The 3-second title card opens the first chapter instead of being a chapter of its own.
-- Take each `M:SS` from the master's cut points (the capture lane's timeline); never estimate them.
-- A beat shorter than 10 seconds merges into its neighbour, and its title joins theirs (for example
-  "Voices, speed and PDFs"). Do not pad the video to make a chapter fit.
-- Name the fourth chapter after what the cut actually shows: "PDFs" if it shows a PDF, "No helper? System voices" if
-  it shows the fallback, both if it shows both.
+- The 3-second title card opens the first chapter instead of being a chapter of its own, and the 4-second end card
+  closes the last one.
+- The `M:SS` times are capture-lane work, not yours: the GUI pass writes them to `chapters.txt` beside the master,
+  from the take's `timeline.json` cut points (never estimated).
+- A beat shorter than 10 seconds merges into its neighbour, and its title joins theirs. Do not pad the video to make
+  a chapter fit.
 
 Check a filled-in block against the master (prints `ok` or the first rule it breaks):
 
@@ -81,7 +81,7 @@ python3 - /tmp/ntts-w3-out/youtube-master.mp4 <<'EOF'
 import re, subprocess, sys
 dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", sys.argv[1]]))
 block = """0:00 Select text, right-click, listen
-0:15 Voices and speed
+0:15 Voices, speed, and no helper: system voices
 """  # paste the filled chapter lines here
 t = [int(m) * 60 + int(s) for m, s in re.findall(r"^(\d+):(\d\d) ", block, re.M)] + [dur]
 assert t[0] == 0, "first chapter must start at 0:00"
@@ -108,7 +108,7 @@ text to speech, tts, kokoro, kokoro tts, read aloud, chrome extension, local ai,
 | Altered or synthetic content | **Yes** | The voices are AI-generated speech; YouTube asks creators to disclose realistic synthetic audio |
 | Category | Science & Technology | |
 | Video language / caption language | English | |
-| Captions | Upload an `.srt` of the spoken sentences (the capture lane has the exact text) | Accessibility, and the listing's category is Accessibility. Auto-captions of synthetic speech are usually good, but the real text is exact |
+| Captions | Upload `/tmp/ntts-w3-out/youtube-master.srt`, which the GUI pass writes from `assets/media/src/audio/selections.json` (the exact text of each clip) and the take's `timeline.json` (when each clip starts) | Accessibility, and the listing's category is Accessibility. Auto-captions of synthetic speech are usually good, but the real text is exact |
 | License | Standard YouTube License | |
 | **Allow embedding** | **On** | The Chrome Web Store embeds the video; with embedding off the listing shows an error |
 | Comments | Your choice | |
@@ -123,8 +123,9 @@ not live yet. Never **Private**: nobody but you can play it, and the listing wou
 ## After upload
 
 1. Copy the watch URL (`https://www.youtube.com/watch?v=…`). Paste it into the dashboard's **Global promo video**
-   field, and into the `YOUTUBE_URL` slot of the reviewer's test instructions (or pass it to `release.sh
-   --youtube-url`, which fills both in when it prints the GUI steps).
+   field yourself, and into the `YOUTUBE_URL` slot of the reviewer's test instructions, or pass it to
+   `release.sh --youtube-url '<watch URL>'` (quoted: `?` is a glob in zsh), which fills it into the printed test
+   instructions only.
 2. Open the URL signed out, or in a private window, and confirm it plays. Then open
    `https://www.youtube.com/embed/<id>`: that is what the store embeds, and it fails if embedding is off.
 3. After the store listing is live, edit the description's `STORE_URL`, and switch to Public if you uploaded unlisted.

@@ -22,15 +22,18 @@
 #                                                                GATED  --confirm renchris/homebrew-tap
 #   4. GitHub private vulnerability reporting on (PRIVACY.md links to it)
 #                                                                GATED  --confirm private-vulnerability-reporting
-#   5. The GUI-only steps: checks the store images, then prints the dashboard and YouTube steps,
-#      with the reviewer's test instructions ready to paste (--youtube-url fills the video link)
+#   5. The GUI-only steps. First checks that the listing's inputs are true: steps 1-4 CURRENT or DONE,
+#      the store images at their sizes, the privacy policy on GitHub's main identical to this commit's
+#      and its URL answering, and the root README rewritten with the two headings the zip links to.
+#      Only then prints the dashboard and YouTube steps, with the reviewer's test instructions ready to
+#      paste (--youtube-url fills them in); otherwise prints NOT READY and what is missing
 #
 # Idempotent: a step already done is verified and reported CURRENT, never repeated. A tag that points
 # at another commit, or a release asset whose hash differs, is a FAIL, never overwritten.
 #
 # Exit: 0 released and the listing inputs are ready · 1 a check failed · 2 refused (a gated step
-#       needs --confirm; nothing was changed by it) · 3 released, but store images are missing
-#       · 64 bad usage.
+#       needs --confirm; nothing was changed by it) · 3 released, but the listing is not ready (store
+#       images, the policy on GitHub, or the README) · 64 bad usage.
 # Log: every run is also written to $TMPDIR/ntts-release.XXXXXX/release.log (path printed at the end).
 
 set -euo pipefail
@@ -47,7 +50,7 @@ YOUTUBE_URL=""
 REVERIFY=false
 CONFIRMS=()
 
-usage() { sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
 die() { echo "release: FAIL: $*" >&2; exit 1; }
 step() { printf '\n==> %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -388,6 +391,28 @@ check_image assets/store/small-tile-440x280.png 440x280 required "small promo ti
 check_image assets/store/marquee-1400x560.png 1400x560 optional "marquee"
 check_image assets/store/youtube-thumbnail-1280x720.png 1280x720 optional "YouTube thumbnail"
 
+# The listing's other inputs (docs/publishing/CHROME_WEB_STORE.md, "Before you open the dashboard").
+LISTING_OK=true
+POLICY_PATH="chrome-extension/PRIVACY.md"
+POLICY_URL="https://github.com/${SOURCE_REPO}/blob/main/${POLICY_PATH}"
+LIVE_POLICY="$(gh api "repos/${SOURCE_REPO}/contents/${POLICY_PATH}?ref=main" --jq .sha 2>/dev/null || echo unknown)"
+HEAD_POLICY="$(git -C "$REPO" rev-parse "HEAD:${POLICY_PATH}")"
+if [ "$LIVE_POLICY" = "$HEAD_POLICY" ]; then echo "    ok        ${POLICY_PATH} on GitHub main is this commit's (blob ${HEAD_POLICY:0:12})"
+else echo "    STALE     ${POLICY_PATH} on GitHub main is blob ${LIVE_POLICY:0:12}, this commit has ${HEAD_POLICY:0:12}: land main first"; LISTING_OK=false; fi
+if curl -fsSIL --max-time 20 "$POLICY_URL" >/dev/null 2>&1; then echo "    ok        privacy policy URL answers: ${POLICY_URL}"
+else echo "    DOWN      privacy policy URL does not answer: ${POLICY_URL}"; LISTING_OK=false; fi
+# The zip links to README.md#install and #updating-a-helper-installed-from-source, and the listing sends reviewers there.
+if grep -qx '## Install' "$REPO/README.md" && grep -qx '### Updating a helper installed from source' "$REPO/README.md" \
+    && ! grep -qE 'WebGPU|Phase 0|IN PROGRESS' "$REPO/README.md"; then
+    echo "    ok        README.md is the 1.5.0 README (both anchors the zip links to, no pre-1.5 phrases)"
+else echo "    STALE     README.md: needs '## Install' and '### Updating a helper installed from source', and no WebGPU / Phase 0 / IN PROGRESS"; LISTING_OK=false; fi
+STEPS_OK=true
+i=0
+while [ $i -lt ${#S_NAME[@]} ]; do
+    case "${S_STATE[$i]}" in CURRENT|DONE) ;; *) STEPS_OK=false ;; esac
+    i=$((i + 1))
+done
+
 TESTS="$WORK/test-instructions.txt"
 awk '
     /^## 5\. Test instructions tab/ { sect = 1; next }
@@ -401,13 +426,29 @@ if [ -n "$YOUTUBE_URL" ]; then
     grep -q YOUTUBE_URL "$TESTS" && die "YOUTUBE_URL placeholder survived in the test instructions"
 fi
 
+if [ "$STEPS_OK" != true ] || [ "$ASSETS_OK" != true ] || [ "$LISTING_OK" != true ]; then
+    missing=""
+    i=0
+    while [ $i -lt ${#S_NAME[@]} ]; do
+        case "${S_STATE[$i]}" in CURRENT|DONE) ;; *) missing="${missing}${missing:+, }step ${S_NAME[$i]} ${S_STATE[$i]}" ;; esac
+        i=$((i + 1))
+    done
+    [ "$ASSETS_OK" = true ] || missing="${missing}${missing:+, }store images"
+    [ "$LISTING_OK" = true ] || missing="${missing}${missing:+, }policy or README"
+    echo
+    echo "    NOT READY — do not submit: ${missing}."
+    echo "    The dashboard steps are printed only when every step is CURRENT or DONE and the checks above are ok."
+    echo "    (The test instructions, with any --youtube-url filled in, are in ${TESTS}.)"
+    result "5 GUI handoff" "NOT READY" "${missing}"
+else
 cat <<EOF
 
     These steps need a person at a browser. Every field is in docs/publishing/CHROME_WEB_STORE.md, in order.
 
     A. YouTube (docs/publishing/YOUTUBE.md): upload the demo at ${YOUTUBE_UPLOAD_URL}
        Public (or unlisted), embedding on, thumbnail assets/store/youtube-thumbnail-1280x720.png.
-       Then rerun this with --youtube-url <watch URL> to fill the link into the test instructions.
+       Then rerun this with --youtube-url '<watch URL>' to fill the link into the test instructions,
+       and paste the same URL into the dashboard's Global promo video field yourself.
 
     B. Chrome Web Store dashboard: ${DASHBOARD_URL}
        1. Account (once): 2-Step Verification, the US\$5 fee, a verified contact email, Non-trader.
@@ -422,9 +463,8 @@ EOF
 sed 's/^/    /' "$TESTS"
 echo "    ---- end ----"
 [ -n "$YOUTUBE_URL" ] || echo "    (YOUTUBE_URL is still a placeholder: pass --youtube-url, or replace it by hand)"
-
-if [ "$ASSETS_OK" = true ]; then result "5 GUI handoff" READY "images ok; dashboard and YouTube steps printed"
-else result "5 GUI handoff" "NOT READY" "required store images missing or wrong size (W3 capture lane)"; fi
+result "5 GUI handoff" READY "steps 1-4 done, images, policy and README ok; dashboard and YouTube steps printed"
+fi
 
 # ------------------------------------------------------------------------------ summary
 step "Summary"
@@ -436,11 +476,12 @@ done
 echo "    log: ${LOG}"
 if [ ${#NEEDED[@]} -gt 0 ]; then
     args=""; for c in "${NEEDED[@]}"; do args="${args} --confirm ${c}"; done
-    [ -z "$YOUTUBE_URL" ] || args="${args} --youtube-url ${YOUTUBE_URL}"
+    # Quoted: an unquoted watch URL's "?" is a glob in zsh ("no matches found"). The URL check allows no quote.
+    [ -z "$YOUTUBE_URL" ] || args="${args} --youtube-url '${YOUTUBE_URL}'"
     echo
     echo "REFUSED: the gated steps above changed nothing. Read their commands, then run:"
     echo "  scripts/release/release.sh --version ${VERSION}${args}"
     exit 2
 fi
-[ "$ASSETS_OK" = true ] || exit 3
+[ "$ASSETS_OK" = true ] && [ "$LISTING_OK" = true ] || exit 3
 exit 0
