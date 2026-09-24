@@ -18,7 +18,9 @@ function capture(name: string) {
 let pageSelection: unknown = '';
 let executeScriptThrows = false;
 
+let executeScriptDelayMs = 0;
 const executeScript = mock(async (_injection: unknown) => {
+  if (executeScriptDelayMs) await new Promise(r => setTimeout(r, executeScriptDelayMs));
   if (executeScriptThrows) throw new Error('Cannot access contents of the page');
   // The page answers { text, pdf } (selection.ts probeSelection); a string here is its text.
   return [{ result: typeof pageSelection === 'string' ? { text: pageSelection, pdf: false } : pageSelection }];
@@ -85,6 +87,7 @@ beforeEach(() => {
   (globalThis as any).chrome = mockChrome;
   pageSelection = '';
   executeScriptThrows = false;
+  executeScriptDelayMs = 0;
   offscreenExists = true;
   executeScript.mockClear();
   sendMessage.mockClear();
@@ -194,6 +197,35 @@ describe('keyboard commands (IN-12)', () => {
 
     expect(executeScript).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  test('a stop pressed while the offscreen document is being created is not lost (EXT-6)', async () => {
+    pageSelection = 'Wrong text, stop it';
+    offscreenExists = false; // first use: createDocument + the 300 ms settle
+    const speaking = listeners['contextMenus.onClicked'](
+      { menuItemId: 'natural-tts-speak-selection', pageUrl: 'https://example.com/' },
+      { id: 21 }
+    );
+    await new Promise(r => setTimeout(r, 60));
+    await listeners['commands.onCommand']('stop-speaking', { id: 21 });
+    await speaking;
+    expect(createDocument).toHaveBeenCalledTimes(1);
+    expect(speakMessages()).toEqual([]);
+  });
+
+  test('a stop pressed while the shortcut reads the selection is not lost (EXT-6)', async () => {
+    pageSelection = 'Wrong text, stop it';
+    executeScriptDelayMs = 80;
+    const speaking = listeners['commands.onCommand']('speak-selection', { id: 22 });
+    await new Promise(r => setTimeout(r, 20));
+    await listeners['commands.onCommand']('stop-speaking', { id: 22 });
+    await speaking;
+    expect(speakMessages()).toEqual([]);
+
+    // A stop only cancels what was asked for before it: the next request speaks.
+    executeScriptDelayMs = 0;
+    await listeners['commands.onCommand']('speak-selection', { id: 22 });
+    expect(speakMessages().map(m => m.text)).toEqual(['Wrong text, stop it']);
   });
 
   test('unknown commands are ignored', async () => {

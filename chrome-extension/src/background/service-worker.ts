@@ -38,6 +38,13 @@ const OFFSCREEN_JUSTIFICATION =
 let creatingOffscreen: Promise<void> | null = null;
 let closingOffscreen: Promise<void> | null = null;
 let speaksInFlight = 0;
+/**
+ * Bumped by every stop. A speak request records it when the user asked to
+ * speak and gives up if it changed before the request reached the offscreen
+ * document: a stop pressed while the selection is read, the document is
+ * created, or the send is retried has no job there to stop yet.
+ */
+let stopGeneration = 0;
 const SPEAK_COMMAND = 'speak-selection';
 const STOP_COMMAND = 'stop-speaking';
 
@@ -100,6 +107,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== CONTEXT_MENU_ID) {
     return;
   }
+  const generation = stopGeneration;
 
   try {
     // Read the selection on demand (activeTab was granted by this click),
@@ -112,7 +120,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    await speakText(selectedText);
+    await speakText(selectedText, generation);
   } catch (error) {
     console.error('[Background] Error handling context menu click:', error);
     await showErrorBadge(userMessageForError(error));
@@ -134,6 +142,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
     }
 
     if (command === SPEAK_COMMAND) {
+      const generation = stopGeneration;
       if (tab?.id === undefined || tab.id < 0) {
         console.warn('[Background] speak-selection: no tab to read from');
         await showErrorBadge(NOTHING_SELECTED_SHORTCUT);
@@ -145,7 +154,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
         await showErrorBadge(NOTHING_SELECTED_SHORTCUT);
         return;
       }
-      await speakText(selectedText);
+      await speakText(selectedText, generation);
     }
   } catch (error) {
     console.error(`[Background] Error handling command ${command}:`, error);
@@ -161,22 +170,21 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
  * SPEAK_FINISHED (onMessage below): this worker never holds a message open
  * for the length of the audio, which Chrome cuts off after ~5 minutes.
  */
-async function speakText(text: string): Promise<void> {
+async function speakText(text: string, generation: number = stopGeneration): Promise<void> {
   speaksInFlight++;
   try {
+    const stopped = () => stopGeneration !== generation;
+
     // Get user preferences
     const { voice, speed } = await getPreferences();
 
     // Ensure offscreen document exists
-    await ensureOffscreenDocument();
+    if (!stopped()) await ensureOffscreenDocument();
 
     // Send text to offscreen document for speech generation
-    const response = await sendToOffscreen({
-      type: 'SPEAK_IN_OFFSCREEN',
-      text,
-      voice,
-      speed,
-    });
+    const response = stopped()
+      ? STOPPED_BEFORE_SEND
+      : await sendToOffscreen({ type: 'SPEAK_IN_OFFSCREEN', text, voice, speed }, stopped);
 
     if (response.type === 'SPEAK_STOPPED') {
       console.log('[Background] Speech stopped');
@@ -239,6 +247,7 @@ async function closeIdleOffscreenDocument(): Promise<void> {
  * no receiver (nothing ever spoke) is not an error.
  */
 async function stopSpeaking(): Promise<void> {
+  stopGeneration++;
   const message: StopInOffscreenMessage = { type: 'STOP_IN_OFFSCREEN' };
   try {
     await chrome.runtime.sendMessage(message);
@@ -322,10 +331,14 @@ async function createOffscreenDocumentIfMissing(): Promise<void> {
  * Send message to offscreen document, retrying once on connection failure
  * (defends against the offscreen-listener registration race).
  */
+const STOPPED_BEFORE_SEND: OffscreenSpeakResponse = { type: 'SPEAK_STOPPED', success: true };
+
 async function sendToOffscreen(
-  message: SpeakInOffscreenMessage
+  message: SpeakInOffscreenMessage,
+  stopped: () => boolean
 ): Promise<OffscreenSpeakResponse> {
   for (let attempt = 1; attempt <= 2; attempt++) {
+    if (stopped()) return STOPPED_BEFORE_SEND;
     try {
       const response = await chrome.runtime.sendMessage(message) as OffscreenSpeakResponse | undefined;
       if (response) return response;
