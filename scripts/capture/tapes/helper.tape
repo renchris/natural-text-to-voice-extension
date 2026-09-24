@@ -1,4 +1,5 @@
 # helper.tape — the real Natural TTS helper starting, answering /health, and writing a WAV from /speak.
+# In a terminal the helper prints each log message bare (no timestamp, level or label), so no sed is needed.
 # Render: scripts/capture/tapes/render.sh helper   (needs vhs 0.11, jq, gif2webp, and a free port 8250)
 Output "/tmp/ntts-w3-out/tapes/helper.gif"
 
@@ -7,6 +8,7 @@ Set FontFamily "JetBrainsMono Nerd Font Mono"
 Set FontSize 18
 Set Width 1182
 Set Height 870
+# Not shorter: at 660 px, VHS 0.11 stopped showing the helper's output part-way through startup (3 takes, 2026-09-24).
 Set Padding 28
 Set LineHeight 1.25
 Set TypingSpeed 35ms
@@ -21,8 +23,8 @@ Sleep 500ms
 Show
 
 Sleep 600ms
-Type `natural-tts-helper --port 8250 2>&1 | sed 's/.*Helper\] //'` Sleep 300ms Enter
-Wait+Screen@90s /Helper is ready!/
+Type "natural-tts-helper --port 8250" Sleep 300ms Enter
+Wait+Screen@180s /Helper is ready!/
 Sleep 2s
 # Off camera: move the running helper to the background (Ctrl+Z, bg) and clear the screen for the requests.
 Hide

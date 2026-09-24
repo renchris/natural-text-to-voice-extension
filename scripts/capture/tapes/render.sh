@@ -3,8 +3,9 @@
 #
 # Usage: scripts/capture/tapes/render.sh helper|gate [out-dir=assets/media]
 #
-#   helper  tape -> /tmp/ntts-w3-out/tapes/helper.gif -> <out>/helper.webp (gif2webp -m 6 -min_size: lossless, the
-#           demo-recording skill's recipe for flat terminal output). Needs port 8250 free.
+#   helper  tape -> /tmp/ntts-w3-out/tapes/helper.gif -> <out>/helper.webp through retime.mjs with a 2.5 s cap: the
+#           model warm-up (a static screen for 5 s or more, far longer on a busy GPU) is cut to 2.5 s, every other
+#           pause in the tape is already shorter, and the final screen is held 3.5 s. Lossless. Needs port 8250 free.
 #   gate    tape -> /tmp/ntts-w3-out/tapes/gate.gif of a real `bash scripts/verify-all.sh` (~3.5 min) ->
 #           <out>/gate.webp, sped up by retime.mjs: every stretch where the screen does not change is cut to at most
 #           120 ms, typing keeps its pace, and the final table is held 6 s. Nothing on screen is edited; only idle
@@ -22,7 +23,7 @@ case "${1:?usage: render.sh helper|gate [out-dir]}" in
   helper)
     if lsof -nP -iTCP:8250 -sTCP:LISTEN >/dev/null 2>&1; then echo "port 8250 is in use" >&2; exit 2; fi
     (cd "$REPO" && vhs "$HERE/helper.tape")
-    gif2webp -m 6 -min_size -mt "$TMP/helper.gif" -o "$OUTDIR/helper.webp"
+    node "$HERE/retime.mjs" "$TMP/helper.gif" "$OUTDIR/helper.webp" --fps 25 --idle 2500 --hold 3500
     ;;
   gate)
     [ -e "$REPO/native-helper/Sources/NaturalTTSHelper/Resources/python-env/bin/python3" ] || {
