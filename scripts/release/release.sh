@@ -378,11 +378,15 @@ check_image() { # check_image <path> <WxH> <required|optional> <label>
     else echo "    WRONG     $1  is ${got}, want ${want}"; ASSETS_OK=false; fi
 }
 check_image chrome-extension/public/icons/icon128.png 128x128 required "store icon"
-check_image assets/store/cws-shot1-1280x800.png 1280x800 required "screenshot 1"
-for n in 2 3 4 5; do check_image "assets/store/cws-shot${n}-1280x800.png" 1280x800 optional "screenshot ${n}"; done
-check_image assets/store/cws-tile-440x280.png 440x280 required "small promo tile"
-check_image assets/store/cws-marquee-1400x560.png 1400x560 optional "marquee"
-check_image assets/store/youtube-thumbnail.png 1280x720 optional "YouTube thumbnail"
+# The names scripts/capture/cws/render.sh writes (listed in assets/store/README.md).
+check_image assets/store/screenshot-1-right-click.png 1280x800 required "screenshot 1"
+check_image assets/store/screenshot-2-voices.png 1280x800 optional "screenshot 2"
+check_image assets/store/screenshot-3-on-device.png 1280x800 optional "screenshot 3"
+check_image assets/store/screenshot-4-no-helper.png 1280x800 optional "screenshot 4"
+check_image assets/store/screenshot-5-setup.png 1280x800 optional "screenshot 5"
+check_image assets/store/small-tile-440x280.png 440x280 required "small promo tile"
+check_image assets/store/marquee-1400x560.png 1400x560 optional "marquee"
+check_image assets/store/youtube-thumbnail-1280x720.png 1280x720 optional "YouTube thumbnail"
 
 TESTS="$WORK/test-instructions.txt"
 awk '
@@ -402,7 +406,7 @@ cat <<EOF
     These steps need a person at a browser. Every field is in docs/publishing/CHROME_WEB_STORE.md, in order.
 
     A. YouTube (docs/publishing/YOUTUBE.md): upload the demo at ${YOUTUBE_UPLOAD_URL}
-       Public (or unlisted), embedding on, thumbnail assets/store/youtube-thumbnail.png.
+       Public (or unlisted), embedding on, thumbnail assets/store/youtube-thumbnail-1280x720.png.
        Then rerun this with --youtube-url <watch URL> to fill the link into the test instructions.
 
     B. Chrome Web Store dashboard: ${DASHBOARD_URL}

@@ -7,16 +7,16 @@ The Chrome Web Store's promo video field takes only a YouTube URL, so the demo l
 
 | Item | Value |
 | --- | --- |
-| Master | `/tmp/ntts-w3-out/youtube.mp4`, made by the W3 capture lane with the recipe in `scripts/capture/README.md` ("YouTube master"). **Not committed** (too large for the repository); the capture lane records its exact path, size and sha256 |
+| Master | `/tmp/ntts-w3-out/youtube-master.mp4`, made by the W3 capture lane with the spec in `scripts/capture/GUI_PASS.md` (item 4). **Not committed** (too large for the repository); the capture lane records its exact path, size and sha256 |
 | Format | 1920×1080, 30 fps, H.264 High, closed GOP of 15 frames, 2 B-frames, AAC 48 kHz stereo, `+faststart`, no edit list: YouTube's recommended upload settings |
 | Audio | The real output of the upgraded helper for the exact on-screen text and voice, muxed from the `/speak` WAV. **No music under speech**: for a speech product the voice is what viewers judge [R07 §4.6] |
-| Thumbnail | `assets/store/youtube-thumbnail.png`: 1280×720, under 2 MB, PNG (capture lane) |
+| Thumbnail | `assets/store/youtube-thumbnail-1280x720.png`: 1280×720, under 2 MB, PNG (capture lane) |
 
 Check the master before uploading:
 
 ```bash
-ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate,sample_rate -of compact /tmp/ntts-w3-out/youtube.mp4
-magick identify -format '%wx%h %b\n' assets/store/youtube-thumbnail.png
+ffprobe -v error -show_entries format=duration:stream=codec_name,width,height,r_frame_rate,sample_rate -of compact /tmp/ntts-w3-out/youtube-master.mp4
+magick identify -format '%wx%h %b\n' assets/store/youtube-thumbnail-1280x720.png
 ```
 
 ## Details tab
@@ -77,7 +77,7 @@ each lasts at least 10 seconds**. That shapes the list:
 Check a filled-in block against the master (prints `ok` or the first rule it breaks):
 
 ```bash
-python3 - /tmp/ntts-w3-out/youtube.mp4 <<'EOF'
+python3 - /tmp/ntts-w3-out/youtube-master.mp4 <<'EOF'
 import re, subprocess, sys
 dur = float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", sys.argv[1]]))
 block = """0:00 Select text, right-click, listen
@@ -100,7 +100,7 @@ text to speech, tts, kokoro, kokoro tts, read aloud, chrome extension, local ai,
 
 | Setting | Value | Why |
 | --- | --- | --- |
-| Thumbnail | `assets/store/youtube-thumbnail.png` | Custom thumbnails need a phone-verified channel (**OPERATOR**) |
+| Thumbnail | `assets/store/youtube-thumbnail-1280x720.png` | Custom thumbnails need a phone-verified channel (**OPERATOR**) |
 | Playlist | none | |
 | Audience | **No, it's not made for kids** | "Made for kids" disables comments and some embedding features |
 | Age restriction | No | |

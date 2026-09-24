@@ -164,13 +164,13 @@ and this listing**; `release.sh` checks that each one exists at its size before 
 | --- | --- | --- | --- | --- |
 | Store icon | `chrome-extension/public/icons/icon128.png` (the same file is in the zip) | 128×128 PNG with alpha | yes | OD-10 icon. Measured: `srgba`, transparent corners, as the spec's 96 px artwork + 16 px transparent padding requires |
 | Global promo video | YouTube URL — **OPERATOR** | — | no, but strongly advised | See [YOUTUBE.md](YOUTUBE.md). Paste the `https://www.youtube.com/watch?v=…` URL |
-| Screenshot 1 | `assets/store/cws-shot1-1280x800.png` | 1280×800 | at least 1 | "Select text. Right-click. Listen." The native context menu on a real article |
-| Screenshot 2 | `assets/store/cws-shot2-1280x800.png` | 1280×800 | | "Natural voices, at your speed." The anchored popup: voices grouped by accent, 1.3×, Connected |
-| Screenshot 3 | `assets/store/cws-shot3-1280x800.png` | 1280×800 | | "Made on your Mac. Not in the cloud." Chrome → 127.0.0.1 → helper → Apple GPU, next to the Connected popup |
-| Screenshot 4 | `assets/store/cws-shot4-1280x800.png` | 1280×800 | | "PDFs too, with ligatures fixed." (or, if the PDF shot is not captured: "No helper? System voices still work.") |
-| Screenshot 5 | `assets/store/cws-shot5-1280x800.png` | 1280×800 | | "Set up with Homebrew. Then it just works." The helper ready and a green popup |
-| Small promo tile | `assets/store/cws-tile-440x280.png` | 440×280 | **yes** (items without one are listed after items that have one) | Glyph and waveform, no text |
-| Marquee promo tile | `assets/store/cws-marquee-1400x560.png` | 1400×560 | no (needed for marquee placement) | Wordmark, "Private, on-device voices", the real popup crop |
+| Screenshot 1 | `assets/store/screenshot-1-right-click.png` | 1280×800 | at least 1 | "Select text. Right-click. Listen." The native context menu on a real article |
+| Screenshot 2 | `assets/store/screenshot-2-voices.png` | 1280×800 | | "Natural voices, at your speed." The popup with Emma (UK) speaking at 1.3×, beside the 28 voices by accent (20 American, 8 British) |
+| Screenshot 3 | `assets/store/screenshot-3-on-device.png` | 1280×800 | | "Made on your Mac. Not in the cloud." Chrome → 127.0.0.1 → helper → Apple GPU, next to the Connected popup |
+| Screenshot 4 | `assets/store/screenshot-4-no-helper.png` | 1280×800 | | "Works without the helper, too." The popup with no helper: Offline, the system-voice line, the Homebrew hint. (Not the PDF shot: Chrome's PDF selection carries no ligature code points, so the repair cannot be shown; see `assets/store/README.md`) |
+| Screenshot 5 | `assets/store/screenshot-5-setup.png` | 1280×800 | | "Install once. It's always ready." The Homebrew one-liner as two commands, the Connected popup, and the system-voice fallback line |
+| Small promo tile | `assets/store/small-tile-440x280.png` | 440×280 | **yes** (items without one are listed after items that have one) | Glyph and waveform, no text |
+| Marquee promo tile | `assets/store/marquee-1400x560.png` | 1400×560 | no (needed for marquee placement) | Wordmark, "Private, on-device voices", the real popup crop |
 
 Screenshot rules [R07 §4.2]: square corners, full bleed, the real UI, and every caption legible at the 640×400 the
 store downscales to (the render script writes `*.proof-640x400.png` for that check). The screenshots are uploaded in
