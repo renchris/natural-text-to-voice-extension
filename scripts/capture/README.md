@@ -21,7 +21,7 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `key.swift` | Posts one key press by virtual key code (does **not** dismiss Chrome's native menu) |
 | `cdp.mjs` | Evaluates a JS expression in the first CDP target whose URL contains a substring (`--list` lists targets) |
 | `cdp-browser.mjs` | Sends one browser-level CDP command (`Extensions.*`, `Browser.*`) |
-| `demo.mjs` | The timed hero-demo driver: selection → real popup → speed ×3 → close → native context menu. Writes a timeline |
+| `demo.mjs` | The timed demo driver: selection → real popup → speed ×3 → close → native context menu. `--menu-only` (the hero: selection → context menu only) and `--text` (select one exact sentence). Writes a timeline |
 | `cws/*.html`, `cws/base.css`, `cws/arcs.js`, `cws/glyph.svg` | Store-image templates: screenshots 1–5, small tile, marquee, YouTube thumbnail, GitHub social preview |
 | `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
@@ -32,9 +32,11 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `assemble-loop.mjs` | Resamples a `shoot.mjs` frame sequence onto a constant rate, merges identical frames, encodes lossless `img2webp -m 6` (near-lossless ghosted earlier frames) |
 | `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`), their brand theme, `env.sh` (neutral paths), `retime.mjs`, `render.sh` |
 | `GUI_PASS.md` | The assets that still need a real display, with preconditions and commands |
+| `youtube-meta.mjs` | Chapter list (checked against YouTube's rules) and `.srt` captions for the YouTube master, from its cut points |
 
-The helper mock is **not** in this directory: it is `chrome-extension/tests/e2e/mock-helper.mjs`, shared with the
-extension's E2E tests, so there is exactly one copy.
+Every published sound comes from the **real** helper (`assets/media/PROVENANCE.md`). The E2E mock,
+`chrome-extension/tests/e2e/mock-helper.mjs` (`--port <n> [--speak-delay-ms <n>]`), serves silent WAVs and must never
+be used for a capture.
 
 ## Prerequisites
 
@@ -63,45 +65,35 @@ scripts/capture/versions.sh > "$OUT/toolchain.txt"
 
 ## Launch the capture browser
 
+A real helper on 8250 (started with overrides, so the shared `config.json` is never read or written), then
+`launch.sh`, which does everything the capture needs: Chrome for Testing 153 with a throwaway profile, the extension
+loaded and pinned, the light colour scheme, the stored port seeded to 8250 with `af_heart` at 1.0×, and
+`port-guard.mjs` armed in every target (it refuses every port 8249-8260 but 8250 and serves
+`https://essays.example/` from `assets/media/src`). Headed by default; `HEADLESS=1` for the headless recipes below.
+
 ```bash
-CFT="$HOME/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
-DIST="$(cd chrome-extension/dist && pwd)"
-EXT_ID=$(node -e 'const h=require("crypto").createHash("sha256").update(process.argv[1]).digest("hex").slice(0,32);console.log([...h].map(c=>String.fromCharCode(97+parseInt(c,16))).join(""))' "$DIST")
-PROFILE=$(mktemp -d); mkdir -p "$PROFILE/Default"
-echo "{\"extensions\":{\"pinned_extensions\":[\"$EXT_ID\"]}}" > "$PROFILE/Default/Preferences"   # pin the action
-"$CFT" --user-data-dir="$PROFILE" --load-extension="$DIST" --test-type=gpu --use-mock-keychain \
-  --password-store=basic --no-first-run --no-default-browser-check --window-size=1280,800 \
-  --window-position=40,60 --remote-debugging-port=9555 about:blank &
-CHROME_PID=$!
-WS=$(curl -s 127.0.0.1:9555/json/version | node -pe 'JSON.parse(require("fs").readFileSync(0)).webSocketDebuggerUrl')
+PY=<main checkout>/native-helper/Sources/NaturalTTSHelper/Resources/python-env/bin/python3
+nohup native-helper/.build/release/natural-tts-helper --port 8250 --python "$PY" \
+  --worker "$PWD/native-helper/Sources/NaturalTTSHelper/Resources/tts_worker.py" </dev/null >"$OUT/helper.log" 2>&1 &
+echo $! > "$OUT/helper.pid"
+timeout 60 bash -c 'until curl -sf 127.0.0.1:8250/health | grep -q "\"status\":\"ok\""; do sleep 1; done'
+scripts/capture/launch.sh "$OUT" 8250; source "$OUT/env.txt"      # CHROME_PID GUARD_PID WS EXT_ID PROFILE
+node scripts/capture/cdp.mjs "$WS" about:blank 'location.href="https://essays.example/article.html"'
 ```
 
 - `--test-type=gpu` removes CfT's "for automated testing" infobar. The extension ID is SHA-256 of the absolute
   `dist` path mapped to `a`–`p`, so it changes if the checkout moves (`lahgejbaodkdkgmmjgdbgagkepakpifd` for the main
   checkout).
-- **Load first, then navigate.** With the v1.4 content script, tabs opened before the extension loaded got no
-  injection. From v1.5 (IN-08) the selection is read on demand, but the order costs nothing, so keep it.
-- **Fallback browser:** branded Chrome ignores `--load-extension` since 137. Launch it the same way without that flag
-  and load the extension over CDP: `node scripts/capture/cdp-browser.mjs "$WS" Extensions.loadUnpacked "{\"path\":\"$DIST\"}"`.
+- **Load first, then navigate.** The order costs nothing, so keep it.
+- **Fallback browser:** branded Chrome ignores `--load-extension` since 137. Launch it without that flag and load the
+  extension over CDP: `node scripts/capture/cdp-browser.mjs "$WS" Extensions.loadUnpacked "{\"path\":\"$DIST\"}"`.
 - The MV3 service worker idles out after ~30 s; opening the popup wakes it.
-
-Deterministic state, then the helper mock (never touches a real helper on 8249):
-
-```bash
-node scripts/capture/cdp-browser.mjs "$WS" Extensions.setStorageItems \
-  "{\"id\":\"$EXT_ID\",\"storageArea\":\"local\",\"values\":{\"selectedVoice\":\"af_bella\",\"selectedSpeed\":1.0}}"
-node chrome-extension/tests/e2e/mock-helper.mjs "$WS" 120 fixtures/<voice>.wav &   # interface: <browser-ws> <secs> <wav>
-```
-
-The fixture WAV must be **real output of the upgraded helper for the exact on-screen text and voice**, stored with a
-provenance note (model, voice, speed, text, helper sha). The mock's `/voices` must list only voices the real helper
-returns. Presenting mocked audio as something else breaks the Web Store's "don't misrepresent" rule.
-
-Then open the article: `node scripts/capture/cdp.mjs "$WS" about:blank 'location.href="https://en.wikipedia.org/wiki/Speech_synthesis"'`.
+- The demo article is original prose written for this project (`assets/media/PROVENANCE.md`). Never capture a
+  third-party page for a published image: a store screenshot of, say, Wikipedia would carry CC BY-SA text.
 
 ## Assets
 
-### Anchored popup (README PNG, store screenshot 1 source)
+### Anchored popup (GUI pass only; no committed asset uses it)
 
 ```bash
 node scripts/capture/cdp.mjs "$WS" "chrome-extension://$EXT_ID/background" 'chrome.action.openPopup().then(()=>"ok")'
@@ -117,10 +109,10 @@ magick "$OUT/window.png" -crop <w>x<h>+<x>+<y> +repage "$OUT/popup-anchored-crop
 - **Never** send `Extensions.triggerAction` to the first `tab` target: the hidden component-extension page is listed
   first and crashed Chrome 153 six times in six. `demo.mjs` selects the tab by URL.
 
-### Native context menu (store screenshot 2 source)
+### Native context menu (store screenshot 1 source: `assets/store/src/contextmenu-crop.png`)
 
 ```bash
-node scripts/capture/demo.mjs "$WS" "$EXT_ID" Speech_synthesis "$OUT/timeline.json"   # ends with the menu open
+node scripts/capture/demo.mjs "$WS" "$EXT_ID" essays.example "$OUT/timeline.json" 'article .lede + p' --menu-only
 winlist "Google Chrome for Testing" | grep 'layer=101'                                  # the NSMenu window + bounds
 hover <x> <y> 0.6 screencapture -x -o -l <browser-window-id> "$OUT/menu-raw.png"       # x,y = "Speak selected text"
 magick "$OUT/menu-raw.png" -profile "/System/Library/ColorSync/Profiles/sRGB Profile.icc" "$OUT/menu.png"
@@ -131,14 +123,18 @@ Escape does not dismiss the menu; close the capture browser (`kill $CHROME_PID`)
 
 ### Hero video (README MP4, GIF, YouTube master)
 
+The story that matches `hero.wav` (paragraph 2 of the demo article, right-click, "Speak selected text") is
+`GUI_PASS.md` § "Hero video": `demo.mjs --menu-only` on `'article .lede + p'`, then a native click. `demo.mjs` without
+`--menu-only` drives the older story (selection → popup → speed ×3 → context menu), which speaks at 1.3× and so
+matches no committed clip. The encode steps, for either:
+
 ```bash
-sckrec $CHROME_PID 12 "$OUT/hero-raw.mov" 40 60 1280 800 --no-cursor &
-node scripts/capture/demo.mjs "$WS" "$EXT_ID" Speech_synthesis "$OUT/timeline.json"; wait
-ffmpeg -i "$OUT/hero-raw.mov" -vf "tpad=stop_mode=clone:stop_duration=2,fps=30" -c:v libx264 -profile:v high \
-  -pix_fmt yuv420p -crf 20 -r 30 -movflags +faststart -an "$OUT/hero-video.mp4"
+ffmpeg -i "$OUT/hero-raw.mov" -vf "scale=1280:800:flags=lanczos,tpad=stop_mode=clone:stop_duration=1,fps=30" \
+  -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 20 -r 30 -movflags +faststart -an "$OUT/hero-video.mp4"
 ```
 
-- SCK output is variable frame rate; the `tpad…,fps=30` step makes track durations match.
+- SCK output is variable frame rate, at the display's pixel scale (2560×1600 on Retina); `scale=1280:800` sets the
+  published size, and the `tpad…,fps=30` step makes track durations match.
 - **Canonical audio is post-muxed** from the fixture WAV at the offset `timeline.json` records for the speak step.
   Align it per take by cross-correlating against a live-audio take rather than trusting a constant (the measured
   video-to-driver lag was +0.93–1.00 s over only three events):
@@ -189,7 +185,7 @@ node scripts/capture/shoot.mjs "$WS" "$P" --png fallback.png --fit \
 # status.webp: grab full-resolution frames while the popup reloads, then assemble with real timing
 node scripts/capture/shoot.mjs "$WS" "$P" --fit --wait-for "$ID('statusLabel').textContent==='Connected'" \
   --cast "$OUT/status" --grab --secs 3.5 --before "setTimeout(()=>location.reload(),300),1"
-node scripts/capture/assemble-loop.mjs "$OUT/status" status.webp --from <first Checking s> --to <first Connected s> --hold 2500
+node scripts/capture/assemble-loop.mjs "$OUT/status" status.webp --from <first Checking s> --to <Connected settled s> --lead 1200 --hold 1800
 scripts/capture/tapes/render.sh helper && scripts/capture/tapes/render.sh gate
 ```
 
