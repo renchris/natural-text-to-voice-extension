@@ -184,7 +184,7 @@ permission to the local helper only, and it turns every silent failure into a vi
     - Development guidelines and project structure
     - Performance metrics (bundle size, TTS speed)
     - Roadmap and feature timeline
-  - User-friendly INSTALL.md guide (412+ lines)
+  - User-friendly INSTALL.md guide (411 lines)
     - Step-by-step installation walkthrough (15-20 minutes total)
     - Prerequisites checklist with verification commands
     - Part 1: Native Helper setup (Python env, Swift build, 15 min)
@@ -193,7 +193,7 @@ permission to the local helper only, and it turns every silent failure into a vi
     - Comprehensive troubleshooting section with solutions
     - Uninstallation instructions
     - Usage tips and next steps
-  - PRIVACY.md policy document (363+ lines)
+  - PRIVACY.md policy document (309 lines)
     - 100% local processing guarantee
     - Zero data collection statement
     - Network requests transparency (localhost only)
@@ -201,7 +201,7 @@ permission to the local helper only, and it turns every silent failure into a vi
     - GDPR/CCPA/COPPA compliance details
     - Open source transparency and auditability
     - Contact information for privacy concerns
-  - ACCESSIBILITY.md audit report (685+ lines)
+  - ACCESSIBILITY.md audit report (415 lines)
     - **WCAG 2.1 Level AA compliance certification**
     - Detailed keyboard navigation testing (95/100 score)
     - Screen reader support verification (VoiceOver tested)
@@ -210,14 +210,14 @@ permission to the local helper only, and it turns every silent failure into a vi
     - Focus indicators and visual accessibility
     - Testing methodology and tools used
     - Recommendations for future enhancements
-  - SCREENSHOTS_GUIDE.md (370+ lines)
+  - SCREENSHOTS_GUIDE.md (591 lines)
     - 14 screenshot specifications with dimensions and setup
     - 2 demo video requirements with storyboards
     - Technical specifications (PNG, 144 DPI, 1080p video)
     - Recommended tools (QuickTime, OBS Studio, ImageOptim)
     - Post-processing checklist
     - Directory structure for assets
-  - TESTING_CHECKLIST.md (490+ lines)
+  - TESTING_CHECKLIST.md (585 lines)
     - 12 major test sections covering all functionality
     - Installation and setup tests
     - Core TTS functionality tests (popup, voices, speed)
@@ -235,7 +235,7 @@ permission to the local helper only, and it turns every silent failure into a vi
 
 ### Technical Details
 - **Documentation**: 2500+ lines of comprehensive user and developer docs
-- **Accessibility**: WCAG 2.1 AA compliant with excellent screen reader support
+- **Accessibility**: self-assessed as WCAG 2.1 AA; no test artefacts back it (re-reviewed for 1.5.0 in ACCESSIBILITY.md)
 - **Quality**: Ready for production release with complete testing coverage
 - **Target Audience**: End users and open source contributors
 
