@@ -63,6 +63,15 @@ offsets.
 - **`hero.mp4`** (GUI pass, 2026-09-24): `hero.wav` starts at **5.755 s**. The click on "Speak selected text" is at
   3.667 s (frame 110), so the clip starts **2.08 s after the click**, the lag measured on this take (below).
   Speech (energy above −45 dBFS) starts at 6.075 s and ends at 20.875 s; the video ends at 21.4 s.
+- **YouTube master** (`/tmp/ntts-w3-out/youtube-master.mp4`, not committed; 1920×1080, 64.6 s): title card 0–2.5 s
+  (silent); `s1-rightclick.wav` at 6.751 s (click 5.667 s); `s2-british.wav` at 19.747 s and `s3-speed.wav` at
+  31.091 s (popup Speak clicks, lags 0.540 s and 0.399 s); the fallback scene 34.90–41.97 s carries its own live
+  recording (the macOS system voice, not a clip); the terminal 41.97–50.60 s (silent); `s5-offline.wav` at 53.527 s
+  (click 52.24 s); end card 60.57–64.57 s (silent). Each position is the clip's cross-correlated place in its own take
+  moved by the cuts before it; re-measured in the finished file, every clip is within 21 ms of it (the AAC priming
+  that `-use_editlist 0` leaves in).
+- **`demo-30s.mp4`** (1280×720, 30.0 s): `s1-rightclick.wav` at 2.751 s (click flash 1.667 s), `s2-british.wav` at
+  15.547 s, then the terminal (silent). Both re-measured in the file: score 1.000 each.
 
 ## Hero video (GUI pass, 2026-09-24)
 
@@ -142,6 +151,51 @@ build (helper 1.5.0 built from `6b881a1`), with the same commands.
 Not made in this step, and why: `voices.webp` (a voice switch needs the native `<select>` dropdown open; the
 closed box only changes its one-word label, which would not show the accent groups) and the hero video, poster
 and preview (they need the native context menu). Both are in `scripts/capture/GUI_PASS.md`. (The hero set was made in the GUI pass: see "Hero video" above.)
+
+## Promo video and demo cut (GUI pass, 2026-09-24)
+
+| File | Size | Bytes | What it is |
+|---|---|---|---|
+| `demo-30s.mp4` | 1280×720, 30.0 s | 666,075 | Scenes (b), the voice-switch half of (c), and the privacy terminal from the master. H.264 High CRF 23 `-preset slow`, AAC 128 kb/s 48 kHz stereo, `+faststart` |
+| `/tmp/ntts-w3-out/youtube-master.mp4` (not committed) | 1920×1080, 64.6 s | 34,707,419 | The R07 storyboard: title, (b), (c), (d), (e), end card. The R09 encode: H.264 High 8 Mb/s (max 10), closed GOP 15, 2 B-frames, AAC 192 kb/s 48 kHz stereo, `+faststart`, `-use_editlist 0` |
+
+**Takes.** One live take per scene, each in the same headed browser (window 1612×969, recorded 1612×907 pt at 2x,
+exactly 16:9) with `sckrec --exclude-others` so every take has its own live audio, and the same helper, guard and
+ports as the hero. (b) `hero.mjs --sel` on paragraph 1's last sentence, Heart 1.0×. (c) `popup-scene.mjs`: the
+real anchored popup, a real click on its voice box, the native grouped list, Emma, Speak, + three times (1.3×), a
+second sentence, Speak; the helper log shows `voice=bf_emma` at 1.0 for 123 characters and at 1.3 for 73. (d) the
+capture helper stopped (only that pid; the older helper on 8249 was never touched), then a right-click speak: the
+guard refused 8249 and 8250 and nothing listened on 8251–8260, so the extension fell back to the macOS system voice,
+and the popup shows Offline, "System voice" and the install hint. That scene's audio is the take's own recording,
+unchanged (it is about 10 dB louder than the Kokoro clips; no gain was applied to anything). (e) the helper
+restarted; `scripts/capture/tapes/privacy.tape` (VHS, a real shell) looks the helper and worker pids up on camera:
+the Kokoro worker has **0** network sockets, the helper one, `127.0.0.1:8251 (LISTEN)`; then a right-click speak
+through that same helper, whose 16 guard-logged requests all went to 127.0.0.1:8251. Wi-Fi was never touched. For
+(e) the article got 400 px of bottom padding (`document.body.style.paddingBottom`) so paragraph 5 could scroll to
+where its menu fits inside the frame; nothing else on the page changed. Scenes (d) and (e) start with the menu
+already open (the sentence is selected on screen); the gesture itself is shown in (b).
+
+| Scene | Click (take) | Clip in take | Lag |
+|---|---|---|---|
+| (b) right-click, `s1-rightclick.wav` | 11.167 s | 12.251 s (score 0.993) | 1.084 s |
+| (c) popup Speak, `s2-british.wav` | 12.107 s | 12.647 s (0.999) | 0.540 s |
+| (c) popup Speak at 1.3×, `s3-speed.wav` | 24.392 s | 24.791 s (0.999) | 0.399 s |
+| (d) right-click, system voice (live) | 11.105 s | speech from 12.37 s | 1.26 s |
+| (e) right-click, `s5-offline.wav` | 10.942 s | 12.227 s (0.997) | 1.285 s |
+
+Right-click clicks are the menu item's click flash, from a frame-by-frame luma trace of the menu; popup clicks are
+`click.swift`'s mouse-down, whose wall-clock mapping matched the Speak button's own reaction to within 6 ms.
+`scripts/capture/promo-assemble.py` cuts every scene at 30 fps on whole frames, puts each clip at its measured time,
+and refuses any cut inside a clip or inside a click-to-speech gap: the only cuts (four in (c), 0.35–0.8 s each)
+remove idle time between actions. Cards: `scripts/capture/video-cards.sh` (a text-only title card, so the video never
+shows the older popup that `youtube-thumbnail-1280x720.png` embeds, and an end card with the Homebrew commands and the
+repository). **Discarded takes:** first takes of (b) and (c) (the macOS volume display appeared over them when the
+volume was changed mid-take), and an earlier (b) framing that cut the title off.
+
+**Length.** The spec asked for a 30–50 s master and a 20–30 s demo. The master is 64.6 s: its five scenes carry
+~28 s of real speech plus real latencies and the actions that cause them, and the only way under 50 s would be
+cutting inside a wait or speeding up the UI. The demo is 30.0 s because it drops the second (1.3×) speak and the
+fallback scene.
 
 ## Voices loop (GUI pass, 2026-09-24)
 
