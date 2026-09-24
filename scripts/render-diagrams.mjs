@@ -88,6 +88,35 @@ function githubReady(svg) {
     .replaceAll("'Inter', system-ui, sans-serif", GITHUB_FONTS)
 }
 
+// beautiful-mermaid's xychart shows a bar's value only in a hover tip, which an <img> on GitHub never shows. Two
+// comment directives in the .mmd add static text: `%% bar-label-suffix: ×` prints each bar's value above it, and
+// `%% x-sublabels: a | b | …` adds a second, muted line under each category label (the chart grows to fit).
+function annotateXychart(svg, src) {
+  const suffix = src.match(/^\s*%% bar-label-suffix:(.*)$/m)
+  const subs = src.match(/^\s*%% x-sublabels:(.*)$/m)?.[1].split('|').map((t) => t.trim())
+  if (!suffix && !subs) return svg
+  const add = []
+  if (suffix) {
+    for (const m of svg.matchAll(/<path d="([^"]+)" class="xychart-bar[^"]*" data-value="([^"]+)"/g)) {
+      const n = m[1].match(/-?[\d.]+/g).map(Number) // M x0,y Q x0,top x,top L x,top Q x1,top x1,y …
+      const cx = (n[0] + n[8]) / 2
+      add.push(`<text x="${cx}" y="${n[3] - 14}" text-anchor="middle" font-size="14" font-weight="600" dy="0.35em" class="xychart-value" style="fill:var(--accent)">${m[2]}${suffix[1].trim()}</text>`)
+    }
+  }
+  const GROW = subs ? 20 : 0
+  if (subs) {
+    const cats = [...svg.matchAll(/<text x="([\d.]+)" y="([\d.]+)" text-anchor="middle"[^>]*class="xychart-label">[^<]*<\/text>/g)]
+    if (cats.length !== subs.length) throw new Error(`x-sublabels: ${subs.length} given, ${cats.length} categories`)
+    cats.forEach((c, i) => add.push(`<text x="${c[1]}" y="${Number(c[2]) + 19}" text-anchor="middle" font-size="13" font-weight="400" dy="0.35em" class="xychart-sublabel" style="fill:var(--muted)">${subs[i]}</text>`))
+    svg = svg
+      .replace(/<text[^>]*class="xychart-axis-title">/g, (tag) =>
+        tag.includes('rotate(') ? tag : tag.replace(/ y="([\d.]+)"/, (_m, y) => ` y="${Number(y) + GROW}"`))
+      .replace(/viewBox="0 0 ([\d.]+) ([\d.]+)"/, (_m, w, h) => `viewBox="0 0 ${w} ${Number(h) + GROW}"`)
+      .replace(/(<svg[^>]*\sheight=")([\d.]+)"/, (_m, a, h) => `${a}${Number(h) + GROW}"`)
+  }
+  return svg.replace(/<\/svg>\s*$/, `${add.join('\n')}\n</svg>\n`)
+}
+
 function svgWidth(svg) {
   const m = svg.match(/<svg[^>]*\swidth="([\d.]+)"/)
   return m ? Number(m[1]) : NaN
@@ -138,10 +167,12 @@ for (const file of sources) {
   const src = readFileSync(join(DIR, file), 'utf8')
   for (const [variant, theme] of VARIANTS) {
     const out = file.replace(/\.mmd$/, `-${variant}.svg`)
-    // An xychart colours its series with the theme accent, which is GitHub blue; use the brand indigo.
-    // Only charts get it: in flowcharts the accent also colours every arrow head.
-    const chart = /^\s*xychart/.test(src) ? { accent: PALETTE[variant].series } : {}
-    const svg = githubReady(renderMermaidSVG(applyPalette(src, variant), { ...theme, ...chart, transparent: true }))
+    // The GitHub themes draw edges in their border grey (#d1d9e0 on white is 1.43:1, #3d444d on #0d1117 is
+    // 1.92:1, both under WCAG 1.4.11's 3:1 for graphics), and arrow heads and chart series in GitHub blue.
+    // Edges carry the information here, so they use the palette's muted grey (6.1:1 light, 6.2:1 dark), and
+    // the accent is the brand indigo, so arrow heads match the nodes and the chart's bars.
+    const brand = { line: PALETTE[variant].muted, accent: PALETTE[variant].series }
+    const svg = annotateXychart(githubReady(renderMermaidSVG(applyPalette(src, variant), { ...theme, ...brand, transparent: true })), src)
     const width = svgWidth(svg)
     if (!(width <= MAX_WIDTH)) {
       console.error(`TOO WIDE: ${out} is ${width} px; the README column is ${MAX_WIDTH} px`)

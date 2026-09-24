@@ -1,16 +1,26 @@
-stateDiagram-v2
-    direction TB
-    state "Checking" as Checking
-    state "Warming · model loading" as Warming
-    state "Connected · Kokoro voices" as Connected
-    state "Offline · system voice" as Fallback
-    state "Offline · error + Retry" as Error
-    [*] --> Checking : popup opens
-    Checking --> Connected : model loaded
-    Checking --> Warming : helper answers
-    Checking --> Fallback : no helper
-    Checking --> Error : engine stopped · no reply
-    Warming --> Connected : /health every 2 s
-    Connected --> Fallback : Speak finds no helper
-    Fallback --> Checking : Retry
-    Error --> Checking : Retry
+flowchart TB
+    START(["Popup opens"])
+    CHECK(["Checking"])
+    WARM(["Warming · model loading"])
+    CONN(["Connected · Kokoro voices"])
+    FALL(["Offline · system voice"])
+    ERR(["Offline · error + Retry"])
+    START --> CHECK
+    CHECK -->|"model loaded"| CONN
+    CHECK -->|"helper answers"| WARM
+    CHECK -->|"no helper"| FALL
+    CHECK -->|"engine stopped · no reply"| ERR
+    WARM -->|"/health every 2 s"| CONN
+    CONN -->|"Speak finds no helper"| FALL
+    FALL -.->|"Retry"| CHECK
+    ERR -.->|"Retry"| CHECK
+    classDef start fill:@gray-bg,stroke:@gray-fg,color:@text
+    classDef checking fill:@gray-bg,stroke:@muted,color:@text
+    classDef warming fill:@warn-bg,stroke:@warn-fg,color:@text
+    classDef connected fill:@mac-bg,stroke:@mac-fg,color:@text
+    classDef offline fill:@red-bg,stroke:@red-fg,color:@text
+    class START start
+    class CHECK checking
+    class WARM warming
+    class CONN connected
+    class FALL,ERR offline

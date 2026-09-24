@@ -43,7 +43,7 @@ and `/speak`; the helper answers `/speak` with a WAV.
 <!-- Diagram source: assets/diagrams/architecture.mmd. Edit it, run `bun run diagrams` at the repo root, commit the SVGs. -->
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/architecture-dark.svg">
-  <img src="../assets/diagrams/architecture-light.svg" alt="Inside Chrome, the popup and the service worker. The service worker hands text to an offscreen document, or, when the helper is not running, speaks it with a chrome.tts system voice. The popup and the offscreen document call the Natural TTS helper over HTTP on 127.0.0.1:8249 only. On the Mac, the Swift helper checks the Host and Origin headers and passes the request as JSON frames over stdio to a Python worker running Kokoro-82M with mlx-audio, on the Apple GPU through MLX and Metal, offline.">
+  <img src="../assets/diagrams/architecture-light.svg" alt="Everything is inside your Mac. In Chrome, the popup and the service worker. The service worker hands text to an offscreen document, or, when the helper is not running, speaks it with a chrome.tts system voice. The popup and the offscreen document call the Natural TTS helper over HTTP on 127.0.0.1:8249 only. On the Mac, the Swift helper checks the Host and Origin headers and passes the request as JSON frames over stdio to a Python worker running Kokoro-82M with mlx-audio, on the Apple GPU through MLX and Metal, offline.">
 </picture>
 
 ---

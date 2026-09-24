@@ -8,13 +8,18 @@ mermaid fence, no longer matches its source.
 
 | Source | Shows | Type | Size |
 |---|---|---|---|
-| `architecture.mmd` | The extension's parts, the one loopback hop, and the helper, worker and GPU behind it | `flowchart TB` | 716 × 950 |
-| `right-click-flow.mmd` | What happens after **Speak selected text**, with the PDF/frame and system-voice branches | `flowchart TB`, numbered steps | 688 × 738 |
-| `popup-status.mmd` | What the popup's status pill means and how it changes | `stateDiagram-v2` | 660 × 684 |
+| `architecture.mmd` | Everything inside one "Your Mac" boundary: the extension's parts, the one loopback hop, and the helper, worker and GPU behind it | `flowchart TB` | 723 × 891 |
+| `right-click-flow.mmd` | What happens after **Speak selected text**, with the PDF/frame and system-voice branches | `flowchart TB`, numbered steps | 688 × 739 |
+| `popup-status.mmd` | What the popup's status pill means and how it changes, each state in its pill's colour | `flowchart TB`, stadium nodes | 660 × 625 |
 
 Semantic colours come from `@tokens` in the `classDef` lines (`@chrome-bg`, `@mac-fg`, …), which
 `scripts/render-diagrams.mjs` swaps for per-mode values: indigo (the brand accent) for Chrome, green for the Mac,
-amber for fallbacks. beautiful-mermaid 1.1.3 ignores `classDef` in state diagrams, so `popup-status` is uncoloured.
+amber for fallbacks. `popup-status` uses the popup's own pill colours (grey Checking, amber Warming, green
+Connected, red Offline); it is a `flowchart` because beautiful-mermaid 1.1.3 ignores `classDef` in state diagrams.
+Edges use the palette's muted grey (6.1:1 on white, 6.2:1 on GitHub dark; the themes' own border grey was 1.4:1 and
+1.9:1, under WCAG 1.4.11's 3:1) and arrow heads the brand indigo.
+Nested subgraphs are avoided on purpose: with edges crossing them, beautiful-mermaid 1.1.3 routes lines outside the
+diagram, so the Chrome and helper halves of `architecture` are told apart by colour inside one "Your Mac" boundary.
 
 ## Embedding
 
@@ -44,7 +49,7 @@ syncs markers in `README.md` and in the top-level `.md` files of `docs/`, `chrom
 
 Suggested alt text, checked against the code on 2026-09-23:
 
-- **architecture**: "Inside Chrome, the popup and the service worker. The service worker hands text to an offscreen
+- **architecture**: "Everything is inside your Mac. In Chrome, the popup and the service worker. The service worker hands text to an offscreen
   document, or, when the helper is not running, speaks it with a chrome.tts system voice. The popup and the
   offscreen document call the Natural TTS helper over HTTP on 127.0.0.1:8249 only. On the Mac, the Swift helper
   checks the Host and Origin headers, passes the request as JSON frames over stdio to a Python worker running
