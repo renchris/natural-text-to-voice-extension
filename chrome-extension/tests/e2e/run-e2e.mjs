@@ -34,6 +34,11 @@
 //
 // Every assertion about speech checks the /speak body the MOCK received, so a
 // pass cannot have been served by a real helper.
+//
+// The system-voice fallback (OD-2) is observed the same way: the
+// instrumentation wraps chrome.tts.speak in the worker, records each call and
+// every event chrome.tts reports for it, and forces volume 0 so the run stays
+// silent (--mute-audio does not reach the OS speech synthesizer).
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -133,7 +138,7 @@ class CDP {
 
 const SW_INSTRUMENTATION = `(() => {
   const g = globalThis;
-  g.__e2e = { listeners: {}, offscreenReplies: [] };
+  g.__e2e = { listeners: {}, offscreenReplies: [], tts: [] };
   for (const [ns, ev] of [['contextMenus', 'onClicked'], ['commands', 'onCommand']]) {
     const event = chrome[ns][ev];
     const add = event.addListener.bind(event);
@@ -141,6 +146,26 @@ const SW_INSTRUMENTATION = `(() => {
       (g.__e2e.listeners[ns + '.' + ev] ||= []).push(fn);
       return add(fn);
     };
+  }
+  if (chrome.tts) {
+    const speak = chrome.tts.speak.bind(chrome.tts);
+    Object.defineProperty(chrome.tts, 'speak', {
+      configurable: true,
+      writable: true,
+      value: (text, options = {}, ...rest) => {
+        const { onEvent, ...recorded } = options;
+        const call = { text, options: recorded, events: [] };
+        g.__e2e.tts.push(call);
+        return speak(text, {
+          ...options,
+          volume: 0,
+          onEvent: event => {
+            call.events.push(event.type);
+            if (onEvent) onEvent(event);
+          },
+        }, ...rest);
+      },
+    });
   }
   const runtime = chrome.runtime;
   const send = runtime.sendMessage.bind(runtime);
@@ -477,21 +502,77 @@ async function run() {
       await h.cdp.send('Target.closeTarget', { targetId: page.targetId });
     }
 
-    // --- Case 4: helper down -> red "!" badge with the reason; the next success clears it.
+    // --- Case 4: helper down (connection refused) -> the system voice speaks the
+    //     selection through chrome.tts and there is no badge (OD-2); stop-speaking
+    //     silences it.
     {
       const page = await openPageWithSelection(h, pageUrl);
+      const expected = page.selection.trim();
       h.interceptMode = 'down';
       const speaksBefore = mock.speakRequests().length;
       const refusedBefore = h.intercepted.filter(i => i.failed).length;
+      const ttsBefore = await sw(h, 'globalThis.__e2e.tts.length');
+      await sw(h, clickMenu(page.tabId, '', pageUrl));
+      await waitFor('the fallback request to settle', () => sw(h, 'globalThis.__e2e.settledAt'), 60000, 250);
+      const call = await waitFor(
+        'chrome.tts to start speaking',
+        () => sw(h, `(() => { const c = globalThis.__e2e.tts[${ttsBefore}]; return c && c.events.includes('start') ? c : null; })()`),
+        15000,
+        100
+      ).catch(() => sw(h, `globalThis.__e2e.tts[${ttsBefore}] ?? null`));
+      const speaking = await sw(h, 'chrome.tts.isSpeaking()');
+      const b = await badge(h);
+      const refused = h.intercepted.filter(i => i.failed).length - refusedBefore;
+      check(
+        'helper down: chrome.tts speaks the selection (system voice) and no badge is set',
+        call?.text === expected &&
+          call.events.includes('start') &&
+          b.text === '' &&
+          refused > 0 &&
+          mock.speakRequests().length === speaksBefore,
+        `tts ${call ? `${call.text.length} chars, rate ${call.options.rate}, voice ${JSON.stringify(call.options.voiceName ?? 'default')}, events [${call.events}]` : 'not called'}, isSpeaking ${speaking}, badge ${JSON.stringify(b.text)}, ${refused} refused request(s)`
+      );
+
+      await sw(h, `globalThis.__e2e.listeners['commands.onCommand'][0]('stop-speaking', undefined)`);
+      const events = await waitFor(
+        'chrome.tts to stop',
+        () => sw(h, `(() => { const e = globalThis.__e2e.tts[${ttsBefore}]?.events ?? []; return e.some(t => t === 'interrupted' || t === 'cancelled' || t === 'end') ? e : null; })()`),
+        10000,
+        100
+      ).catch(() => null);
+      const after = await badge(h);
+      check(
+        'stop-speaking stops the system voice',
+        !!events && after.text === '',
+        `events [${events}], badge ${JSON.stringify(after.text)}`
+      );
+      await h.cdp.send('Target.closeTarget', { targetId: page.targetId });
+    }
+
+    // --- Case 5: helper down with "Show an error" chosen -> red "!" badge with the
+    //     reason and no system voice; the next success clears it.
+    {
+      const page = await openPageWithSelection(h, pageUrl);
+      await sw(h, `chrome.storage.local.set({ whenHelperUnavailable: 'error' }).then(() => 'set')`);
+      h.interceptMode = 'down';
+      const speaksBefore = mock.speakRequests().length;
+      const refusedBefore = h.intercepted.filter(i => i.failed).length;
+      const ttsBefore = await sw(h, 'globalThis.__e2e.tts.length');
       await sw(h, clickMenu(page.tabId, '', pageUrl));
       await waitFor('the failed request to settle', () => sw(h, 'globalThis.__e2e.settledAt'), 60000, 250);
       const b = await badge(h);
       const refused = h.intercepted.filter(i => i.failed).length - refusedBefore;
+      const ttsCalls = (await sw(h, 'globalThis.__e2e.tts.length')) - ttsBefore;
       check(
-        'helper down: red "!" badge with the helper-down reason',
-        b.text === '!' && b.title === `Natural TTS: ${HELPER_DOWN_MESSAGE}` && refused > 0 && mock.speakRequests().length === speaksBefore,
-        `badge ${JSON.stringify(b.text)}, title ${JSON.stringify(b.title)}, ${refused} refused request(s)`
+        'helper down, "Show an error": red "!" badge with the helper-down reason, no system voice',
+        b.text === '!' &&
+          b.title === `Natural TTS: ${HELPER_DOWN_MESSAGE}` &&
+          refused > 0 &&
+          ttsCalls === 0 &&
+          mock.speakRequests().length === speaksBefore,
+        `badge ${JSON.stringify(b.text)}, title ${JSON.stringify(b.title)}, ${refused} refused request(s), ${ttsCalls} chrome.tts call(s)`
       );
+      await sw(h, `chrome.storage.local.remove('whenHelperUnavailable').then(() => 'removed')`);
 
       h.interceptMode = 'mock';
       mock.setSpeak({ delayMs: 0 });

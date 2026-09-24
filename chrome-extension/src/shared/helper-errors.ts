@@ -154,3 +154,16 @@ export function userMessageForError(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   return 'An unexpected error occurred. Please try again.';
 }
+
+/**
+ * True when the helper could not be reached at all: discovery found nothing
+ * on 8249-8260, the connection was refused, or the helper answered that its
+ * voice engine is gone (helper_down). False for an answer the helper gave on
+ * purpose (a 4xx for bad input, a warm-up, a timeout while it is busy): those
+ * are real problems a system voice would hide. Drives the OD-2 fallback.
+ */
+export function isHelperUnavailable(error: unknown): boolean {
+  if (error instanceof HelperError) return error.code === 'helper_down';
+  if (error instanceof HelperNotFoundError) return true;
+  return error instanceof Error && error.name === 'ConfigNotFoundError';
+}

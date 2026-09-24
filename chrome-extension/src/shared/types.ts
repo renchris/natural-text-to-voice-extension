@@ -147,6 +147,14 @@ export interface OffscreenSpeakResponse {
   type: 'SPEAK_STARTED' | 'SPEAK_COMPLETE' | 'SPEAK_STOPPED' | 'SPEAK_ERROR';
   success: boolean;
   error?: string;
+  /**
+   * On SPEAK_ERROR: the helper could not be reached at all (discovery failed,
+   * connection refused, engine gone), so the system voice may speak instead
+   * (OD-2). Absent for errors the helper returned on purpose.
+   */
+  helperUnavailable?: boolean;
+  /** Which engine served the request; absent means Kokoro (the helper). */
+  engine?: 'kokoro' | 'system';
 }
 
 /**
@@ -190,14 +198,45 @@ export interface OffscreenStatusQuery {
 export interface OffscreenStatusResponse {
   type: 'OFFSCREEN_STATUS';
   speaking: boolean;
+  /** The Kokoro voice being spoken, while speaking */
+  voice?: string;
 }
 
 /**
- * Broadcast by the offscreen document when it starts or stops serving a
- * speak request, so an open popup can show (and drop) its Stop button.
+ * Broadcast when a speak request starts or stops being served, so an open
+ * popup can show (and drop) its Stop button and say which engine speaks: by
+ * the offscreen document for Kokoro speech, by the service worker for the
+ * system-voice fallback (engine 'system').
  */
 export interface OffscreenActivityMessage {
   type: 'OFFSCREEN_ACTIVITY';
+  speaking: boolean;
+  engine?: 'kokoro' | 'system';
+  /** The Kokoro voice, when engine is 'kokoro' and speaking */
+  voice?: string;
+}
+
+/**
+ * Popup -> service worker: speak this with the system voice (OD-2 fallback,
+ * after the popup found the helper unreachable). Answered with an
+ * OffscreenSpeakResponse (engine 'system'); the end of a started speech is
+ * broadcast as OFFSCREEN_ACTIVITY speaking: false.
+ */
+export interface SpeakWithSystemVoiceMessage {
+  type: 'SPEAK_WITH_SYSTEM_VOICE';
+  text: string;
+  /** The chosen Kokoro voice: its accent picks the system voice's language */
+  voice: string;
+  speed: number;
+}
+
+/** Popup -> service worker on open: is the system voice speaking? */
+export interface SystemVoiceStatusQuery {
+  type: 'SYSTEM_VOICE_STATUS_QUERY';
+}
+
+export interface SystemVoiceStatusResponse {
+  type: 'SYSTEM_VOICE_STATUS';
   speaking: boolean;
 }
 
@@ -211,4 +250,6 @@ export type OffscreenMessage =
   | SpeakFinishedMessage
   | OffscreenStatusQuery
   | OffscreenActivityMessage
-  | OffscreenSpeakResponse;
+  | OffscreenSpeakResponse
+  | SpeakWithSystemVoiceMessage
+  | SystemVoiceStatusQuery;

@@ -30,8 +30,11 @@ let voicesPayload: unknown = {
 };
 const healthPayload: Record<string, unknown> = { status: 'ok', model: 'kokoro-82m', model_loaded: true, apiVersion: 2 };
 
+// helperDown: every request is refused, as when no helper is installed or running.
+let helperDown = false;
 const fetchMock = mock(async (input: RequestInfo | URL, _init?: RequestInit) => {
   const url = String(input);
+  if (helperDown) throw new TypeError('Failed to fetch');
   if (url.endsWith('/health')) return new Response(JSON.stringify(healthPayload), { status: 200 });
   if (url.endsWith('/voices')) return new Response(JSON.stringify(voicesPayload), { status: 200 });
   if (url.endsWith('/speak')) {
@@ -77,9 +80,13 @@ const storage: Record<string, unknown> = {
 let onMessage: ((message: unknown) => boolean) | null = null;
 // Runtime messages the popup sends (the offscreen status query, a Stop); the
 // offscreen document answers the query with speaking: false.
-const runtimeSendMessage = mock(async (message: { type: string }) =>
-  message?.type === 'OFFSCREEN_STATUS_QUERY' ? { type: 'OFFSCREEN_STATUS', speaking: false } : undefined
-);
+// The service worker's answer to SPEAK_WITH_SYSTEM_VOICE (OD-2).
+let systemVoiceReply: unknown = { type: 'SPEAK_STARTED', success: true, engine: 'system' };
+const runtimeSendMessage = mock(async (message: { type: string }) => {
+  if (message?.type === 'OFFSCREEN_STATUS_QUERY') return { type: 'OFFSCREEN_STATUS', speaking: false };
+  if (message?.type === 'SPEAK_WITH_SYSTEM_VOICE') return systemVoiceReply;
+  return undefined;
+});
 const setBadgeText = mock(async (_details: { text: string }) => {});
 
 const saved = {
@@ -421,3 +428,122 @@ describe('popup voice list (IN-10)', () => {
   });
 });
 
+
+describe('system-voice fallback in the popup (OD-2)', () => {
+  const retry = async () => {
+    const button = el<HTMLButtonElement>('retryButton');
+    button.click();
+    await until(() => !button.disabled && button.querySelector('span')!.textContent === 'Retry Connection', 'retry finished');
+    await tick();
+  };
+  const sent = (type: string) => runtimeSendMessage.mock.calls.map(call => call[0] as any).filter(m => m?.type === type);
+  const notice = () => el<HTMLParagraphElement>('fallbackNotice');
+  const engine = () => el<HTMLParagraphElement>('engineStatus');
+
+  test('helper unreachable: Offline, an info message (not an error), Speak enabled, the install notice with its link', async () => {
+    helperDown = true;
+    await retry();
+    expect(el('statusLabel').textContent).toBe('Offline');
+    expect(el('messageContainer').className).toBe('message message-info');
+    expect(el('messageContainer').textContent).toContain('system voice');
+    expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
+    expect(el<HTMLSelectElement>('voiceSelect').disabled).toBe(true);
+    expect(el<HTMLButtonElement>('retryButton').style.display).toBe('block');
+    expect(notice().hidden).toBe(false);
+    const link = el<HTMLAnchorElement>('fallbackNoticeLink');
+    expect(link.textContent).toBe('Install the free Natural TTS helper for natural Kokoro voices');
+    expect(link.getAttribute('href')).toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
+    expect(link.getAttribute('target')).toBe('_blank');
+  });
+
+  test('Speak goes to the service worker\'s system voice, and the popup says "System voice" with a working Stop', async () => {
+    runtimeSendMessage.mockClear();
+    const button = el<HTMLButtonElement>('speakButton');
+    button.click();
+    await until(() => el('buttonText').textContent === 'Stop', 'system voice playing');
+
+    expect(sent('SPEAK_WITH_SYSTEM_VOICE')).toEqual([
+      { type: 'SPEAK_WITH_SYSTEM_VOICE', text: 'Hello from the page', voice: 'af_bella', speed: 1 },
+    ]);
+    expect(button.disabled).toBe(false);
+    expect(engine().hidden).toBe(false);
+    expect(engine().textContent).toBe('System voice');
+    expect(notice().hidden).toBe(false);
+
+    // A late "Kokoro ended" (the failed helper attempt) does not drop the system voice's Stop.
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'kokoro' });
+    expect(el('buttonText').textContent).toBe('Stop');
+
+    runtimeSendMessage.mockClear();
+    button.click();
+    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'stopped');
+    expect(sent('STOP_IN_OFFSCREEN')).toEqual([{ type: 'STOP_IN_OFFSCREEN' }]);
+    expect(engine().hidden).toBe(true);
+    expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
+  });
+
+  test('the Stop goes away when the service worker reports the system voice ended', async () => {
+    el<HTMLButtonElement>('speakButton').click();
+    await until(() => el('buttonText').textContent === 'Stop', 'system voice playing');
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'system' });
+    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    expect(engine().hidden).toBe(true);
+  });
+
+  test('the system voice failing too is an error in the popup', async () => {
+    systemVoiceReply = { type: 'SPEAK_ERROR', success: false, error: 'The system voice could not speak this text.', engine: 'system' };
+    el<HTMLButtonElement>('speakButton').click();
+    await until(() => el('messageContainer').className === 'message message-error', 'error shown');
+    expect(el('messageContainer').textContent).toContain('the system voice could not speak');
+    expect(el('buttonText').textContent).toBe('Speak Selected Text');
+    systemVoiceReply = { type: 'SPEAK_STARTED', success: true, engine: 'system' };
+  });
+
+  test('"Show an error": the old error state, Speak disabled, no notice, nothing sent to the system voice', async () => {
+    storage.whenHelperUnavailable = 'error';
+    runtimeSendMessage.mockClear();
+    await retry();
+    expect(el('messageContainer').className).toBe('message message-error');
+    expect(el<HTMLButtonElement>('speakButton').disabled).toBe(true);
+    expect(notice().hidden).toBe(true);
+    expect(sent('SPEAK_WITH_SYSTEM_VOICE')).toEqual([]);
+    delete storage.whenHelperUnavailable;
+  });
+
+  test('helper back: the notice goes, and Kokoro speech is labelled "Kokoro · <voice>"', async () => {
+    helperDown = false;
+    await retry();
+    expect(el('statusLabel').textContent).toBe('Connected');
+    expect(notice().hidden).toBe(true);
+
+    el<HTMLButtonElement>('speakButton').click();
+    await until(() => pendingSpeaks.length > 0, '/speak');
+    pendingSpeaks.shift()!.resolve();
+    await until(() => el('buttonText').textContent === 'Stop', 'playing state');
+    expect(engine().textContent).toBe('Kokoro · Bella (US)');
+    expect(engine().hidden).toBe(false);
+    lastAudio().finish();
+    await until(() => el('buttonText').textContent === 'Speak Selected Text', 'reset');
+    expect(engine().hidden).toBe(true);
+  });
+
+  test('right-click Kokoro speech is labelled with its voice', () => {
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: true, engine: 'kokoro', voice: 'bf_emma' });
+    expect(engine().textContent).toBe('Kokoro · Emma (UK)');
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'kokoro' });
+    expect(engine().hidden).toBe(true);
+  });
+
+  test('the helper going away after the popup opened: Speak falls back to the system voice', async () => {
+    expect(el('statusLabel').textContent).toBe('Connected');
+    helperDown = true;
+    runtimeSendMessage.mockClear();
+    el<HTMLButtonElement>('speakButton').click();
+    await until(() => el('buttonText').textContent === 'Stop', 'system voice playing');
+    expect(sent('SPEAK_WITH_SYSTEM_VOICE')).toHaveLength(1);
+    expect(el('statusLabel').textContent).toBe('Offline');
+    expect(notice().hidden).toBe(false);
+    onMessage!({ type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'system' });
+    helperDown = false;
+  });
+});

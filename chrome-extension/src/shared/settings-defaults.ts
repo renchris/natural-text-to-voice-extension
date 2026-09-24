@@ -5,11 +5,18 @@
  */
 
 import { DEFAULT_VOICE, VOICE_CATALOGUE, VOICE_IDS, isCatalogueVoice, voiceLongLabel } from './voices';
+import {
+  DEFAULT_HELPER_UNAVAILABLE_ACTION,
+  isHelperUnavailableAction,
+  type HelperUnavailableAction,
+} from './system-voice';
 
 export interface ExtensionSettings {
   // Voice preferences
   selectedVoice: string;
   selectedSpeed: number;
+  /** "When the helper isn't running": speak with a system voice (default) or show an error (OD-2) */
+  whenHelperUnavailable: HelperUnavailableAction;
 }
 
 /**
@@ -18,6 +25,7 @@ export interface ExtensionSettings {
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   selectedVoice: DEFAULT_VOICE,
   selectedSpeed: 1.0,
+  whenHelperUnavailable: DEFAULT_HELPER_UNAVAILABLE_ACTION,
 };
 
 /**
@@ -57,6 +65,10 @@ export function validateSettings(settings: Partial<ExtensionSettings>): Extensio
     if (!isNaN(speed) && speed >= SETTINGS_CONSTRAINTS.speed.min && speed <= SETTINGS_CONSTRAINTS.speed.max) {
       validated.selectedSpeed = speed;
     }
+  }
+
+  if (isHelperUnavailableAction(settings.whenHelperUnavailable)) {
+    validated.whenHelperUnavailable = settings.whenHelperUnavailable;
   }
 
   return validated;

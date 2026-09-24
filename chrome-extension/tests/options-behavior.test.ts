@@ -122,6 +122,30 @@ describe('options voice list (IN-11)', () => {
     expect(el<HTMLSelectElement>('voiceSelect').value).toBe('am_adam');
   });
 
+  test('"When the helper isn\'t running" offers system voices (default) or an error (OD-2)', () => {
+    const select = el<HTMLSelectElement>('fallbackSelect');
+    const label = document.querySelector('label[for="fallbackSelect"]')!;
+    expect(label.textContent).toBe("When the helper isn't running:");
+    expect([...select.options].map(o => `${o.value}=${o.textContent}`)).toEqual([
+      'system-voice=Use system voices',
+      'error=Show an error',
+    ]);
+    expect(select.value).toBe('system-voice');
+  });
+
+  test('the choice is saved to chrome.storage.local with the other settings, and shown again', async () => {
+    const select = el<HTMLSelectElement>('fallbackSelect');
+    select.value = 'error';
+    el<HTMLButtonElement>('saveButton').click();
+    await until(() => storage.whenHelperUnavailable === 'error', 'saved');
+    expect(storage.selectedVoice).toBe('am_adam');
+    expect(typeof storage.selectedSpeed).toBe('number');
+
+    select.value = 'system-voice';
+    onStorageChanged!({});
+    await until(() => el<HTMLSelectElement>('fallbackSelect').value === 'error', 'reloaded from storage');
+  });
+
   test('every request went to the mocked 127.0.0.1:18249', () => {
     const urls = fetchMock.mock.calls.map(call => String(call[0]));
     expect(urls.length).toBeGreaterThan(0);

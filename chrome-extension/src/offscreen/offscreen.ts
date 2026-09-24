@@ -7,7 +7,7 @@
  */
 
 import { getApiClient, userMessageForError } from '../shared/api-client';
-import { errorSummary } from '../shared/helper-errors';
+import { errorSummary, isHelperUnavailable } from '../shared/helper-errors';
 import type {
   SpeakInOffscreenMessage,
   OffscreenSpeakResponse,
@@ -39,6 +39,8 @@ interface SpeakJob {
   endPlayback: (() => void) | null;
   /** Aborts the /speak fetch; the closed connection makes the helper stop synthesising */
   abort: AbortController;
+  /** The Kokoro voice requested, reported to an open popup */
+  voice: string;
   settle: (response: OffscreenSpeakResponse) => void;
 }
 
@@ -106,7 +108,9 @@ chrome.runtime.onMessage.addListener((
 
   // The popup asks on open, so it can offer Stop for speech it did not start.
   if (message.type === 'OFFSCREEN_STATUS_QUERY') {
-    sendResponse({ type: 'OFFSCREEN_STATUS', speaking: activeJob !== null });
+    sendResponse(activeJob
+      ? { type: 'OFFSCREEN_STATUS', speaking: true, voice: activeJob.voice }
+      : { type: 'OFFSCREEN_STATUS', speaking: false });
     return false;
   }
 
@@ -168,6 +172,7 @@ function handleSpeakRequest(
       audioUrl: null,
       endPlayback: null,
       abort: new AbortController(),
+      voice: message.voice,
       start: () => {
         if (job.settled || job.started) return;
         job.started = true;
@@ -180,7 +185,7 @@ function handleSpeakRequest(
           activeJob = null;
           // Playback ended, failed or was stopped: start the idle countdown.
           armIdleTimer();
-          broadcastActivity(false);
+          broadcastActivity(false, job.voice);
         }
         if (job.started) {
           reportFinished(response);
@@ -190,7 +195,7 @@ function handleSpeakRequest(
       },
     };
     activeJob = job;
-    broadcastActivity(true);
+    broadcastActivity(true, job.voice);
 
     runSpeakJob(message, job).then(job.settle, (error) => {
       releaseAudio(job);
@@ -239,9 +244,11 @@ async function runSpeakJob(
   };
 }
 
-/** Tell an open popup whether a speak request is being served. */
-function broadcastActivity(speaking: boolean): void {
-  const activity: OffscreenActivityMessage = { type: 'OFFSCREEN_ACTIVITY', speaking };
+/** Tell an open popup whether a speak request is being served, and with which voice. */
+function broadcastActivity(speaking: boolean, voice: string): void {
+  const activity: OffscreenActivityMessage = speaking
+    ? { type: 'OFFSCREEN_ACTIVITY', speaking, engine: 'kokoro', voice }
+    : { type: 'OFFSCREEN_ACTIVITY', speaking, engine: 'kokoro' };
   chrome.runtime.sendMessage(activity).catch(() => {
     // No popup open (and the service worker ignores it): nothing to tell.
   });
@@ -267,6 +274,8 @@ function toErrorResponse(error: unknown): OffscreenSpeakResponse {
     type: 'SPEAK_ERROR',
     success: false,
     error: userMessageForError(error),
+    // The service worker may then speak with the system voice (OD-2).
+    ...(isHelperUnavailable(error) ? { helperUnavailable: true } : {}),
   };
 }
 

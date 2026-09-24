@@ -10,8 +10,17 @@ import type {
   StopInOffscreenMessage,
   OffscreenSpeakResponse,
   OffscreenMessage,
+  SystemVoiceStatusResponse,
 } from '../shared/types';
 import { loadSettings } from '../shared/settings-defaults';
+import type { HelperUnavailableAction } from '../shared/system-voice';
+import { SYSTEM_VOICE_FAILED_MESSAGE } from '../shared/system-voice';
+import {
+  speakWithSystemVoice,
+  stopSystemVoice,
+  isSystemVoiceSpeaking,
+  type SystemVoiceFinished,
+} from './system-voice-engine';
 import { readSelection, resolveContextMenuText } from '../shared/selection';
 import { showErrorBadge, clearErrorBadge } from '../shared/error-badge';
 import { userMessageForError } from '../shared/helper-errors';
@@ -169,22 +178,43 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
  * deliberate stop) clears it. How a started playback ends arrives later as
  * SPEAK_FINISHED (onMessage below): this worker never holds a message open
  * for the length of the audio, which Chrome cuts off after ~5 minutes.
+ *
+ * When the helper cannot be reached, the same text is spoken with the system
+ * voice (OD-2) unless the user chose "Show an error"; the badge then appears
+ * only if the system voice fails too.
  */
 async function speakText(text: string, generation: number = stopGeneration): Promise<void> {
   speaksInFlight++;
   try {
     const stopped = () => stopGeneration !== generation;
 
+    // A new request replaces whatever the system voice is saying.
+    stopSystemVoice();
+
     // Get user preferences
-    const { voice, speed } = await getPreferences();
+    const { voice, speed, whenHelperUnavailable } = await getPreferences();
 
     // Ensure offscreen document exists
     if (!stopped()) await ensureOffscreenDocument();
 
     // Send text to offscreen document for speech generation
-    const response = stopped()
+    let response = stopped()
       ? STOPPED_BEFORE_SEND
       : await sendToOffscreen({ type: 'SPEAK_IN_OFFSCREEN', text, voice, speed }, stopped);
+
+    if (
+      !response.success &&
+      response.helperUnavailable === true &&
+      whenHelperUnavailable === 'system-voice' &&
+      !stopped()
+    ) {
+      console.log('[Background] Helper unavailable: speaking with the system voice');
+      const fallback = await speakWithSystemVoice(text, voice, speed, {
+        isStopped: stopped,
+        onFinished: reportSystemVoiceFinished,
+      });
+      response = fallback.success ? fallback : { ...fallback, error: SYSTEM_VOICE_FAILED_MESSAGE };
+    }
 
     if (response.type === 'SPEAK_STOPPED') {
       console.log('[Background] Speech stopped');
@@ -206,11 +236,49 @@ async function speakText(text: string, generation: number = stopGeneration): Pro
   }
 }
 
+/** How a started system-voice speech ended: same badge rule as SPEAK_FINISHED. */
+function reportSystemVoiceFinished(outcome: SystemVoiceFinished): void {
+  void (outcome.success
+    ? clearErrorBadge()
+    : showErrorBadge(outcome.error || 'Speech failed. Try again.'));
+}
+
 /**
- * The offscreen document reports that it has been idle; close it. Ignored
- * while this worker is still sending it a speak request.
+ * Messages from the offscreen document and the popup. The offscreen document
+ * reports that it has been idle (close it; ignored while this worker is still
+ * sending it a speak request) and how a started playback ended. The popup
+ * asks for system-voice speech after finding the helper unreachable, asks
+ * whether the system voice is speaking, and stops speech with its Stop button.
  */
-chrome.runtime.onMessage.addListener((message: OffscreenMessage): boolean => {
+chrome.runtime.onMessage.addListener((
+  message: OffscreenMessage,
+  _sender?: chrome.runtime.MessageSender,
+  sendResponse?: (response: OffscreenSpeakResponse | SystemVoiceStatusResponse) => void
+): boolean => {
+  if (message?.type === 'SPEAK_WITH_SYSTEM_VOICE') {
+    const generation = stopGeneration;
+    void speakWithSystemVoice(message.text, message.voice, message.speed, {
+      isStopped: () => stopGeneration !== generation,
+      onFinished: reportSystemVoiceFinished,
+    }).then(response => {
+      // The popup shows its own errors; a working system voice clears the badge.
+      if (response.success) void clearErrorBadge();
+      sendResponse?.(response);
+    });
+    return true;
+  }
+  if (message?.type === 'SYSTEM_VOICE_STATUS_QUERY') {
+    sendResponse?.({ type: 'SYSTEM_VOICE_STATUS', speaking: isSystemVoiceSpeaking() });
+    return false;
+  }
+  if (message?.type === 'STOP_IN_OFFSCREEN') {
+    // The popup's Stop (this worker's own stop broadcast never reaches it):
+    // cancel a request still on its way and silence the system voice. The
+    // offscreen document answers the message; this listener does not.
+    stopGeneration++;
+    stopSystemVoice();
+    return false;
+  }
   if (message?.type === 'OFFSCREEN_IDLE') {
     void closeIdleOffscreenDocument();
   } else if (message?.type === 'SPEAK_FINISHED') {
@@ -242,12 +310,14 @@ async function closeIdleOffscreenDocument(): Promise<void> {
 }
 
 /**
- * Stop speech everywhere: the offscreen document stops and settles its
- * pending speak request, and an open popup stops its own playback. Having
+ * Stop speech everywhere: the system voice stops, the offscreen document
+ * stops and settles its pending speak request, and an open popup stops its
+ * own playback. Having
  * no receiver (nothing ever spoke) is not an error.
  */
 async function stopSpeaking(): Promise<void> {
   stopGeneration++;
+  stopSystemVoice();
   const message: StopInOffscreenMessage = { type: 'STOP_IN_OFFSCREEN' };
   try {
     await chrome.runtime.sendMessage(message);
@@ -260,12 +330,17 @@ async function stopSpeaking(): Promise<void> {
  * Get user preferences from storage
  * Uses centralized settings from Phase 2.6
  */
-async function getPreferences(): Promise<{ voice: string; speed: number }> {
+async function getPreferences(): Promise<{
+  voice: string;
+  speed: number;
+  whenHelperUnavailable: HelperUnavailableAction;
+}> {
   // loadSettings never rejects: it falls back to the defaults itself.
   const settings = await loadSettings();
   return {
     voice: settings.selectedVoice,
     speed: settings.selectedSpeed,
+    whenHelperUnavailable: settings.whenHelperUnavailable,
   };
 }
 

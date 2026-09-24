@@ -13,6 +13,7 @@ import {
   DEFAULT_SETTINGS,
   type ExtensionSettings,
 } from '../shared/settings-defaults';
+import { isHelperUnavailableAction } from '../shared/system-voice';
 
 /**
  * DOM elements
@@ -22,6 +23,7 @@ const elements = {
   voiceSelect: document.getElementById('voiceSelect') as HTMLSelectElement,
   speedSlider: document.getElementById('speedSlider') as HTMLInputElement,
   speedValue: document.getElementById('speedValue') as HTMLSpanElement,
+  fallbackSelect: document.getElementById('fallbackSelect') as HTMLSelectElement,
 
   // Action buttons
   saveButton: document.getElementById('saveButton') as HTMLButtonElement,
@@ -106,6 +108,9 @@ async function loadAndDisplaySettings(): Promise<void> {
     elements.speedSlider.value = currentSettings.selectedSpeed.toString();
     updateSpeedDisplay(currentSettings.selectedSpeed);
 
+    // When the helper isn't running
+    elements.fallbackSelect.value = currentSettings.whenHelperUnavailable;
+
     console.log('[Options] Settings loaded:', currentSettings);
   } catch (error) {
     console.error('[Options] Error loading settings:', error);
@@ -167,6 +172,9 @@ async function handleSave(): Promise<void> {
     const newSettings: ExtensionSettings = {
       selectedVoice: elements.voiceSelect.value,
       selectedSpeed: parseFloat(elements.speedSlider.value),
+      whenHelperUnavailable: isHelperUnavailableAction(elements.fallbackSelect.value)
+        ? elements.fallbackSelect.value
+        : DEFAULT_SETTINGS.whenHelperUnavailable,
     };
 
     // Save to storage

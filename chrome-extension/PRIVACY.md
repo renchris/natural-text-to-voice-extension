@@ -90,6 +90,10 @@ Before sending any text, the extension checks that the port answers `/health` as
 - **Host check**: a request whose `Host` header is not `127.0.0.1`, `localhost` or `[::1]` with the helper's port is refused. This stops a web page that re-points its own hostname at your computer (DNS rebinding). The refusal is sent before any of the request body is read.
 - **Origin check**: `/speak` and `/voices` refuse requests from web pages (any `http://`, `https://` or `null` origin), so no website can make the helper read text or list voices. Requests from browser extensions (`chrome-extension://` and the Firefox and Safari equivalents) are accepted, and so are requests with no `Origin` header, which come from programs running under your account (for example `curl`). The helper treats your installed extensions and your own programs as trusted, like any other per-user service on `localhost`. `/health` answers anyone, and says only whether the helper is ready and which version it is.
 
+### When the helper isn't running
+
+By default the extension then reads the selection with a voice built into your Mac, through Chrome's `chrome.tts`. It only picks voices that speak on this computer: a remote (network) voice is never chosen, and if only remote voices are available the extension shows an error instead of speaking. Choose **Show an error** under "When the helper isn't running" in Settings to turn the system voice off. Adding the `tts` permission adds no install-time warning (measured with `bun run verify:permissions`).
+
 ### No External Servers
 
 The extension does **NOT** connect to:
@@ -114,6 +118,7 @@ The extension requests minimal permissions required for functionality:
 | `activeTab` | Read the selected text in the current tab, only after you click the menu, the toolbar button or a shortcut | 🟡 Low |
 | `scripting` | Run one `getSelection()` call in that tab to read the selection | 🟡 Low |
 | `offscreen` | Play audio in background (Chrome API requirement) | ⚪ Minimal |
+| `tts` | Read the selection with a voice built into your Mac when the helper isn't running (Settings: "When the helper isn't running") | ⚪ Minimal |
 
 ### Host Permissions
 

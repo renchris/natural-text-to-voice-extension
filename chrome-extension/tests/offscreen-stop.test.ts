@@ -27,6 +27,14 @@ const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', model: 'kokoro-82m', model_loaded: true }), { status: 200 });
   }
+  // Connection refused: the helper went away between discovery and /speak.
+  if (url.endsWith('/speak') && String(init?.body).includes('"zz_refused"')) {
+    throw new TypeError('Failed to fetch');
+  }
+  // The helper answers, but its voice engine is gone for good.
+  if (url.endsWith('/speak') && String(init?.body).includes('"zz_down"')) {
+    return new Response(JSON.stringify({ error: 'process_not_running', message: 'Python worker process not running' }), { status: 503 });
+  }
   if (url.endsWith('/speak') && String(init?.body).includes('"zz_nope"')) {
     return new Response(JSON.stringify({ error: 'unknown_voice', message: 'Unknown voice: zz_nope' }), { status: 400 });
   }
@@ -397,21 +405,21 @@ describe('offscreen speak / stop', () => {
 
   test('answers the popup\'s status query and broadcasts when it starts and stops serving (EXT-3)', async () => {
     const activity = () => runtimeSendMessage.mock.calls.map(call => call[0]).filter((m: any) => m?.type === 'OFFSCREEN_ACTIVITY');
-    const status = () => send<{ type: string; speaking: boolean }>({ type: 'OFFSCREEN_STATUS_QUERY' }).response;
+    const status = () => send<{ type: string; speaking: boolean; voice?: string }>({ type: 'OFFSCREEN_STATUS_QUERY' }).response;
     runtimeSendMessage.mockClear();
 
     expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: false });
     const { response } = speak();
     await until(() => pendingSpeaks.length > 0, '/speak request');
-    expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: true });
-    expect(activity()).toEqual([{ type: 'OFFSCREEN_ACTIVITY', speaking: true }]);
+    expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: true, voice: 'af_bella' });
+    expect(activity()).toEqual([{ type: 'OFFSCREEN_ACTIVITY', speaking: true, engine: 'kokoro', voice: 'af_bella' }]);
 
     expect(await stop().response).toEqual({ type: 'STOPPED', stopped: true });
     expect(await response).toEqual({ type: 'SPEAK_STOPPED', success: true });
     expect(await status()).toEqual({ type: 'OFFSCREEN_STATUS', speaking: false });
     expect(activity()).toEqual([
-      { type: 'OFFSCREEN_ACTIVITY', speaking: true },
-      { type: 'OFFSCREEN_ACTIVITY', speaking: false },
+      { type: 'OFFSCREEN_ACTIVITY', speaking: true, engine: 'kokoro', voice: 'af_bella' },
+      { type: 'OFFSCREEN_ACTIVITY', speaking: false, engine: 'kokoro' },
     ]);
     pendingSpeaks.shift()!.resolve();
   });
@@ -432,6 +440,23 @@ describe('offscreen speak / stop', () => {
       success: false,
       error: 'Your Natural TTS helper does not have this voice. Pick another voice, or update the helper.',
     });
+  });
+
+  test('a refused connection is flagged helperUnavailable, so the worker may use the system voice (OD-2)', async () => {
+    const { response } = send<OffscreenSpeakResponse>({ type: 'SPEAK_IN_OFFSCREEN', text: 'Hi', voice: 'zz_refused', speed: 1 });
+    expect(await response).toEqual({
+      type: 'SPEAK_ERROR',
+      success: false,
+      error: 'The Natural TTS helper is not running. Start it, then try again.',
+      helperUnavailable: true,
+    });
+  });
+
+  test('a helper whose engine is gone (helper_down) is flagged helperUnavailable too (OD-2)', async () => {
+    const { response } = send<OffscreenSpeakResponse>({ type: 'SPEAK_IN_OFFSCREEN', text: 'Hi', voice: 'zz_down', speed: 1 });
+    const result = await response;
+    expect(result.type).toBe('SPEAK_ERROR');
+    expect(result.helperUnavailable).toBe(true);
   });
 
   test('never touches a real port: every request went to the mocked 18249', () => {

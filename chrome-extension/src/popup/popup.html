@@ -41,6 +41,14 @@
       <!-- Message Container (for errors/warnings/success) -->
       <div id="messageContainer" class="message" role="status" aria-live="polite" style="display: none;"></div>
 
+      <!-- Which engine is speaking: "Kokoro · Bella (US)" or "System voice" (OD-2) -->
+      <p id="engineStatus" class="engine-status" aria-live="polite" hidden></p>
+
+      <!-- Shown while speech falls back to the system voice because the helper is unreachable (OD-2) -->
+      <p id="fallbackNotice" class="fallback-notice" hidden>
+        <a id="fallbackNoticeLink" href="https://github.com/renchris/natural-text-to-voice-extension#install" target="_blank" rel="noopener noreferrer">Install the free Natural TTS helper for natural Kokoro voices</a>
+      </p>
+
       <!-- Shown when the helper is older than this extension (no apiVersion 2) -->
       <p id="helperUpdateNotice" class="update-notice" hidden>
         Update the Natural TTS helper: <code id="helperUpdateCommand"></code>

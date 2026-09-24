@@ -75,6 +75,18 @@
           </div>
           <p class="form-help">Set the default playback speed for text-to-speech.</p>
         </div>
+        <div class="form-group">
+          <label for="fallbackSelect" class="form-label">When the helper isn't running:</label>
+          <select
+            id="fallbackSelect"
+            class="form-select"
+            aria-describedby="fallbackHelp"
+          >
+            <option value="system-voice">Use system voices</option>
+            <option value="error">Show an error</option>
+          </select>
+          <p id="fallbackHelp" class="form-help">System voices are built into your Mac. The natural Kokoro voices need the free Natural TTS helper.</p>
+        </div>
       </section>
 
       <!-- About Section -->

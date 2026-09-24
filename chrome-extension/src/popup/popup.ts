@@ -9,9 +9,13 @@ import { HelperNotFoundError, NetworkTimeoutError } from '../shared/types';
 import { readSelection } from '../shared/selection';
 import type {
   OffscreenMessage,
+  OffscreenSpeakResponse,
   OffscreenStatusQuery,
   OffscreenStatusResponse,
+  SpeakWithSystemVoiceMessage,
   StopInOffscreenMessage,
+  SystemVoiceStatusQuery,
+  SystemVoiceStatusResponse,
 } from '../shared/types';
 import { renderShortcutChip } from './shortcut-chip';
 import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
@@ -19,6 +23,17 @@ import { buildVoiceOptionNodes } from '../shared/voice-options';
 import { clearErrorBadge } from '../shared/error-badge';
 import { errorSummary } from '../shared/helper-errors';
 import { HELPER_UPDATE_COMMAND, helperNeedsUpdate } from '../shared/helper-version';
+import {
+  DEFAULT_HELPER_UNAVAILABLE_ACTION,
+  HELPER_SETUP_NOTICE,
+  HELPER_SETUP_URL,
+  SYSTEM_VOICE_FAILED_MESSAGE,
+  engineLabel,
+  isHelperUnavailableAction,
+  shouldUseSystemVoice,
+  type HelperUnavailableAction,
+  type SpeechEngine,
+} from '../shared/system-voice';
 
 // =================================================================================
 // TYPES & INTERFACES
@@ -35,6 +50,10 @@ interface PopupState {
   currentAudio: HTMLAudioElement | null;
   /** The offscreen document is speaking a right-click or shortcut request; the button stops it. */
   offscreenSpeaking: boolean;
+  /** Which engine the offscreen-or-system speech uses, while offscreenSpeaking */
+  speakingEngine: SpeechEngine | null;
+  /** "When the helper isn't running" (OD-2), from the options */
+  whenHelperUnavailable: HelperUnavailableAction;
   warmupPollTimer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -45,6 +64,10 @@ const OFFSCREEN_PLAYING_MESSAGE = 'Speaking your selection…';
 const NOT_RUNNING_MESSAGE = 'Native helper not running. Please start the helper and click Retry.';
 const ENGINE_FAILED_MESSAGE = 'The helper’s voice engine stopped. Restart the helper, then click Retry.';
 const disconnectedMessage = (): string => (state.engineFailed ? ENGINE_FAILED_MESSAGE : NOT_RUNNING_MESSAGE);
+const FALLBACK_NOT_RUNNING_MESSAGE = 'The helper isn’t running, so a system voice will read your selection.';
+const FALLBACK_ENGINE_FAILED_MESSAGE =
+  'The helper’s voice engine stopped, so a system voice will read your selection. Restart the helper and click Retry for Kokoro voices.';
+const fallbackMessage = (): string => (state.engineFailed ? FALLBACK_ENGINE_FAILED_MESSAGE : FALLBACK_NOT_RUNNING_MESSAGE);
 
 // =================================================================================
 // DOM ELEMENTS
@@ -64,6 +87,9 @@ const elements = {
   statusLabel: document.getElementById('statusLabel') as HTMLSpanElement,
   updateNotice: document.getElementById('helperUpdateNotice') as HTMLParagraphElement | null,
   updateCommand: document.getElementById('helperUpdateCommand') as HTMLElement | null,
+  engineStatus: document.getElementById('engineStatus') as HTMLParagraphElement | null,
+  fallbackNotice: document.getElementById('fallbackNotice') as HTMLParagraphElement | null,
+  fallbackNoticeLink: document.getElementById('fallbackNoticeLink') as HTMLAnchorElement | null,
 };
 
 // =================================================================================
@@ -79,8 +105,18 @@ const state: PopupState = {
   isGenerating: false,
   currentAudio: null,
   offscreenSpeaking: false,
+  speakingEngine: null,
+  whenHelperUnavailable: DEFAULT_HELPER_UNAVAILABLE_ACTION,
   warmupPollTimer: null,
 };
+
+/**
+ * The helper cannot be reached and the user wants system voices then: the
+ * popup still speaks, through the service worker's chrome.tts (OD-2).
+ */
+function onFallback(): boolean {
+  return state.helperStatus === 'disconnected' && state.whenHelperUnavailable === 'system-voice';
+}
 
 // =================================================================================
 // INITIALIZATION
@@ -118,6 +154,8 @@ async function init(): Promise<void> {
     elements.retryButton.style.display = 'none';
   } else if (state.helperStatus === 'warming') {
     enterWarmingState();
+  } else if (onFallback()) {
+    enterFallbackState();
   } else {
     showMessage(disconnectedMessage(), 'error');
     elements.speakButton.disabled = true;
@@ -152,6 +190,40 @@ function enterWarmingState(): void {
 }
 
 /**
+ * The helper is unreachable and system voices are allowed: say so without an
+ * error, keep Speak working (a system voice reads the selection), and offer
+ * Retry and the setup link for the Kokoro voices.
+ */
+function enterFallbackState(): void {
+  showMessage(fallbackMessage(), 'info');
+  elements.speakButton.disabled = false;
+  setPlaceholderOption('System voice (Kokoro voices need the helper)');
+  elements.voiceSelect.disabled = true;
+  elements.retryButton.style.display = 'block';
+  refreshFallbackNotice();
+}
+
+/**
+ * Show the one-line "Install the free Natural TTS helper" notice while speech
+ * falls back to the system voice, or would.
+ */
+function refreshFallbackNotice(): void {
+  if (!elements.fallbackNotice) return;
+  if (elements.fallbackNoticeLink) {
+    elements.fallbackNoticeLink.href = HELPER_SETUP_URL;
+    elements.fallbackNoticeLink.textContent = HELPER_SETUP_NOTICE;
+  }
+  elements.fallbackNotice.hidden = !(onFallback() || state.speakingEngine === 'system');
+}
+
+/** Show which engine is speaking ("Kokoro · Bella (US)", "System voice"), or nothing. */
+function showEngine(label: string | null): void {
+  if (!elements.engineStatus) return;
+  elements.engineStatus.textContent = label ?? '';
+  elements.engineStatus.hidden = !label;
+}
+
+/**
  * Poll /health every 2s while the helper reports warming. Stops when the
  * model is ready (transitions UI to connected) or the helper goes away.
  */
@@ -168,8 +240,12 @@ function schedulePollWhileWarming(): void {
       showMessage('Helper ready.', 'success');
     } else if (state.helperStatus === 'warming') {
       schedulePollWhileWarming();
+    } else if (onFallback()) {
+      enterFallbackState();
     } else {
       showMessage(disconnectedMessage(), 'error');
+      elements.speakButton.disabled = true;
+      elements.voiceSelect.disabled = true;
       elements.retryButton.style.display = 'block';
     }
   }, 2000);
@@ -204,7 +280,7 @@ function setupEventListeners(): void {
     if (message?.type === 'STOP_IN_OFFSCREEN') {
       stopPopupAudio();
     } else if (message?.type === 'OFFSCREEN_ACTIVITY') {
-      showOffscreenSpeaking(message.speaking);
+      showOffscreenSpeaking(message.speaking, message.engine ?? 'kokoro', message.voice);
     }
     return false;
   });
@@ -218,6 +294,15 @@ function setupEventListeners(): void {
  * Check if native helper is running and responsive
  */
 async function checkHelperStatus(): Promise<void> {
+  await loadHelperUnavailableAction();
+  try {
+    await probeHelper();
+  } finally {
+    refreshFallbackNotice();
+  }
+}
+
+async function probeHelper(): Promise<void> {
   const client = getApiClient();
 
   try {
@@ -313,8 +398,12 @@ async function handleRetryConnection(): Promise<void> {
     } else if (state.helperStatus === 'warming') {
       // Reachable, still loading: not an error, and it must not stay stuck.
       enterWarmingState();
+    } else if (onFallback()) {
+      enterFallbackState();
     } else {
       showMessage(state.engineFailed ? ENGINE_FAILED_MESSAGE : 'Still unable to connect. Ensure the helper is running.', 'error');
+      elements.speakButton.disabled = true;
+      elements.voiceSelect.disabled = true;
     }
   } catch (error) {
     console.error('Error during retry:', error);
@@ -450,7 +539,7 @@ async function handleSpeak(): Promise<void> {
   if (state.offscreenSpeaking) {
     const stop: StopInOffscreenMessage = { type: 'STOP_IN_OFFSCREEN' };
     chrome.runtime.sendMessage(stop).catch(() => {});
-    showOffscreenSpeaking(false);
+    showOffscreenSpeaking(false, state.speakingEngine ?? 'kokoro');
     return;
   }
 
@@ -460,8 +549,8 @@ async function handleSpeak(): Promise<void> {
     return;
   }
 
-  // Check if helper is connected
-  if (state.helperStatus !== 'connected') {
+  // Check if helper is connected (or the system voice may stand in for it)
+  if (state.helperStatus !== 'connected' && !onFallback()) {
     showMessage('Helper not connected. Please start the native helper.', 'error');
     return;
   }
@@ -483,13 +572,22 @@ async function handleSpeak(): Promise<void> {
       return;
     }
 
-    // Generate speech
+    // Generate speech. The helper is tried even in the fallback state: it
+    // may have started since the popup opened.
     const client = getApiClient();
-    const audioBlob = await client.speak({
-      text: text,
-      voice: state.selectedVoice,
-      speed: state.selectedSpeed,
-    });
+    let audioBlob: Blob;
+    try {
+      audioBlob = await client.speak({
+        text: text,
+        voice: state.selectedVoice,
+        speed: state.selectedSpeed,
+      });
+    } catch (error) {
+      await loadHelperUnavailableAction();
+      if (!shouldUseSystemVoice(error, state.whenHelperUnavailable)) throw error;
+      await speakWithSystemVoice(text);
+      return;
+    }
 
     // The audio is here: leave the loading state and make the button a
     // working Stop for as long as it plays.
@@ -499,6 +597,7 @@ async function handleSpeak(): Promise<void> {
 
     // Resolves once playback has started; onended resets the state.
     await playAudio(audioBlob);
+    showEngine(engineLabel('kokoro', state.selectedVoice));
 
     // Speech works again: drop any error badge a right-click left behind.
     void clearErrorBadge();
@@ -509,6 +608,49 @@ async function handleSpeak(): Promise<void> {
     if (state.isGenerating) {
       setLoadingState(false);
     }
+  }
+}
+
+/**
+ * The helper is unreachable: have the service worker speak the text with the
+ * system voice (one engine, one place: the popup does not drive chrome.tts
+ * itself). The popup then shows Stop and "System voice" until the worker
+ * broadcasts that the speech ended.
+ */
+async function speakWithSystemVoice(text: string): Promise<void> {
+  if (state.helperStatus !== 'disconnected') {
+    // It was up when the popup opened and is gone now.
+    state.helperStatus = 'disconnected';
+    state.engineFailed = false;
+    showUpdateNotice(false);
+    updateStatusIndicator('disconnected', 'Helper not found - speaking with a system voice');
+    elements.retryButton.style.display = 'block';
+    setPlaceholderOption('System voice (Kokoro voices need the helper)');
+    elements.voiceSelect.disabled = true;
+  }
+  refreshFallbackNotice();
+
+  const request: SpeakWithSystemVoiceMessage = {
+    type: 'SPEAK_WITH_SYSTEM_VOICE',
+    text,
+    voice: state.selectedVoice,
+    speed: state.selectedSpeed,
+  };
+  let reply: OffscreenSpeakResponse | undefined;
+  try {
+    reply = await chrome.runtime.sendMessage(request) as OffscreenSpeakResponse | undefined;
+  } catch (error) {
+    console.error('[Popup] System voice request failed:', errorSummary(error));
+  }
+
+  setLoadingState(false);
+  if (reply?.type === 'SPEAK_STARTED') {
+    showOffscreenSpeaking(true, 'system');
+  } else if (reply?.success) {
+    // Finished (or was stopped) before the reply arrived: nothing to show.
+    showMessage(fallbackMessage(), 'info');
+  } else {
+    showMessage(SYSTEM_VOICE_FAILED_MESSAGE, 'error');
   }
 }
 
@@ -589,6 +731,7 @@ async function playAudio(audioBlob: Blob): Promise<void> {
       state.currentAudio = null;
       setPlayingState(false);
       hideMessageIf(PLAYING_MESSAGE);
+      showEngine(null);
     }
   };
 
@@ -614,28 +757,48 @@ async function syncOffscreenSpeaking(): Promise<void> {
   try {
     const query: OffscreenStatusQuery = { type: 'OFFSCREEN_STATUS_QUERY' };
     const reply = await chrome.runtime.sendMessage(query) as OffscreenStatusResponse | undefined;
-    if (reply?.type === 'OFFSCREEN_STATUS') showOffscreenSpeaking(reply.speaking);
+    if (reply?.type === 'OFFSCREEN_STATUS' && reply.speaking) {
+      showOffscreenSpeaking(true, 'kokoro', reply.voice);
+      return;
+    }
   } catch {
-    // No offscreen document: nothing is speaking.
+    // No offscreen document: Kokoro is not speaking.
+  }
+  // The system voice (OD-2 fallback) is spoken by the service worker.
+  try {
+    const query: SystemVoiceStatusQuery = { type: 'SYSTEM_VOICE_STATUS_QUERY' };
+    const reply = await chrome.runtime.sendMessage(query) as SystemVoiceStatusResponse | undefined;
+    if (reply?.type === 'SYSTEM_VOICE_STATUS' && reply.speaking) showOffscreenSpeaking(true, 'system');
+  } catch {
+    // No service worker answer: nothing is speaking.
   }
 }
 
 /**
- * Show (or drop) the Stop button for speech the offscreen document is
- * serving. Never while the popup plays its own audio.
+ * Show (or drop) the Stop button for speech the popup does not play itself:
+ * Kokoro speech in the offscreen document, or the system voice spoken by the
+ * service worker. Never while the popup plays its own audio. An end reported
+ * by the other engine is ignored (the offscreen document reports a failed
+ * Kokoro attempt ending just as the system voice takes over).
  */
-function showOffscreenSpeaking(speaking: boolean): void {
+function showOffscreenSpeaking(speaking: boolean, engine: SpeechEngine = 'kokoro', voice?: string): void {
   if (speaking) {
     if (state.currentAudio || state.isGenerating) return;
     state.offscreenSpeaking = true;
+    state.speakingEngine = engine;
     setPlayingState(true);
     elements.speakButton.disabled = false;
     showMessage(OFFSCREEN_PLAYING_MESSAGE, 'info');
-  } else if (state.offscreenSpeaking) {
+    showEngine(engineLabel(engine, voice));
+    refreshFallbackNotice();
+  } else if (state.offscreenSpeaking && (state.speakingEngine === null || state.speakingEngine === engine)) {
     state.offscreenSpeaking = false;
+    state.speakingEngine = null;
     setPlayingState(false);
     hideMessageIf(OFFSCREEN_PLAYING_MESSAGE);
+    showEngine(null);
     updateUI();
+    refreshFallbackNotice();
   }
 }
 
@@ -746,10 +909,12 @@ function updateUI(): void {
   elements.speedSlider.value = pos.toString();
   elements.speedSlider.style.setProperty('--fill', `${pos * 100}%`);
 
-  // Speak only enabled when fully connected (warming/disconnected both disable)
-  if (state.helperStatus === 'connected') {
+  // Speak only enabled when fully connected, or when a system voice stands
+  // in for an unreachable helper (warming, and disconnected without the
+  // fallback, disable it)
+  if (state.helperStatus === 'connected' || onFallback()) {
     elements.speakButton.disabled = false;
-    elements.voiceSelect.disabled = false;
+    elements.voiceSelect.disabled = state.helperStatus !== 'connected';
   } else {
     elements.speakButton.disabled = true;
     elements.voiceSelect.disabled = true;
@@ -783,6 +948,21 @@ async function loadPreferences(): Promise<void> {
   } catch (error) {
     console.error('Failed to load preferences:', error);
     // Use defaults if loading fails
+  }
+}
+
+/**
+ * Read "When the helper isn't running" (OD-2). Read again before each use, so
+ * a change made in the options while the popup is open applies.
+ */
+async function loadHelperUnavailableAction(): Promise<void> {
+  try {
+    const result = await chrome.storage.local.get<{ whenHelperUnavailable?: unknown }>(['whenHelperUnavailable']);
+    state.whenHelperUnavailable = isHelperUnavailableAction(result.whenHelperUnavailable)
+      ? result.whenHelperUnavailable
+      : DEFAULT_HELPER_UNAVAILABLE_ACTION;
+  } catch (error) {
+    console.error('Failed to load the fallback setting:', error);
   }
 }
 

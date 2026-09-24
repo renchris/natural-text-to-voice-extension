@@ -166,6 +166,32 @@ body {
   word-break: break-all;
 }
 
+.engine-status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.engine-status[hidden],
+.fallback-notice[hidden] {
+  display: none;
+}
+
+.fallback-notice {
+  margin: 0;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  line-height: 1.4;
+  background: rgba(26, 115, 232, 0.08);
+  border: 1px solid rgba(26, 115, 232, 0.2);
+}
+
+.fallback-notice a {
+  color: var(--color-primary);
+}
+
 .message.message-info {
   background: rgba(26, 115, 232, 0.1);
   color: var(--color-primary);
