@@ -22,11 +22,13 @@ import { DEFAULT_VOICE, resolveVoice, voiceLabel } from '../shared/voices';
 import { buildVoiceOptionNodes } from '../shared/voice-options';
 import { clearErrorBadge } from '../shared/error-badge';
 import { errorSummary } from '../shared/helper-errors';
-import { HELPER_UPDATE_COMMAND, helperNeedsUpdate } from '../shared/helper-version';
+import { HELPER_INSTALL_COMMAND, HELPER_SOURCE_URL, HELPER_UPDATE_COMMAND, helperNeedsUpdate } from '../shared/helper-version';
+import { ENGINE_STOPPED_STATUS, WARMING_STATUS, helperHealthState } from '../shared/helper-status';
 import {
   DEFAULT_HELPER_UNAVAILABLE_ACTION,
   HELPER_SETUP_NOTICE,
   HELPER_SETUP_URL,
+  HELPER_SOURCE_LINK_TEXT,
   SYSTEM_VOICE_FAILED_MESSAGE,
   engineLabel,
   isHelperUnavailableAction,
@@ -87,6 +89,9 @@ const elements = {
   statusLabel: document.getElementById('statusLabel') as HTMLSpanElement,
   updateNotice: document.getElementById('helperUpdateNotice') as HTMLParagraphElement | null,
   updateCommand: document.getElementById('helperUpdateCommand') as HTMLElement | null,
+  updateSourceLink: document.getElementById('helperUpdateSourceLink') as HTMLAnchorElement | null,
+  installCommand: document.getElementById('helperInstallCommand') as HTMLElement | null,
+  fallbackNoticeText: document.getElementById('fallbackNoticeText') as HTMLElement | null,
   engineStatus: document.getElementById('engineStatus') as HTMLParagraphElement | null,
   fallbackNotice: document.getElementById('fallbackNotice') as HTMLParagraphElement | null,
   fallbackNoticeLink: document.getElementById('fallbackNoticeLink') as HTMLAnchorElement | null,
@@ -209,9 +214,11 @@ function enterFallbackState(): void {
  */
 function refreshFallbackNotice(): void {
   if (!elements.fallbackNotice) return;
+  if (elements.fallbackNoticeText) elements.fallbackNoticeText.textContent = HELPER_SETUP_NOTICE;
+  if (elements.installCommand) elements.installCommand.textContent = HELPER_INSTALL_COMMAND;
   if (elements.fallbackNoticeLink) {
     elements.fallbackNoticeLink.href = HELPER_SETUP_URL;
-    elements.fallbackNoticeLink.textContent = HELPER_SETUP_NOTICE;
+    elements.fallbackNoticeLink.textContent = HELPER_SOURCE_LINK_TEXT;
   }
   elements.fallbackNotice.hidden = !(onFallback() || state.speakingEngine === 'system');
 }
@@ -310,22 +317,23 @@ async function probeHelper(): Promise<void> {
 
     // An older helper still works (with the voices it reports); say how to update it.
     showUpdateNotice(helperNeedsUpdate(health));
-    state.engineFailed = health.status === 'error';
+    const healthState = helperHealthState(health);
+    state.engineFailed = healthState === 'engine-stopped';
 
-    if (health.status === 'ok' && health.model_loaded) {
+    if (healthState === 'ready') {
       state.helperStatus = 'connected';
       updateStatusIndicator('connected', `Helper is running (${health.model})`);
-    } else if (state.engineFailed) {
+    } else if (healthState === 'engine-stopped') {
       // The worker died repeatedly and the helper gave up restarting it: not
       // "warming", which would poll forever.
       state.helperStatus = 'disconnected';
-      updateStatusIndicator('disconnected', 'The helper’s voice engine stopped - restart the helper');
+      updateStatusIndicator('disconnected', ENGINE_STOPPED_STATUS);
     } else {
       // Helper is reachable but the MLX model hasn't finished loading
       // (status === 'warming' OR model_loaded === false). This is distinct
       // from "not running" — surface it as warming so the UI can poll.
       state.helperStatus = 'warming';
-      updateStatusIndicator('warming', 'Loading TTS model…');
+      updateStatusIndicator('warming', WARMING_STATUS);
     }
   } catch (error) {
     state.helperStatus = 'disconnected';
@@ -351,6 +359,7 @@ async function probeHelper(): Promise<void> {
 function showUpdateNotice(visible: boolean): void {
   if (!elements.updateNotice) return;
   if (elements.updateCommand) elements.updateCommand.textContent = HELPER_UPDATE_COMMAND;
+  if (elements.updateSourceLink) elements.updateSourceLink.href = HELPER_SOURCE_URL;
   elements.updateNotice.hidden = !visible;
 }
 

@@ -27,10 +27,11 @@ const OLD_HELPER_VOICES = [
 ];
 
 let voicesAvailable = true;
+let health: { status: string; model: string; model_loaded: boolean } = { status: 'ok', model: 'kokoro-82m', model_loaded: true };
 const fetchMock = mock(async (input: RequestInfo | URL) => {
   const url = String(input);
   if (url.endsWith('/health')) {
-    return new Response(JSON.stringify({ status: 'ok', model: 'kokoro-82m', model_loaded: true }), { status: 200 });
+    return new Response(JSON.stringify(health), { status: 200 });
   }
   if (url.endsWith('/voices')) {
     if (!voicesAvailable) return new Response('{"error":"internal_error"}', { status: 500 });
@@ -144,6 +145,25 @@ describe('options voice list (IN-11)', () => {
     select.value = 'system-voice';
     onStorageChanged!({});
     await until(() => el<HTMLSelectElement>('fallbackSelect').value === 'error', 'reloaded from storage');
+  });
+
+  test('/health status "error" reads as a stopped engine with the restart hint, as in the popup', async () => {
+    const { checkHelperStatus } = await import('../src/options/options');
+    const text = () => el('helperStatusText');
+
+    health = { status: 'error', model: 'kokoro-82m', model_loaded: false };
+    await checkHelperStatus();
+    expect(text().textContent).toBe('The helper’s voice engine stopped - restart the helper');
+    expect(text().className).toBe('helper-status helper-status-error');
+
+    health = { status: 'warming', model: 'kokoro-82m', model_loaded: false };
+    await checkHelperStatus();
+    expect(text().textContent).toBe('Loading TTS model…');
+    expect(text().className).toBe('helper-status helper-status-warning');
+
+    health = { status: 'ok', model: 'kokoro-82m', model_loaded: true };
+    await checkHelperStatus();
+    expect(text().textContent).toBe('Connected (kokoro-82m)');
   });
 
   test('every request went to the mocked 127.0.0.1:18249', () => {

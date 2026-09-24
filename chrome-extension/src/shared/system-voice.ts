@@ -10,6 +10,7 @@
  * busy) is reported as before, since a system voice would hide a real problem.
  */
 
+import { HELPER_SOURCE_URL } from './helper-version';
 import { isHelperUnavailable } from './helper-errors';
 import { voiceLabel } from './voices';
 
@@ -28,11 +29,12 @@ export function isHelperUnavailableAction(value: unknown): value is HelperUnavai
 export type SpeechEngine = 'kokoro' | 'system';
 
 /**
- * Where the one-line fallback notice points. The repository README until the
- * Homebrew tap (OD-1) has a page of its own.
+ * The one-line fallback notice: this sentence, the Homebrew install command
+ * (HELPER_INSTALL_COMMAND) and a "from source" link to the README.
  */
-export const HELPER_SETUP_URL = 'https://github.com/renchris/natural-text-to-voice-extension#install';
-export const HELPER_SETUP_NOTICE = 'Install the free Natural TTS helper for natural Kokoro voices';
+export const HELPER_SETUP_URL = HELPER_SOURCE_URL;
+export const HELPER_SETUP_NOTICE = 'Install the free Natural TTS helper for natural Kokoro voices:';
+export const HELPER_SOURCE_LINK_TEXT = 'or build it from source';
 
 export const SYSTEM_VOICE_LABEL = 'System voice';
 

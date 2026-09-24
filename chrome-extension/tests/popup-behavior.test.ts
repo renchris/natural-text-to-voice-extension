@@ -371,8 +371,11 @@ describe('popup voice list (IN-10)', () => {
     const notice = el<HTMLParagraphElement>('helperUpdateNotice');
     expect(notice.hidden).toBe(false);
     expect(notice.textContent!.replace(/\s+/g, ' ').trim()).toBe(
-      'Update the Natural TTS helper: cd native-helper && ./Scripts/quickstart.sh'
+      'Update the Natural TTS helper: brew upgrade natural-tts && brew services restart natural-tts Installed from source?'
     );
+    // Every pre-1.5 helper was installed from source: the README says how to update it.
+    expect(el<HTMLAnchorElement>('helperUpdateSourceLink').getAttribute('href'))
+      .toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
     expect(el('statusLabel').textContent).toBe('Connected');
 
     const before = speakCalls();
@@ -455,8 +458,12 @@ describe('system-voice fallback in the popup (OD-2)', () => {
     expect(el<HTMLSelectElement>('voiceSelect').disabled).toBe(true);
     expect(el<HTMLButtonElement>('retryButton').style.display).toBe('block');
     expect(notice().hidden).toBe(false);
+    expect(notice().textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Install the free Natural TTS helper for natural Kokoro voices: ' +
+      'brew install renchris/tap/natural-tts && brew services start natural-tts or build it from source'
+    );
     const link = el<HTMLAnchorElement>('fallbackNoticeLink');
-    expect(link.textContent).toBe('Install the free Natural TTS helper for natural Kokoro voices');
+    expect(link.textContent).toBe('or build it from source');
     expect(link.getAttribute('href')).toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
     expect(link.getAttribute('target')).toBe('_blank');
   });

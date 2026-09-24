@@ -146,7 +146,7 @@ describe('voice choice', () => {
     expect(engineLabel('kokoro', 'bf_emma')).toBe('Kokoro · Emma (UK)');
     expect(engineLabel('kokoro')).toBe('Kokoro');
     expect(engineLabel('system', 'af_bella')).toBe('System voice');
-    expect(HELPER_SETUP_NOTICE).toBe('Install the free Natural TTS helper for natural Kokoro voices');
+    expect(HELPER_SETUP_NOTICE).toBe('Install the free Natural TTS helper for natural Kokoro voices:');
     expect(HELPER_SETUP_URL).toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
   });
 });

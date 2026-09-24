@@ -14,6 +14,7 @@ import {
   type ExtensionSettings,
 } from '../shared/settings-defaults';
 import { isHelperUnavailableAction } from '../shared/system-voice';
+import { ENGINE_STOPPED_STATUS, WARMING_STATUS, helperHealthState } from '../shared/helper-status';
 
 /**
  * DOM elements
@@ -227,22 +228,29 @@ async function handleReset(): Promise<void> {
 }
 
 /**
- * Check helper status
+ * Check helper status. The three /health states read as in the popup: an
+ * engine that stopped (status "error") says to restart the helper; a model
+ * still loading says so, rather than "not loaded". Exported for tests.
  */
-async function checkHelperStatus(): Promise<void> {
+export async function checkHelperStatus(): Promise<void> {
   try {
     updateStatusIndicator('checking', 'Checking helper...');
 
     const apiClient = getApiClient();
     const health = await apiClient.checkHealth();
 
-    if (health.status === 'ok' && health.model_loaded) {
+    const state = helperHealthState(health);
+    if (state === 'ready') {
       updateStatusIndicator('connected', `Helper running (${health.model})`);
       elements.helperStatusText.textContent = `Connected (${health.model})`;
       elements.helperStatusText.className = 'helper-status helper-status-connected';
+    } else if (state === 'engine-stopped') {
+      updateStatusIndicator('disconnected', ENGINE_STOPPED_STATUS);
+      elements.helperStatusText.textContent = ENGINE_STOPPED_STATUS;
+      elements.helperStatusText.className = 'helper-status helper-status-error';
     } else {
-      updateStatusIndicator('disconnected', 'Helper model not loaded');
-      elements.helperStatusText.textContent = 'Model not loaded';
+      updateStatusIndicator('disconnected', WARMING_STATUS);
+      elements.helperStatusText.textContent = WARMING_STATUS;
       elements.helperStatusText.className = 'helper-status helper-status-warning';
     }
   } catch (error) {

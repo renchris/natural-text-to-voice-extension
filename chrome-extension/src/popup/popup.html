@@ -46,12 +46,15 @@
 
       <!-- Shown while speech falls back to the system voice because the helper is unreachable (OD-2) -->
       <p id="fallbackNotice" class="fallback-notice" hidden>
-        <a id="fallbackNoticeLink" href="https://github.com/renchris/natural-text-to-voice-extension#install" target="_blank" rel="noopener noreferrer">Install the free Natural TTS helper for natural Kokoro voices</a>
+        <span id="fallbackNoticeText">Install the free Natural TTS helper for natural Kokoro voices:</span>
+        <code id="helperInstallCommand"></code>
+        <a id="fallbackNoticeLink" href="https://github.com/renchris/natural-text-to-voice-extension#install" target="_blank" rel="noopener noreferrer">or build it from source</a>
       </p>
 
       <!-- Shown when the helper is older than this extension (no apiVersion 2) -->
       <p id="helperUpdateNotice" class="update-notice" hidden>
         Update the Natural TTS helper: <code id="helperUpdateCommand"></code>
+        <a id="helperUpdateSourceLink" href="https://github.com/renchris/natural-text-to-voice-extension#install" target="_blank" rel="noopener noreferrer">Installed from source?</a>
       </p>
 
       <!-- Voice Selector -->

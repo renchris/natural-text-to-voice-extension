@@ -3,7 +3,13 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { HELPER_UPDATE_COMMAND, MIN_HELPER_API_VERSION, helperNeedsUpdate } from '../src/shared/helper-version';
+import {
+  HELPER_INSTALL_COMMAND,
+  HELPER_SOURCE_URL,
+  HELPER_UPDATE_COMMAND,
+  MIN_HELPER_API_VERSION,
+  helperNeedsUpdate,
+} from '../src/shared/helper-version';
 
 describe('helperNeedsUpdate', () => {
   test('a helper without apiVersion (pre-v1.5) needs an update', () => {
@@ -27,7 +33,9 @@ describe('helperNeedsUpdate', () => {
     expect(helperNeedsUpdate({ apiVersion: '2' as unknown as number })).toBe(true);
   });
 
-  test('the update command is the helper quickstart', () => {
-    expect(HELPER_UPDATE_COMMAND).toBe('cd native-helper && ./Scripts/quickstart.sh');
+  test('install and update go through Homebrew (OD-1), with the README for source installs', () => {
+    expect(HELPER_INSTALL_COMMAND).toBe('brew install renchris/tap/natural-tts && brew services start natural-tts');
+    expect(HELPER_UPDATE_COMMAND).toBe('brew upgrade natural-tts && brew services restart natural-tts');
+    expect(HELPER_SOURCE_URL).toBe('https://github.com/renchris/natural-text-to-voice-extension#install');
   });
 });
