@@ -18,10 +18,12 @@ synthesised any other way. This file records how each clip was made, so anyone c
 Common to every clip:
 
 - **Model:** `prince-canuma/Kokoro-82M` at pinned revision `e02c9eada7ce7416798af36b190a8a2dd2ecd566` (MLX, Apache-2.0)
-- **Runtime:** Natural TTS helper 1.5.0, built from git `9186b17fac62b0a35faee148b99c4a7874d178a3` with
-  `swift build -c release`, clean tree; Python worker with mlx 0.32.2 and mlx-audio 0.5.5
+- **Runtime:** Natural TTS helper 1.5.0, built from git `f6f701e8c429785128ab98b8880a77b35d24f0e8` with
+  `swift build -c release`, clean tree; Python worker with mlx 0.32.2 and mlx-audio 0.5.5, **loudness-normalized**
+  (every `/speak` response: one gain toward −16 LUFS, never past a −1.5 dBTP true peak; see "Loudness" below)
 - **Machine:** Apple M1 Max, macOS 15.7.9
-- **Date:** 2026-09-24 04:54 UTC (2026-09-23 local)
+- **Date:** 2026-09-24 22:59 UTC (17:59 local). The first set (helper `9186b17`, 2026-09-24 04:54 UTC, no
+  normalization) is superseded; its manifest is in git history
 - **Format:** WAV, 24 kHz, mono, 16-bit PCM, exactly as the helper returned it
 - **Request:** `POST http://127.0.0.1:<port>/speak` with `{"text", "voice", "speed"}`, one clip per request
 
@@ -37,9 +39,29 @@ Common to every clip:
 The sha256 of each committed file is in `src/audio/manifest.json`. Kokoro draws random phase, so a re-run
 sounds the same but is not byte-identical; the manifest identifies these particular takes.
 
-**Checked after generation.** A local speech recogniser (Parakeet TDT 0.6B v3 in whisper.cpp 1.9.1)
-transcribed all six clips back to their exact text, word for word and with the same punctuation. Peak levels
-are −5.1 to −8.7 dBFS (no clipping); each clip ends in 0.44–0.74 s of silence.
+**Checked after generation (the first set, 2026-09-24 04:54 UTC).** A local speech recogniser (Parakeet TDT 0.6B v3 in
+whisper.cpp 1.9.1) transcribed all six clips back to their exact text, word for word and with the same punctuation.
+Peak levels are −5.1 to −8.7 dBFS (no clipping); each clip ends in 0.44–0.74 s of silence.
+
+**Loudness (regenerated 2026-09-24, evening).** The six clips above are the normalized helper's output, made again
+with `make-audio.mjs` (port 18249). Each has exactly as many samples as the take it replaces, and cross-correlates
+with it at lag 0 (waveform correlation 0.992–0.994; the rest is Kokoro's random phase): the synthesis is the same
+and louder. Checked the same way: Parakeet (`parakeet-cli`, whisper.cpp 1.9.1) transcribed all six back to their
+exact text; true peak −1.5 dBTP, sample peaks −1.50 to −1.71 dBFS; the same 0.44–0.74 s of closing silence.
+
+| Clip | Before (LUFS / dBTP) | After (LUFS / dBTP) | Gain |
+|---|---|---|---|
+| `hero.wav` | −25.6 / −6.5 | −20.2 / −1.5 | +5.30 dB |
+| `s1-rightclick.wav` | −25.6 / −8.3 | −18.7 / −1.5 | +6.82 dB |
+| `s2-british.wav` | −23.8 / −6.3 | −19.3 / −1.5 | +4.48 dB |
+| `s3-speed.wav` | −23.5 / −6.3 | −18.6 / −1.5 | +4.81 dB |
+| `s4-pdf.wav` | −26.0 / −8.5 | −19.1 / −1.5 | +6.89 dB |
+| `s5-offline.wav` | −25.6 / −5.1 | −22.1 / −1.5 | +3.37 dB |
+
+Every clip stops at the true-peak ceiling before it reaches −16 LUFS: Kokoro's speech sits 14–24 dB between true
+peak and loudness, and one gain with no limiter cannot close more than 14.5 dB of that
+(`docs/research/2026-09-upgrade/W2-integration-measurements.md` §10). Measured with `ffmpeg -af ebur128=peak=true`,
+mono, as the WAVs are.
 
 ## How each video's audio is produced
 
@@ -60,6 +82,23 @@ fallback in the promo, against ~9.4 LU in a live take. Every mux now copies the 
 −13.3 LUFS (−2.5 dBFS peak, left exactly as recorded). No gain is applied to anything, so the gap on screen is the
 real one: the worker's output is quieter than the macOS system voice. Normalising the worker's loudness (e.g. −16 LUFS,
 −1 dBTP) is a product change, not a capture one; the clips would then be regenerated with `make-audio.mjs`.
+
+**Loudness normalization shipped (2026-09-24, evening), and the videos were re-muxed.** The worker now normalizes
+every response (−16 LUFS target, −1.5 dBTP ceiling, one gain), the clips were regenerated (above), and `hero.mp4`,
+`demo-30s.mp4` and the YouTube master were given the new clips **at exactly the offsets below**, their video streams
+copied, never re-encoded. The rule is still "no gain edits": the gain is the helper's own, applied to every response
+a user hears, and the mux adds none. How: `scripts/capture/hero-mux.sh` (the hero recipe of
+`scripts/capture/GUI_PASS.md` as a script) and `scripts/capture/promo-assemble.py --remux-audio` (the master's and the
+demo's sound rebuilt with exactly the graph a full run uses, muxed with the finished file's video). Both were first
+run with the OLD clips: `hero-mux.sh` reproduced `hero.mp4` byte for byte, and `--remux-audio` reproduced every packet
+of both streams of the master and the demo, timestamps included. Only then did the new clips go in. Checked in the
+new files: the video packets are identical to the old files'; every clip sits at exactly the sample where the old clip
+sat in the old file (cross-correlation, score ≥ 0.9991); outside the clips the demo and the hero are still silent; the
+master's live system-voice scene is unchanged (−13.3 LUFS, −2.5 dBTP; AAC re-encode residual 43 dB below it). Measured
+now: `hero.mp4` −17.4 LUFS integrated, true peak −1.4 dBTP (the AAC encode adds ~0.1 dB over the WAV's −1.5); in the
+master, Kokoro −15.7 to −16.3 LUFS against the live system voice's −13.3, a gap of ~3 LU where it was 7–9 LU;
+integrated −15.3 LUFS. Inside a stereo file the clips read ~3 LU louder than as mono WAVs, because BS.1770 sums the
+two identical channels; the system voice in the master is a stereo recording, so the comparison is like for like.
 
 **As done in the GUI pass (2026-09-24):** every take was recorded with `sckrec --exclude-others`, so the picture and
 the live audio of the same take are in one file; the published audio is still the canonical clip, placed where it
@@ -98,7 +137,7 @@ offsets.
 
 | File | Size | Bytes | What it is |
 |---|---|---|---|
-| `hero.mp4` | 1280×800, 24.8 s | 809,678 | H.264 High, yuv420p, 30 fps CFR, BT.709 tags, `+faststart`; AAC-LC 128 kb/s, 48 kHz stereo |
+| `hero.mp4` | 1280×800, 24.8 s | 810,078 | H.264 High, yuv420p, 30 fps CFR, BT.709 tags, `+faststart`; AAC-LC 128 kb/s, 48 kHz stereo |
 | `hero-poster.png` | 1280×800 | 360,647 | Frame 402 of the 2560×1600 raw take (13.4 s, 6.0 s into `hero.mp4`), Lanczos to 1280×800: the native menu open, the pointer on "Speak selected text", highlighted. Stripped to a plain sRGB PNG (no cICP/gAMA/cHRM/pHYs chunks), pixel-identical to the frame before stripping |
 | `hero-preview.webp` | 960×600, 14.2 s loop | 2,059,322 | The first 11.2 s of the take (to the popup showing "Speaking your selection…" and the pointer moving off it), silent, 20 fps from the 2x raw, then that frame held 3 s with a "▶ Watch with sound · 25 s" pill (`scripts/capture/cws/pill.html`); `img2webp -near_lossless 40`, a key frame at least every 20 frames. Made by `scripts/capture/hero-preview.sh` |
 
@@ -127,7 +166,9 @@ speech). **Lag: 2.467 s** from click to the clip's first sample, 2.8 s to audibl
 log: "Generated 15.57s audio in 1.64s") on a machine where another capture run was using the GPU. `hero.wav` was muxed
 at 7.4 s less, 8.667 s, with its mono samples on both channels unchanged (`pan=stereo|c0=c0|c1=c0`), and the finished
 file was checked the same way: click flash at 6.200 s, `hero.wav` found at 8.667 s (score 1.000); loudness −22.7 LUFS,
-peak −6.5 dBFS, the WAV's own peak.
+peak −6.5 dBFS, the WAV's own peak. **Re-muxed with the normalized `hero.wav` (2026-09-24, evening):**
+`scripts/capture/hero-mux.sh assets/media/hero.mp4 <out>` (video copied; the same 8,667 ms); the new clip found at
+8.667 s (score 0.9994, the same sample as before), loudness −17.4 LUFS, true peak −1.4 dBTP. 809,678 → 810,078 bytes.
 
 **Checked by eye:** a 2 fps contact sheet of all 24.8 s, the drag at 5 fps, and full-size frames of the menu and the
 popup: the pointer where the driver put it and nowhere else, no infobar, no other app's window, the menu not clipped,
@@ -198,12 +239,14 @@ and preview (they need the native context menu). Both are in `scripts/capture/GU
 
 | File | Size | Bytes | What it is |
 |---|---|---|---|
-| `demo-30s.mp4` | 1280×720, 27.4 s | 737,797 | The README cut: the popup half of (c) (it opens on a real drag selection), the privacy terminal with its caption, and a 3 s end card, joined by 0.3 s crossfades. H.264 High CRF 23 `-preset slow`, BT.709 tags, AAC 128 kb/s target (35 kb/s delivered) 48 kHz stereo, `+faststart` |
-| `youtube-master.mp4` (not committed) | 1920×1080, 65.3 s | 37,625,616 | Title, (b), (c), (d), (e1), end card, 0.3 s crossfades, lower-third captions on (d) and (e1). H.264 High, 8 Mb/s ABR target (max 10) and **4.5 Mb/s delivered** (ABR undershoots on a mostly static UI), closed GOP 15, 2 B-frames, BT.709 primaries, transfer and matrix tagged in the stream (`h264_metadata`), AAC 192 kb/s target (**63 kb/s delivered**), 48 kHz stereo, `+faststart`, `-use_editlist 0`. sha256 `a95b8a1729563baa34620dccd22c938a9bafd47443536ca1620b9d6501a6350c` |
+| `demo-30s.mp4` | 1280×720, 27.4 s | 737,686 | The README cut: the popup half of (c) (it opens on a real drag selection), the privacy terminal with its caption, and a 3 s end card, joined by 0.3 s crossfades. H.264 High CRF 23 `-preset slow`, BT.709 tags, AAC 128 kb/s target (35 kb/s delivered) 48 kHz stereo, `+faststart` |
+| `youtube-master.mp4` (not committed) | 1920×1080, 65.3 s | 37,626,810 | Title, (b), (c), (d), (e1), end card, 0.3 s crossfades, lower-third captions on (d) and (e1). H.264 High, 8 Mb/s ABR target (max 10) and **4.5 Mb/s delivered** (ABR undershoots on a mostly static UI), closed GOP 15, 2 B-frames, BT.709 primaries, transfer and matrix tagged in the stream (`h264_metadata`), AAC 192 kb/s target (**63 kb/s delivered**), 48 kHz stereo, `+faststart`, `-use_editlist 0`. sha256 `ef688c5dbb1410964f6dc4a12f5b340306afaedaf18699fd0d60290f26579613` (re-muxed with the normalized clips; before: `a95b8a1729563baa34620dccd22c938a9bafd47443536ca1620b9d6501a6350c`) |
 
 **Where the master lives.** `/tmp` is wiped on reboot and another capture run writes into `/tmp/ntts-w3-out`, so the
 master, its captions and its inputs are kept at `~/ntts-captures/2026-09-24/`: `work/out/youtube-master.mp4` (this
-one), `youtube-master.srt` and `chapters.txt` (from `scripts/capture/youtube-meta.mjs`), `youtube-master.timeline.json`;
+one; the pre-normalization master is kept beside it as `youtube-master.pre-loudness.mp4`, and the demo's as
+`demo-30s.pre-loudness.mp4`), `youtube-master.srt` and `chapters.txt` (from `scripts/capture/youtube-meta.mjs`),
+`youtube-master.timeline.json`;
 `work/gui/` and `work/tapes/` the retake round's takes; `orig/` the first GUI pass as it was (its master, sha256
 `15e2f0af7aacd547ac599c483133266fa5b02e191c6c4561e6a4502f20b3373d`, its raw takes, and the PDF-check evidence cited in
 `assets/store/README.md`). Every card and caption is rendered from the committed templates by
@@ -257,7 +300,11 @@ chapters `0:00`, `0:14`, `0:46`. Cards: `scripts/capture/video-cards.sh` (a text
 shows an older popup, and an end card with a numbered call to action: 1, add Natural TTS to Chrome from the Chrome Web
 Store; 2, the Homebrew commands; then the repository, smaller). Measured in the finished master: every clip within
 1 ms of its place (after the 67 ms start offset both streams share), Kokoro −20.6 to −22.6 LUFS, the live scene −13.3
-LUFS, integrated −17.9 LUFS. **Discarded takes:** in the first pass, first takes of (b) and (c) (the macOS volume display
+LUFS, integrated −17.9 LUFS. After the loudness re-mux (`promo-assemble.py --remux-audio`, 2026-09-24 evening; the
+timeline, and so the `.srt` and chapters, unchanged): every clip at the same sample as before, `s1-rightclick` −15.8,
+`s2-british` −16.3, `s3-speed` −15.7 LUFS (true peak −1.5 to −1.6 dBTP), the live scene −13.3 LUFS unchanged,
+integrated −15.3 LUFS; in `demo-30s.mp4`, `s2-british.wav` −16.3 LUFS at 10.188 s as before.
+**Discarded takes:** in the first pass, first takes of (b) and (c) (the macOS volume display
 appeared over them) and an earlier (b) framing that cut the title off.
 
 **Length.** The spec asked for a 30–50 s master and a 20–30 s demo; `scripts/capture/GUI_PASS.md` now says 45–70 s for
@@ -316,6 +363,10 @@ cd native-helper && swift build -c release && cd ..
 node assets/media/src/make-audio.mjs --port 18249          # a free port; the script starts and stops its own helper
 node assets/media/src/make-audio.mjs --check
 assets/media/src/render-pdf.sh                              # only if article.html changed
+# then put the new clips under the finished videos at their recorded offsets, video copied (see "Loudness" above):
+scripts/capture/hero-mux.sh assets/media/hero.mp4 /tmp/hero.mp4 && mv /tmp/hero.mp4 assets/media/hero.mp4
+python3 scripts/capture/promo-assemble.py --remux-audio ~/ntts-captures/2026-09-24/work/takes \
+  <old youtube-master.mp4> <new youtube-master.mp4> assets/media/demo-30s.mp4 <new demo-30s.mp4>
 ```
 
 `make-audio.mjs` always passes `--port`, `--python` and `--worker` to the helper, so it never reads or writes
