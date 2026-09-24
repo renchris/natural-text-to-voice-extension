@@ -1,130 +1,87 @@
 # Natural TTS: Private Kokoro Voices for Mac
 
-**Privacy-first text-to-speech Chrome extension with local Metal-accelerated processing using Kokoro-82M.**
+**Reads selected text aloud in a natural Kokoro voice, generated on your Mac by the free Natural TTS helper.
+Without the helper it reads with your Mac's built-in system voices.**
 
-> ⚡ **100% local processing** - No cloud, no tracking, no data collection
-> 🎤 **High-quality voices** - 6 natural-sounding voices
-> 📄 **PDF support** - Automatic ligature cleanup for better text extraction
-> ⚙️ **Fully customizable** - Adjust speed, voice, and preferences
+This is the developer README for the extension. Install steps for users are in the
+[root README](../README.md#install) and [INSTALL.md](./INSTALL.md).
 
 ---
 
 ## Features
 
-### Core Functionality
-- 🗣️ **Text-to-Speech Conversion**
-  - Select text on any webpage or PDF → right-click → "Speak selected text"
-  - Or use popup interface with manual text input
-  - Multi-sentence paragraph support (no cutoff after first sentence)
-  - Unicode text normalization (handles styled/mathematical characters)
-
-- 🎤 **6 Premium Voices**
-  - **Female**: Bella (US), Nicole, Sarah, Sky
-  - **Male**: Adam, Michael
-  - Natural prosody powered by Kokoro-82M model
-
-- ⚡ **Variable Speed Control**
-  - Adjustable from 0.5x (slow) to 2.0x (fast)
-  - Live preview in settings
-  - Default: 1.0x (natural pace)
-
-### Privacy & Performance
-- 🔒 **100% Local Processing**
-  - All TTS generation happens on your device
-  - No cloud API calls, no external servers
-  - No analytics, tracking, or data collection
-  - No user accounts
-
-- ⚡ **Metal Acceleration**
-  - Optimized for Apple Silicon (M1/M2/M3/M4)
-  - 8.3x-25x real-time factor performance
-  - Low latency audio playback
-
-### User Experience
-- 📄 **PDF Text Support**
-  - Automatic ligature cleanup (e.g., "tra!c" → "traffic")
-  - Handles common PDF encoding errors
-  - Works with built-in Chrome PDF viewer
-
-- 🎨 **Modern UI**
-  - Popup interface with voice selector and speed slider
-  - Comprehensive settings/options page
-  - Real-time helper connection status indicator
-  - Keyboard navigation and accessibility support
-
----
-
-## Screenshots
-
-*Coming soon: Popup UI, Options Page, Context Menu in Action*
+- **Speak selected text** from the right-click menu on any page, in PDFs and in embedded frames.
+- **The popup**: voice, speed and a Speak button that becomes Stop while audio plays. It reads the page's
+  current selection; there is no text box.
+- **Two keyboard commands**, *Speak the selected text* and *Stop speaking*, shipped with no keys bound.
+- **28 English Kokoro voices** (20 American, 8 British), grouped by accent and gender. New installs default to
+  **Heart** (`af_heart`).
+- **Speed from 0.5× to 2.0×**: a log-scale slider with − and + steps in the popup, and a default speed in Options.
+- **System voices when the helper is not running**: Chrome's `chrome.tts` with a local voice of your Mac. Options
+  can switch this to "Show an error".
+- **PDF ligature cleanup** (for example "tra!c" becomes "traffic") for text selected in a PDF.
+- **Visible status**: the popup's status pill (Checking, Warming, Connected, Offline), and a toolbar badge after
+  right-click or shortcut speech: a red **!** with the reason when it failed, a grey **i** when a system voice
+  stood in for the helper.
 
 ---
 
 ## Requirements
 
-### System Requirements
-- **Operating System**: macOS with Apple Silicon (M1/M2/M3/M4)
-- **Browser**: Chrome, Edge, Brave, Opera, Vivaldi, Arc or Dia on Chromium 148+ (`minimum_chrome_version`)
-- **Disk Space**: ~500MB for ML model download
-- **Memory**: 2GB RAM recommended
-
-### Prerequisites
-1. **Native TTS Helper** running on `localhost:8249`
-   - See [parent repository](../native-helper/) for helper setup
-   - Helper provides ML inference via MLX framework
-   - Automatic connection detection
+- **A Mac with Apple silicon on macOS 14 (Sonoma) or later**, for the helper. Without it the extension still
+  speaks, with system voices.
+- **Chromium 148 or later** (`minimum_chrome_version`): Chrome, Edge, Brave, Opera, Vivaldi, Arc or Dia.
+- **The Natural TTS helper** on `127.0.0.1`. The extension looks for it on ports 8249 to 8260. The helper's
+  setup builds a ~0.66 GB Python environment and downloads the ~0.35 GB Kokoro model once; see
+  [native-helper/README.md](../native-helper/README.md).
 
 ---
 
 ## Installation
 
-### Quick Start (5 minutes)
+**Step 1: the helper.** With Homebrew:
 
-**Step 1: Install Native Helper**
 ```bash
-# Clone repository (if not already done)
-git clone https://github.com/yourusername/natural-text-to-voice-extension.git
-cd natural-text-to-voice-extension/native-helper
-
-# Setup and build
-./Scripts/setup-python-env.sh
-swift build -c release
-
-# Start helper (keep running in background)
-.build/release/natural-tts-helper
+brew install renchris/tap/natural-tts
+brew services start natural-tts
 ```
 
-**Step 2: Load Extension in Chrome**
+The `renchris/tap` tap is published together with the store listing; until then, install from source.
+
+From a source checkout, `quickstart.sh` installs uv, espeak-ng, tmux and jq with Homebrew if they are
+missing; the build needs Xcode 16.2+ or its Command Line Tools:
+
 ```bash
-# Build extension (from chrome-extension directory)
-cd ../chrome-extension
+git clone https://github.com/renchris/natural-text-to-voice-extension.git
+cd natural-text-to-voice-extension
+native-helper/Scripts/quickstart.sh
+```
+
+**Step 2: the extension.** From the Chrome Web Store, or build and load it yourself:
+
+```bash
+cd chrome-extension
 bun install
 bun run build
-
-# Then in Chrome:
-# 1. Navigate to chrome://extensions
-# 2. Enable "Developer mode" (top-right toggle)
-# 3. Click "Load unpacked"
-# 4. Select the `dist/` folder
 ```
 
-**Step 3: Verify**
-- Extension icon should appear in Chrome toolbar
-- Click icon → status indicator should show green (connected)
-- Select text → right-click → "Speak selected text" → audio plays!
+Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and select
+`chrome-extension/dist`.
 
-### Detailed Installation Guide
-See [INSTALL.md](./INSTALL.md) for step-by-step instructions with screenshots.
+**Step 3: check it.** Click the toolbar icon: the status pill reads **Connected** once the helper is up
+(**Warming** while its model loads). Select text, right-click, choose **Speak selected text**.
+
+Step-by-step, with troubleshooting: [INSTALL.md](./INSTALL.md).
 
 ---
 
 ## Usage
 
 ### Method 1: Context Menu (Recommended)
-1. **Select text** on any webpage or PDF
-2. **Right-click** on selected text
+1. **Select text** on a web page, in a PDF or in an embedded frame
+2. **Right-click** the selection
 3. **Click** "Speak selected text"
-4. **Audio plays** immediately
+4. **Audio plays** from a hidden offscreen document, so it keeps playing after menus close
 
 If right-click or shortcut speech fails, the toolbar icon shows a red **!**.
 Hover over the icon to read why; the badge clears the next time speech works.
@@ -138,6 +95,9 @@ the helper for Kokoro voices. It clears the next time a Kokoro voice speaks.
 3. **Choose** voice from dropdown (optional)
 4. **Adjust** speed slider (optional)
 5. **Click** "Speak Selected Text". While it plays, the same button is **Stop**
+
+The popup plays this audio itself, so closing the popup stops it. Right-click and shortcut speech keep playing,
+and an open popup offers Stop for them too.
 
 ### Method 3: Keyboard Shortcuts
 Two commands ship with **no keys bound**, so they never collide with macOS
@@ -154,16 +114,15 @@ use the context menu there.
 
 ### Settings & Customization
 
-**Access Settings:**
-- Click extension icon → Click gear icon (⚙️)
-- Or right-click extension icon → "Options"
+**Open Options:** click the gear icon in the popup, or right-click the toolbar icon → **Options**.
 
-**Available Settings:**
-- **Voice Selection**: the 28 English Kokoro voices, grouped American/British,
+**Settings:**
+- **Default voice**: the 28 English Kokoro voices, grouped American/British,
   female/male (an older helper offers only the voices it has)
-- **Playback Speed**: 0.5x - 2.0x range
+- **Default speed**: 0.5× to 2.0×
+- **When the helper isn't running**: "Use system voices" (the default) or "Show an error"
 
-**Settings sync** automatically across all extension contexts.
+Settings live in `chrome.storage.local` on this computer. They are not synced through your Chrome account.
 
 ---
 
@@ -171,56 +130,58 @@ use the context menu there.
 
 ### Architecture Overview
 
-```
-┌─────────────────┐
-│  Chrome Browser │
-│  ┌───────────┐  │      HTTP (localhost:8249)      ┌──────────────────┐
-│  │ Extension │  │ ◄────────────────────────────► │  Native Helper   │
-│  │  (popup,  │  │      JSON request/response      │  (Swift + MLX)   │
-│  │ offscreen,│  │                                  │                  │
-│  │background)│  │                                  │  ┌────────────┐  │
-│  └───────────┘  │                                  │  │ MLX Python │  │
-└─────────────────┘                                  │  │  Worker    │  │
-                                                      │  └────────────┘  │
-                                                      │  ┌────────────┐  │
-                                                      │  │ Kokoro-82M │  │
-                                                      │  │   Model    │  │
-                                                      │  └────────────┘  │
-                                                      └──────────────────┘
-```
+<!-- Diagram source: assets/diagrams/architecture.mmd. Edit it, run `bun run diagrams` at the repo root, commit the SVGs. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/architecture-dark.svg">
+  <img src="../assets/diagrams/architecture-light.svg" alt="Inside Chrome, the popup and the service worker. The service worker hands text to an offscreen document, or, when the helper is not running, speaks it with a chrome.tts system voice. The popup and the offscreen document call the Natural TTS helper over HTTP on 127.0.0.1:8249 only. On the Mac, the Swift helper checks the Host and Origin headers and passes the request as JSON frames over stdio to a Python worker running Kokoro-82M with mlx-audio, on the Apple GPU through MLX and Metal, offline.">
+</picture>
 
 ### Components
 
-**Extension Side:**
-- **Popup** (`popup/`): User interface for manual text input
-- **Options** (`options/`): Settings and preferences page
-- **Background Worker** (`background/`): Message routing, context menu handling
-- **Offscreen Document** (`offscreen/`): Audio playback (Chrome requirement)
+**Extension** (`src/`):
+- **Popup** (`popup/`): voice, speed, status pill and Speak/Stop. It calls the helper and plays the audio itself.
+- **Options** (`options/`): default voice, default speed, and what to do when the helper isn't running.
+- **Service worker** (`background/`): the context menu and keyboard commands. It reads the selection, hands it to
+  the offscreen document, and runs the `chrome.tts` system-voice fallback (`system-voice-engine.ts`).
+- **Offscreen document** (`offscreen/`): created with the `AUDIO_PLAYBACK` and `BLOBS` reasons. It calls
+  `POST /speak` and plays the WAV, and is closed after 60 s idle.
+- **Shared** (`shared/`): the API client and port discovery, the 28-voice catalogue (`voices.ts`), on-demand
+  selection reading (`selection.ts`), error messages, the toolbar badge, and PDF text cleanup.
 
-**Native Helper Side** (separate repository):
-- **SwiftNIO HTTP Server**: Handles API requests on `localhost:8249`
-- **Python MLX Worker**: ML inference with Kokoro-82M model
-- **Metal Acceleration**: GPU-accelerated tensor operations
+**Helper** (`../native-helper/`, same repository):
+- **Swift HTTP server** (SwiftNIO) on `127.0.0.1`, port 8249 or the next free one up to 8260. It accepts only
+  loopback `Host` headers, and refuses web-page `Origin`s on `/speak` and `/voices`.
+- **Python worker**: Kokoro-82M through mlx-audio, fed length-prefixed JSON over stdin/stdout, offline.
+- **MLX** runs the model on the Apple GPU (Metal).
 
 ### API Endpoints
-- `GET /health` - Check helper status
-- `GET /voices` - List available voices
-- `POST /speak` - Generate TTS audio (returns WAV file)
+- `GET /health`: status, `model_loaded`, `version` and `apiVersion`
+- `GET /voices`: the voices the helper offers
+- `POST /speak` `{text, voice, speed}`: returns `audio/wav` (24 kHz, mono, 16-bit), or a JSON error with a code
+  such as `unknown_voice` or `text_too_long`
+
+Full reference: [native-helper/README.md](../native-helper/README.md#api-documentation).
 
 ---
 
 ## Troubleshooting
 
+### What the status pill means
+
+<!-- Diagram source: assets/diagrams/popup-status.mmd. Edit it, run `bun run diagrams` at the repo root, commit the SVGs. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/popup-status-dark.svg">
+  <img src="../assets/diagrams/popup-status-light.svg" alt="When the popup opens it shows Checking. If the model is loaded it goes to Connected, with Kokoro voices. If the helper answers but is still loading, Warming, which polls /health every 2 seconds until Connected. If no helper answers, Offline with a system voice (the default setting). Offline with an error and a Retry button when system voices are turned off, the helper's engine stopped, or the helper did not reply. Retry returns to Checking.">
+</picture>
+
 ### Common Issues
 
-#### "Helper not found" or red status indicator
-**Cause**: Native helper is not running
-**Solution**:
-```bash
-cd ../native-helper
-.build/release/natural-tts-helper
-```
-Keep this terminal window open. Helper must run in background.
+#### "Offline" in the popup
+**Cause**: no helper answers on 127.0.0.1, ports 8249 to 8260.
+**Solution**: start it. A Homebrew helper: `brew services start natural-tts`. A source install: run
+`native-helper/Scripts/quickstart.sh` again, which starts it in the tmux session `natural-tts-helper`.
+If the popup says the helper's voice engine stopped, the helper is running but gave up restarting its Python
+worker: restart the helper.
 
 #### Popup says "Update the Natural TTS helper"
 **Cause**: The running helper predates this extension (its `/health` has no
@@ -243,25 +204,26 @@ Homebrew helper updates with `brew upgrade natural-tts && brew services restart 
 
 #### No audio plays when clicking "Speak"
 **Possible causes**:
-- System volume muted → Check macOS sound settings
-- Chrome audio blocked → Check site permissions
-- Invalid text selection → Try typing text manually in popup
+- System volume muted → check macOS sound settings
+- Nothing selected, or the selection is in a PDF or a frame from another site → the popup and the shortcut
+  read only the tab's top frame; right-click the selection instead
+- The popup closed → popup speech stops with the popup; right-click speech does not
 
 #### PDF text has garbled characters
-**Expected**: Extension auto-fixes common PDF issues (e.g., "tra!c" → "traffic")
-**If still garbled**: Some PDFs have severe encoding errors that can't be auto-corrected. Try copying text to popup manually.
+**Expected**: the extension fixes common ligature errors in PDF text (e.g., "tra!c" → "traffic").
+**If still garbled**: some PDFs carry encoding errors that cannot be repaired from the selected text alone.
 
-#### Slow performance or high CPU usage
-**Normal**: First request takes 2-3 seconds (model loading)
-**After warm-up**: Should achieve 8x-25x real-time factor
-**If consistently slow**:
-- Check Activity Monitor for other ML workloads
-- Ensure native helper is using Release build (not Debug)
+#### Long selections take a while to start
+The helper returns the whole WAV before playback starts, so time to first audio is the full synthesis time:
+about 0.34 s for a 15-word sentence and 6.5 s for 400 words on an M1 Max (~26× faster than real time;
+[measurements](../docs/research/2026-09-upgrade/W2-integration-measurements.md)). The first request after the
+helper starts is not slower: it warms its model before it reports ready.
 
 ### Getting Help
-- Check [parent repository issues](https://github.com/yourusername/natural-text-to-voice-extension/issues)
-- Review helper logs in terminal where helper is running
-- Check Chrome extension console: chrome://extensions → "Service worker" → "inspect views"
+- [GitHub Issues](https://github.com/renchris/natural-text-to-voice-extension/issues)
+- Helper logs: `native-helper/Scripts/logs.sh` for a source install (tmux session `natural-tts-helper`), or
+  `$(brew --prefix)/var/log/natural-tts.log` for Homebrew
+- Extension logs: `chrome://extensions` → Natural TTS → "Inspect views: service worker"
 
 ---
 
@@ -273,14 +235,16 @@ chrome-extension/
 ├── src/
 │   ├── popup/           # Popup UI (click extension icon)
 │   ├── options/         # Settings page
-│   ├── background/      # Service worker (message routing)
-│   ├── offscreen/       # Offscreen document (audio playback)
-│   └── shared/          # Shared utilities (API client, types, on-demand selection)
+│   ├── background/      # Service worker (context menu, commands, system-voice fallback)
+│   ├── offscreen/       # Offscreen document (calls /speak, plays the audio)
+│   └── shared/          # API client, voice catalogue, selection reading, badge, errors
 ├── public/
 │   ├── manifest.json    # Extension manifest (Manifest V3)
-│   └── icons/           # Extension icons (16, 48, 128px)
-├── tests/               # Bun test suite
-├── dist/                # Build output (load this in Chrome)
+│   └── icons/           # Extension icons (16, 32, 48, 128 px), from assets/brand/
+├── scripts/             # verify-permissions.cjs
+├── tests/               # Bun unit tests, opt-in integration, headed e2e
+├── build.ts             # tsc-checked sources → dist/ with Bun.build
+├── dist/                # Build output (load this in Chrome; gitignored)
 └── package.json
 ```
 
@@ -358,28 +322,35 @@ iframes, restricted pages) the context menu's own `selectionText` is used.
 
 ### Communication Flow
 
-**Text Selection → Speech**:
-```
-1. User selects text on webpage
-2. User right-clicks → "Speak selected text"
-3. Background worker receives context menu click (grants activeTab)
-4. Background → chrome.scripting.executeScript: getSelection() in that tab
-5. Empty or blocked (PDF, iframe)? Use the menu's info.selectionText instead
-6. Background → API client: POST /speak request
-7. API client → Native helper (localhost:8249)
-8. Native helper → Python MLX worker
-9. MLX worker → Kokoro-82M model inference
-10. Helper returns WAV audio (base64 encoded)
-11. Background → Offscreen document: Play audio
-12. Offscreen creates audio blob and plays
-```
+<!-- Diagram source: assets/diagrams/right-click-flow.mmd. Edit it, run `bun run diagrams` at the repo root, commit the SVGs. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/right-click-flow-dark.svg">
+  <img src="../assets/diagrams/right-click-flow-light.svg" alt="1, you right-click a selection and choose Speak selected text. 2, the service worker runs a script in the clicked frame to read the selection; for a PDF or a cross-origin frame it uses the text Chrome passed with the click. 3, it sends the text, voice and speed to the offscreen document. 4, the offscreen document posts it to the helper at 127.0.0.1:8249. 5, the helper returns a WAV and the offscreen document plays it; or, if no helper answers, a system voice speaks the text and the toolbar icon shows a grey i.">
+</picture>
+
+In code, for a right-click:
+
+1. `chrome.contextMenus.onClicked` fires in the service worker; the click grants `activeTab`.
+2. `resolveContextMenuText` (`shared/selection.ts`) runs `getSelection()` in the clicked frame through
+   `chrome.scripting.executeScript`. If the frame cannot be scripted or has no selection, it uses
+   `info.selectionText`. PDF text gets ligature cleanup.
+3. The service worker creates the offscreen document if needed and sends it `SPEAK_IN_OFFSCREEN` with the text,
+   the stored voice and speed, and the last known helper port.
+4. The offscreen document's API client posts `/speak` to the helper on 127.0.0.1, after `/health` has confirmed
+   the port is the helper. The helper answers with binary `audio/wav`.
+5. The offscreen document plays it from an object URL and answers `SPEAK_STARTED`; the end arrives later as
+   `SPEAK_FINISHED`. If the helper could not be reached, the service worker speaks the text with `chrome.tts`
+   instead (unless Options says "Show an error") and shows the grey **i** badge.
+
+Inside the helper, the Swift server passes the request to the Python worker as a length-prefixed JSON frame over
+stdin/stdout and gets the WAV back the same way.
 
 ### Security Model
-- **Content Security Policy**: Strict CSP prevents inline scripts
-- **Permissions**: storage, contextMenus, activeTab, scripting, offscreen; no content scripts. The only install warning is "Read and change your data on 127.0.0.1" (`bun run verify:permissions`)
-- **Network**: Only `http://127.0.0.1/*` allowed (localhost)
-- **No eval()**: No dynamic code execution
-- **No external scripts**: All code bundled statically
+- **Content Security Policy**: Manifest V3's default (the manifest sets none): no inline scripts, no `eval`
+- **Permissions**: `storage`, `contextMenus`, `activeTab`, `scripting`, `offscreen`, `tts`; no content scripts.
+  The only install warning is "Read and change your data on 127.0.0.1" (`bun run verify:permissions`)
+- **Host access**: `http://127.0.0.1/*` only
+- **No remote code**: every script is bundled into `dist/` at build time
 
 ---
 
@@ -387,56 +358,25 @@ iframes, restricted pages) the context menu's own `selectionText` is used.
 
 See [PRIVACY.md](./PRIVACY.md) for full privacy policy.
 
-**TL;DR**:
-- 100% local processing on your device
-- No data sent to external servers
-- No analytics, tracking, or telemetry
-- No user accounts or cloud storage
-- Only network request is to localhost:8249 (your own computer)
+**In short**:
+- The selected text goes only to the helper on your own computer (127.0.0.1, ports 8249 to 8260), or, as a
+  fallback, to a system voice that runs locally
+- No analytics, tracking or telemetry; no accounts
+- The helper downloads the Kokoro model once, at setup; after that it runs offline
 
 ---
 
 ## Performance
 
 ### Bundle Size
-- Total: **61.47 KB** (uncompressed), ~22 KB (gzipped)
-- JavaScript bundled and minified by `Bun.build` (`minify: true`)
-- CSS copied as-is (not minified)
-- Shared CSS variables to eliminate duplication
+- `dist/` is about 111 KB across 15 files; the four JavaScript bundles total 65 KB (16 KB gzipped), minified by
+  `Bun.build` (`minify: true`), with `console.log`/`info`/`debug` dropped
+- CSS is copied as-is; `shared/variables.css` holds the design tokens both pages import
 
-### TTS Performance (Native Helper)
-- **Short text** (5-10 words): ~8.3x RTF
-- **Long text** (50-100 words): ~25x RTF
-- **First request latency**: 2-3 seconds (model loading)
-- **Subsequent requests**: Sub-second latency
-
----
-
-## Roadmap
-
-### Current Version: v1.3.0 ✅
-- ✅ Core TTS functionality
-- ✅ 6 premium voices
-- ✅ Variable speed control
-- ✅ PDF support with ligature cleanup
-- ✅ Settings page
-- ✅ Context menu integration
-- ✅ Accessibility (keyboard nav, ARIA labels)
-
-### Next Version: v1.4.0 (In Progress)
-- 📝 Documentation complete
-- 📝 Installation guide
-- 📝 Privacy policy
-- 📝 Accessibility audit
-- 📝 Screenshots and demo video
-
-### Future Versions (Planned)
-- 🔮 Export audio to file
-- 🔮 Reading queue (batch processing)
-- 🔮 Text highlighting as spoken
-- 🔮 Pronunciation dictionary
-- 🔮 Multi-language support
-- 🔮 Custom voice fine-tuning (if Kokoro supports)
+### Speech (the helper)
+On an M1 Max with helper 1.5.0, voice `af_bella`, speed 1.0: ~26.5× faster than real time at every length
+(0.34 s for 15 words, 6.5 s for 407 words), 0.35 s for the first request after start, and 1.95 s from launch to
+ready. Method and raw numbers: [W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md).
 
 ---
 
@@ -461,14 +401,15 @@ Contributions are welcome! Please:
 
 ## License
 
-MIT License - See [parent repository LICENSE](../LICENSE) for details.
+MIT License. See [LICENSE](../LICENSE) and, for the helper's dependencies, [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ---
 
 ## Acknowledgments
 
-- **Kokoro-82M**: High-quality TTS model by [source TBD]
-- **MLX Framework**: Apple's ML framework for Metal acceleration
+- **Kokoro-82M**: the speech model by [hexgrad](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0), in
+  the MLX conversion [prince-canuma/Kokoro-82M](https://huggingface.co/prince-canuma/Kokoro-82M)
+- **mlx-audio** and **MLX**: Kokoro inference on the Apple GPU
 - **SwiftNIO**: High-performance networking in Swift
 - **Bun**: Fast JavaScript runtime and bundler
 
@@ -476,9 +417,9 @@ MIT License - See [parent repository LICENSE](../LICENSE) for details.
 
 ## Links
 
-- **Parent Repository**: [Natural TTS Extension](../)
-- **Native Helper**: [Setup Guide](../native-helper/README.md)
-- **Issue Tracker**: [GitHub Issues](https://github.com/yourusername/natural-text-to-voice-extension/issues)
+- **Repository**: [README](../README.md)
+- **Native Helper**: [native-helper/README.md](../native-helper/README.md)
+- **Issue Tracker**: [GitHub Issues](https://github.com/renchris/natural-text-to-voice-extension/issues)
 - **Changelog**: [CHANGELOG.md](../CHANGELOG.md)
 
 ---

@@ -1,32 +1,26 @@
 # Installation Guide
-**Natural TTS Chrome Extension**
+**Natural TTS: Private Kokoro Voices for Mac**
 
-> **Total time**: 15-20 minutes
-> **Difficulty**: Beginner (command-line basics required)
+> **Total time**: about 10 minutes, most of it the one-time build and model download
+> **Difficulty**: Beginner (you paste two or three commands into Terminal)
 
-This guide will walk you through installing both the **Native TTS Helper** (backend) and the **Chrome Extension** (frontend).
+Natural TTS has two parts: the **Natural TTS helper**, a small app that generates the Kokoro voices on your Mac,
+and the **Chrome extension**. Install the helper first. The extension works without it, reading with your Mac's
+built-in system voices, but the natural Kokoro voices need the helper.
 
 ---
 
 ## Prerequisites
 
-Before you begin, make sure you have:
+✅ **A Mac with Apple silicon on macOS 14 (Sonoma) or later**
+   - Check: Apple menu → About This Mac → Chip (an Apple M-series chip) and macOS version
 
-✅ **macOS with Apple Silicon**
-   - M1, M2, M3, or M4 chip
-   - Check: Apple menu → About This Mac → Chip
+✅ **A Chromium browser, version 148 or later**
+   - Chrome, Edge, Brave, Opera, Vivaldi, Arc or Dia
 
-✅ **Google Chrome or Microsoft Edge**
-   - Version 88 or later
-   - Download: [chrome.google.com](https://www.google.com/chrome/)
+✅ **[Homebrew](https://brew.sh)**
 
-✅ **~500MB free disk space**
-   - For ML model download
-
-✅ **Terminal app**
-   - Pre-installed on macOS (Applications → Utilities → Terminal)
-
-✅ **Xcode Command Line Tools** (if not already installed)
+✅ **Xcode 16.2 or later, or its Command Line Tools** (the helper is built from source)
 ```bash
 # Check if installed:
 xcode-select -p
@@ -35,326 +29,236 @@ xcode-select -p
 xcode-select --install
 ```
 
----
-
-## Part 1: Install Native TTS Helper (15 minutes)
-
-The native helper is a background service that performs the actual text-to-speech conversion using Apple's Metal framework for GPU acceleration.
-
-### Step 1.1: Clone the Repository
-
-Open **Terminal** and run:
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/natural-text-to-voice-extension.git
-
-# Navigate to the native helper directory
-cd natural-text-to-voice-extension/native-helper
-```
-
-### Step 1.2: Setup Python Environment
-
-This script will:
-- Create a Python virtual environment
-- Install ML dependencies (PyTorch, transformers, MLX)
-- Download the Kokoro-82M model (~500MB)
-
-```bash
-./Scripts/setup-python-env.sh
-```
-
-**Expected output:**
-```
-Setting up Python environment...
-Installing dependencies...
-Downloading Kokoro-82M model...
-✓ Setup complete!
-```
-
-⏱️ **This may take 5-10 minutes** depending on your internet connection.
-
-### Step 1.3: Build the Swift Helper
-
-```bash
-swift build -c release
-```
-
-**Expected output:**
-```
-Building for production...
-Build complete! (XX.XX seconds)
-```
-
-⏱️ **This takes 1-2 minutes**.
-
-### Step 1.4: Start the Helper
-
-```bash
-.build/release/natural-tts-helper
-```
-
-**Expected output:**
-```
-[INFO] Natural TTS Helper starting...
-[INFO] Loading Kokoro-82M model...
-[INFO] Server listening on http://127.0.0.1:8249
-[INFO] Ready to serve requests!
-```
-
-✅ **Success!** The helper is now running.
-
-**Important**:
-- Keep this Terminal window open
-- The helper must remain running for the extension to work
-- You'll see log messages as the extension makes requests
-
-**To stop the helper later**: Press `Ctrl+C` in the Terminal window
+✅ **About 1.5 GB of free disk space**: the helper's Python environment (~0.66 GB), the Kokoro model (~0.35 GB)
+and the build
 
 ---
 
-## Part 2: Install Chrome Extension (5 minutes)
+## Part 1: Install the Natural TTS Helper
 
-### Step 2.1: Build the Extension
+The helper listens on `127.0.0.1` only (port 8249, or the next free port up to 8260) and runs the Kokoro-82M
+model on your Mac's GPU. It downloads the model once, during setup, and works offline after that.
 
-Open a **new** Terminal window (keep the helper running in the first one).
+### Option A: Homebrew (recommended)
 
 ```bash
-# Navigate to extension directory
-cd /path/to/natural-text-to-voice-extension/chrome-extension
+brew install renchris/tap/natural-tts
+brew services start natural-tts
+```
 
-# Install dependencies
+The formula builds the helper, installs its locked Python 3.12 environment and fetches the model.
+`brew services` starts the helper now and at every login. Details:
+[packaging/homebrew/README.md](../packaging/homebrew/README.md).
+
+> The `renchris/tap` tap is published together with the store listing. Until then, use Option B.
+
+### Option B: From source
+
+```bash
+git clone https://github.com/renchris/natural-text-to-voice-extension.git
+cd natural-text-to-voice-extension
+native-helper/Scripts/quickstart.sh
+```
+
+`quickstart.sh` installs uv, espeak-ng, tmux and jq with Homebrew if they are missing, builds the locked Python
+environment (`Scripts/setup-python-env.sh`, which also fetches the model once), builds the release binary, and
+starts the helper in a background tmux session named `natural-tts-helper`. When the helper is up, its log says:
+
+```
+Natural TTS Helper is ready!
+Listening on: http://127.0.0.1:8249
+```
+
+⏱️ **The first run takes several minutes** (the environment, the model download and the Swift build). Later runs
+reuse all three.
+
+**Useful commands** (from `native-helper/`):
+- `./Scripts/status.sh`: is it running, and on which port
+- `./Scripts/logs.sh` (or `--follow`): the helper's log
+- `./Scripts/teardown.sh`: stop it
+
+The helper does not start again by itself after a restart of your Mac; run `quickstart.sh` again, or use
+Homebrew.
+
+---
+
+## Part 2: Install the Chrome Extension
+
+### From the Chrome Web Store
+
+Install **Natural TTS: Private Kokoro Voices for Mac** and pin it to the toolbar. Chrome's only install warning
+is "Read and change your data on 127.0.0.1": the extension can reach nothing but your own computer.
+
+### Or build it yourself
+
+You need [Bun](https://bun.sh) 1.3 or later (`curl -fsSL https://bun.sh/install | bash`).
+
+```bash
+cd natural-text-to-voice-extension/chrome-extension
 bun install
-
-# Build the extension
 bun run build
 ```
 
-**Expected output:**
+**Expected output** (last lines):
 ```
-🚀 Building Chrome extension with Bun...
 ✅ Build complete!
 📦 Check dist/ for Chrome extension files
 ```
 
-**Don't have Bun installed?**
-```bash
-curl -fsSL https://bun.sh/install | bash
-```
+Then load it:
 
-### Step 2.2: Load Extension in Chrome
-
-1. **Open Google Chrome**
-
-2. **Navigate to Extensions page**:
-   - Type in address bar: `chrome://extensions`
-   - Or: Menu (⋮) → Extensions → Manage Extensions
-
-3. **Enable Developer Mode**:
-   - Toggle the switch in the top-right corner
-   - ![Developer Mode Toggle](https://via.placeholder.com/150x50?text=Developer+Mode)
-
-4. **Load Unpacked Extension**:
-   - Click "Load unpacked" button (top-left)
-   - ![Load Unpacked Button](https://via.placeholder.com/150x50?text=Load+Unpacked)
-
-5. **Select the dist/ folder**:
-   - Navigate to: `natural-text-to-voice-extension/chrome-extension/dist/`
-   - Click "Select" or "Open"
-   - ⚠️ **Important**: Select the `dist/` folder, NOT the `chrome-extension/` parent folder
-
-6. **Verify Installation**:
-   - Extension should appear in your extensions list
-   - Icon should be visible in Chrome toolbar
-   - No error messages should appear
-
-![Extension Loaded Successfully](https://via.placeholder.com/500x200?text=Extension+Loaded)
+1. Open `chrome://extensions` (or Menu ⋮ → Extensions → Manage Extensions).
+2. Turn on **Developer mode** (the switch in the top-right corner).
+3. Click **Load unpacked** and select `natural-text-to-voice-extension/chrome-extension/dist/`.
+   ⚠️ Select the `dist/` folder, not `chrome-extension/`.
+4. **Natural TTS** appears in the list with no errors. Pin it from the puzzle-piece menu so its icon stays in the
+   toolbar.
 
 ---
 
 ## Part 3: Verify Installation (2 minutes)
 
-### Test 1: Check Helper Connection
+### Test 1: Check the helper connection
 
-1. **Click the extension icon** in Chrome toolbar (looks like a speaker)
-2. **Check the status indicator** (top-left corner of popup)
-   - 🟢 **Green dot** = Connected to helper ✅
-   - 🟡 **Yellow dot** = Connecting...
-   - 🔴 **Red dot** = Helper offline ❌
+1. **Click the Natural TTS icon** in the toolbar.
+2. **Read the status pill** in the popup's top-right corner:
+   - **Connected**: the helper is running and its model is loaded ✅
+   - **Warming**: the helper is loading its model; the popup checks again every 2 seconds
+   - **Checking**: the popup is looking for the helper
+   - **Offline**: no helper answered. By default Speak still works, with a system voice, and the popup shows
+     how to install the helper
 
-If you see a red dot:
-- Verify the helper is still running in Terminal
-- Check that Terminal shows "Ready to serve requests"
-- Try closing and reopening the extension popup
+If it says **Offline** and you installed the helper, see [Troubleshooting](#troubleshooting).
 
-### Test 2: Generate Speech
+### Test 2: Generate speech
 
-**Method A: Use the Popup**
+**Method A: the right-click menu**
 
-1. Select some text on a webpage (e.g., a sentence in a news article)
-2. Click the extension icon
-3. Click the "Speak Selected Text" button
-4. 🔊 **Audio should play!**
+1. Open any web page (or a PDF) and select a sentence.
+2. Right-click the selection and choose **Speak selected text**.
+3. 🔊 **Audio plays.** It keeps playing if you click elsewhere.
 
-**Method B: Use Context Menu**
+**Method B: the popup**
 
-1. Open any webpage (e.g., news article)
-2. Select some text with your mouse
-3. Right-click on the selected text
-4. Click "Speak selected text" from the menu
-5. 🔊 **Audio should play!**
+1. Select some text on the page.
+2. Click the Natural TTS icon, then **Speak Selected Text**. While it plays the button is **Stop**.
+3. 🔊 **Audio plays** until it ends or you close the popup.
 
-### Test 3: Try Different Voices
+### Test 3: Try different voices
 
-1. Click extension icon
-2. Click the settings gear icon (⚙️) or right-click extension icon → "Options"
-3. Change the voice dropdown (try "Nicole" or "Sarah")
-4. Click "Save Settings"
-5. Go back to popup and test again
+1. In the popup, open the voice list: 28 English voices, grouped American and British, female and male.
+2. Pick one (for example **Emma**, a British voice) and speak again.
+3. To change the default for right-click speech too, click the gear icon (or right-click the toolbar icon →
+   **Options**), choose a voice and click **Save Settings**.
 
-🎉 **If all tests pass, installation is complete!**
+🎉 **If all three work, installation is complete!**
 
 ---
 
 ## Troubleshooting
 
-### Issue: "Helper not found" (red status indicator)
+### Issue: the popup says "Offline"
 
-**Symptoms**: Extension shows red dot, no audio plays
+**Symptoms**: the status pill reads **Offline**; Speak uses a system voice (or shows an error, if you chose
+"Show an error" in Options).
 
 **Checklist**:
-1. ✅ Is the helper Terminal window still open?
-2. ✅ Does Terminal show "Ready to serve requests"?
-3. ✅ Did the helper crash? (check for error messages in Terminal)
+1. ✅ Is the helper running? Homebrew: `brew services list | grep natural-tts`. Source: `native-helper/Scripts/status.sh`.
+2. ✅ Did it finish starting? Its log ends with "Natural TTS Helper is ready!". Homebrew logs to
+   `$(brew --prefix)/var/log/natural-tts.log`; a source install: `native-helper/Scripts/logs.sh`.
+3. ✅ Then click **Retry Connection** in the popup.
 
-**Solution**:
-```bash
-# In the helper Terminal window:
-# Stop: Ctrl+C
-# Restart:
-.build/release/natural-tts-helper
-```
+**Solution**: start it. Homebrew: `brew services restart natural-tts`. Source: `native-helper/Scripts/quickstart.sh`.
+
+### Issue: "The helper's voice engine stopped - restart the helper"
+
+The helper is running, but its Python worker kept exiting: the helper restarts it up to 3 times within two
+minutes, then stops trying. Restart the helper as above; if it happens again, the helper log says why.
+
+### Issue: "Update the Natural TTS helper"
+
+The running helper is older than this extension. Speech still works with the voices it offers. The notice shows
+the update command: for a source install, `git pull && native-helper/Scripts/quickstart.sh` in your checkout. To
+move to Homebrew, stop the old helper first (`native-helper/Scripts/teardown.sh`): while an old helper answers on
+port 8249, the extension keeps using it.
 
 ### Issue: "Extension not loading" in Chrome
 
-**Symptoms**: Error message when clicking "Load unpacked"
+**Symptoms**: an error when you click **Load unpacked**
 
 **Checklist**:
 1. ✅ Did you select the `dist/` folder (not `chrome-extension/`)?
-2. ✅ Did you run `bun run build`?
-3. ✅ Does the `dist/` folder contain files like `manifest.json`?
+2. ✅ Did `bun run build` finish without errors?
+3. ✅ Does `dist/` contain `manifest.json`?
+4. ✅ Is your browser at version 148 or later? The manifest requires it.
 
 **Solution**:
 ```bash
-# Rebuild the extension
 cd chrome-extension
 rm -rf dist
 bun run build
-# Then reload in Chrome
+# Then click the reload arrow on the extension's card in chrome://extensions
 ```
 
 ### Issue: No audio plays
 
-**Symptoms**: Extension works but no sound
-
 **Checklist**:
-1. ✅ Is system volume turned up?
-2. ✅ Is Chrome allowed to play audio? (check macOS System Settings → Sound)
-3. ✅ Are you wearing headphones? (check headphones are connected)
-4. ✅ Check Chrome site permissions (🔒 icon → Site settings → Sound)
+1. ✅ Is the system volume up, and is the right output device selected?
+2. ✅ Was text selected? The popup and keyboard shortcuts read the tab's own selection; for a PDF or an embedded
+   frame from another site, right-click the selection instead.
+3. ✅ Did the toolbar icon show a red **!**? Hover over it to read why.
 
-**Solution**:
-- Adjust system volume
-- Check Chrome audio permissions
-- Try with different audio output device
+### Issue: `quickstart.sh` stops at the Swift build
 
-### Issue: Build fails with "swift: command not found"
+The helper needs a Swift 6.0 toolchain: Xcode 16.2 or later, or its Command Line Tools, on macOS 14.5+.
 
-**Symptoms**: Error when running `swift build`
-
-**Solution**:
 ```bash
-# Install Xcode Command Line Tools
 xcode-select --install
-
-# Verify installation
-swift --version
-# Should show: Swift version 5.x
+swift --version   # must report Swift 6.0 or later
 ```
 
-### Issue: Python setup fails
+### Issue: Python setup or the model download fails
 
-**Symptoms**: Error during `setup-python-env.sh`
-
-**Solution**:
-```bash
-# Check Python version (need 3.9+)
-python3 --version
-
-# If too old, install via Homebrew:
-brew install python@3.11
-
-# Retry setup
-cd native-helper
-./Scripts/setup-python-env.sh
-```
-
-### Issue: Model download fails
-
-**Symptoms**: "Failed to download Kokoro-82M"
-
-**Solution**:
-```bash
-# Check internet connection
-ping huggingface.co
-
-# Try manual download
-cd native-helper
-./Scripts/download-model.sh
-
-# Or download from browser:
-# https://huggingface.co/hexgrad/Kokoro-82M-GGUF
-```
+`quickstart.sh` runs `native-helper/Scripts/setup-python-env.sh`, which builds the environment with uv (Python
+3.12 is fetched by uv, not taken from your system) and downloads the Kokoro model from Hugging Face once. It stops
+at the first failed step. Check your connection to huggingface.co and run it again: it reuses what it already
+built. `brew install uv` if uv is missing.
 
 ### Issue: Port 8249 already in use
 
-**Symptoms**: "Address already in use" when starting helper
+The helper then takes the next free port, up to 8260, and the extension finds it there. If another copy of the
+helper holds 8249 (for example an old source install next to a Homebrew one), the extension talks to that copy:
+stop the one you do not want (`native-helper/Scripts/teardown.sh`, or `brew services stop natural-tts`).
 
-**Solution**:
 ```bash
-# Find process using port 8249
-lsof -i :8249
-
-# Kill the process (replace <PID> with actual process ID)
-kill <PID>
-
-# Restart helper
-.build/release/natural-tts-helper
+lsof -nP -iTCP:8249 -sTCP:LISTEN   # which process is listening
 ```
 
 ---
 
 ## Uninstallation
 
-### Remove Chrome Extension
+### Remove the Chrome extension
 1. Go to `chrome://extensions`
-2. Find "Natural TTS: Private Kokoro Voices for Mac"
-3. Click "Remove"
-4. Confirm
+2. Find **Natural TTS: Private Kokoro Voices for Mac**
+3. Click **Remove** and confirm
 
-### Stop Native Helper
-1. In Terminal where helper is running:
-2. Press `Ctrl+C`
-3. Close Terminal window
-
-### Delete Files (Optional)
+### Remove a Homebrew helper
 ```bash
-# Delete the entire repository
-cd ~
+brew services stop natural-tts
+brew uninstall natural-tts
+```
+The model lives inside the Homebrew keg and goes with it. Its config and log stay in `$(brew --prefix)/var`
+(`natural-tts/` and `log/natural-tts.log`) until you delete them.
+
+### Remove a source install
+```bash
+natural-text-to-voice-extension/native-helper/Scripts/teardown.sh
 rm -rf natural-text-to-voice-extension
 ```
-
-The ML model will also be deleted (~500MB freed).
+The model stays in the Hugging Face cache (`~/.cache/huggingface/hub/models--prince-canuma--Kokoro-82M`,
+~0.35 GB), and the helper's settings in `~/Library/Application Support/NaturalTTS/`. Delete both if nothing else
+uses them.
 
 ---
 
@@ -362,50 +266,43 @@ The ML model will also be deleted (~500MB freed).
 
 ✅ **Installation complete!** Now you can:
 
-- Read the [README](./README.md) for usage tips
-- Explore the [Settings Page](chrome://extensions/?options=<extension-id>) to customize voices
-- Try selecting text on different websites and PDFs
-- Adjust playback speed for your preference
+- Read the [README](./README.md) for features and how it works
+- Open **Options** (gear icon in the popup) to set your default voice and speed
+- Bind the **Speak the selected text** and **Stop speaking** shortcuts at `chrome://extensions/shortcuts`
+  (they ship with no keys)
 
 ### Usage Tips
 
-**Best practices**:
-- Keep helper running in background (it's lightweight)
-- Use context menu for quick access (right-click → Speak)
-- Adjust speed in settings (0.5x for learning, 1.5x for efficiency)
-- Try different voices to find your favorite
-
-**Performance tips**:
-- First request takes 2-3 seconds (model loading)
-- Subsequent requests are much faster (8x-25x real-time)
-- Helper uses ~500MB RAM when idle, ~1GB when processing
+- The right-click menu works in PDFs and embedded frames; the popup and the shortcuts read the tab's own
+  selection.
+- Speed runs from 0.5× to 2.0×; the popup's − and + buttons step by 0.1×.
+- The helper answers a 15-word sentence in about a third of a second and a 400-word passage in about 6.5 s on an
+  M1 Max. Audio starts when the whole passage is ready, so long selections take a moment.
+- While speaking, the helper's worker uses up to ~3.6 GB of memory for the longest (5,000-character) selections,
+  and falls back to ~0.6 GB between requests.
 
 ---
 
 ## Getting Help
 
-**Need assistance?**
-
-1. Check [Troubleshooting](#troubleshooting) section above
-2. Review [README.md](./README.md) for detailed documentation
-3. Check helper logs in Terminal for error messages
-4. Open Chrome console: chrome://extensions → "Service worker" → "inspect views"
-5. File an issue: [GitHub Issues](https://github.com/yourusername/natural-text-to-voice-extension/issues)
+1. Check [Troubleshooting](#troubleshooting) above
+2. Read [README.md](./README.md) and [native-helper/README.md](../native-helper/README.md)
+3. Check the helper log (see "Offline" above) and the extension's service worker console:
+   `chrome://extensions` → Natural TTS → "Inspect views: service worker"
+4. File an issue: [GitHub Issues](https://github.com/renchris/natural-text-to-voice-extension/issues)
 
 **Common Questions**:
 
-**Q: Can I close the Terminal window?**
-A: No, the helper must remain running. Minimize it instead.
+**Q: Does it work offline?**
+A: Yes. The helper downloads the model once, during setup, and never goes online after that.
 
-**Q: Does this work offline?**
-A: Yes! After initial model download, everything runs locally.
+**Q: Does it work on Windows or Linux, or on an Intel Mac?**
+A: The Kokoro voices need the helper, which needs a Mac with Apple silicon. Elsewhere the extension can only use
+system voices.
 
-**Q: Will this work on Windows/Linux?**
-A: No, currently macOS Apple Silicon only (M1/M2/M3/M4 required).
-
-**Q: How much battery does it use?**
-A: Minimal impact (~5-10% additional drain during active use).
+**Q: Can I close Terminal?**
+A: Yes. Both install paths run the helper in the background (a Homebrew service, or a tmux session).
 
 ---
 
-**Installation complete! Enjoy privacy-first, local text-to-speech. 🎉**
+**Installation complete! Enjoy private, local text-to-speech. 🎉**
