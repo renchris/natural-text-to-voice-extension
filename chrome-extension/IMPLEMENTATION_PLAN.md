@@ -4,7 +4,10 @@
 > no content script (the selection is read on demand with `chrome.scripting`),
 > the build is Bun only (no Vite), the default voice is `af_heart`, there is no
 > helper secret or `X-Secret` header, and the name is "Natural TTS: Private
-> Kokoro Voices for Mac". README.md describes the current extension.
+> Kokoro Voices for Mac". It also needs Chromium 148+, not 88+, offers 28 voices, not 6,
+> and its "8.3x-25x RTF" figure was not a measurement: the long-text script hard-coded the
+> audio duration, and the real figure was about 8x (see docs/history.md). README.md describes
+> the current extension.
 
 **Status**: ✅ READY TO BEGIN (Step 0 complete: Bun testing passed)
 **Created**: 2025-11-10
