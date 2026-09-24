@@ -1,8 +1,8 @@
 # privacy.tape — the running capture helper's sockets: the Kokoro worker has none, the helper listens on localhost.
-# Render: vhs scripts/capture/tapes/privacy.tape (with TAPE_ENV=scripts/capture/tapes/env.sh; the capture helper must be
-# running on 127.0.0.1:8251, the GUI pass port). 1920x1080 for the promo video's privacy scene. Nothing is simulated: the pids are
+# Render: scripts/capture/tapes/render.sh privacy <out-dir> (the capture helper must be running on 127.0.0.1:8251, the GUI
+# pass port; the file is written to <out-dir>/privacy.mp4, relative to where vhs runs). 1920x1080 for the promo video's privacy scene. Nothing is simulated: the pids are
 # looked up on camera. awk drops lsof's USER, FD, DEVICE and SIZE columns so no username is on screen.
-Output "/tmp/ntts-w3-out/tapes/privacy.mp4"
+Output "privacy.mp4"
 
 Set Shell bash
 Set FontFamily "JetBrainsMono Nerd Font Mono"

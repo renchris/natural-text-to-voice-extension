@@ -5,9 +5,12 @@
 #
 # Everything the helper prints (its --python and --worker paths included) then reads /tmp/natural-tts/..., and
 # the helper runs with environment overrides, so it never reads or writes the shared config.json.
+#
+#   TAPE_ROOT    where the neutral tree lives (default /tmp/natural-tts). Give a second capture run its own root, so
+#                it never repoints the symlinks another run's tape is using. Only what a tape PRINTS is affected.
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 VENV="${TAPE_PYTHON_ENV:-$HOME/Development/natural-text-to-voice-extension/native-helper/Sources/NaturalTTSHelper/Resources/python-env}"
-D=/tmp/natural-tts
+D=${TAPE_ROOT:-/tmp/natural-tts}
 mkdir -p "$D/bin" "$D/demo"
 ln -sfn "$VENV" "$D/python-env"
 ln -sf "$REPO/native-helper/Sources/NaturalTTSHelper/Resources/tts_worker.py" "$D/tts_worker.py"
