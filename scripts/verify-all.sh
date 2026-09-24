@@ -49,9 +49,9 @@ VOICES_IDS="$LOGDIR/voices-ids.txt"   # written by the swift section, read by co
 SECTION=""
 R_SEC=(); R_NAME=(); R_STAT=(); R_DETAIL=()
 
-# One row per check. The detail is cut to DETAIL_MAX characters so a row fits a 130-column terminal; the full
-# output is always in the section's log under $LOGDIR.
-DETAIL_MAX=70
+# One row per check. The detail is cut to DETAIL_MAX characters so a row (118 columns) fits a 120-column terminal
+# and the README recording; the full output is always in the section's log under $LOGDIR.
+DETAIL_MAX=58
 ROW_FMT='%-6s  %-11s %-38s  %s\n'
 short() { local d="${1:-}"; (( ${#d} > DETAIL_MAX )) && d="${d:0:$((DETAIL_MAX - 1))}…"; printf '%s' "$d"; }
 record() { # <status> <name> <detail>
@@ -659,7 +659,7 @@ cleanup; HELPER_PID=""; WORKER_PID=""
 
 echo
 printf "$ROW_FMT" RESULT SECTION CHECK DETAIL
-printf '%s\n' "----------------------------------------------------------------------------------------------------------------------------------"
+printf '%s\n' "----------------------------------------------------------------------------------------------------------------------"
 if (( ${#R_NAME[@]} == 0 )); then echo "FAIL: no checks ran"; exit 1; fi
 nfail=0
 for i in "${!R_NAME[@]}"; do
