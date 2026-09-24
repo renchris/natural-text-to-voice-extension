@@ -100,7 +100,12 @@ function installGlobals(): void {
   (globalThis as any).chrome = {
     action: { setBadgeText, setBadgeBackgroundColor: mock(async () => {}), setTitle: mock(async () => {}) },
     runtime: {
-      getManifest: () => ({ name: 'Natural Text-to-Speech', version: '1.4.0' }),
+      getManifest: () => ({
+      name: 'Natural TTS: Private Kokoro Voices for Mac',
+      short_name: 'Natural TTS',
+      version: '1.4.0',
+      action: { default_title: 'Natural TTS' },
+    }),
       onMessage: { addListener: (fn: (message: unknown) => boolean) => { onMessage = fn; } },
       sendMessage: runtimeSendMessage,
       openOptionsPage: mock(() => {}),

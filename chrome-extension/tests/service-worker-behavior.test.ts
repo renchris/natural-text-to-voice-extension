@@ -61,7 +61,12 @@ const setTitle = mock(async (_details: { title: string }) => {});
 const mockChrome = {
   action: { setBadgeText, setBadgeBackgroundColor, setTitle },
   runtime: {
-    getManifest: () => ({ name: 'Natural Text-to-Speech', version: '1.4.0' }),
+    getManifest: () => ({
+      name: 'Natural TTS: Private Kokoro Voices for Mac',
+      short_name: 'Natural TTS',
+      version: '1.4.0',
+      action: { default_title: 'Natural TTS' },
+    }),
     onInstalled: capture('onInstalled'),
     onStartup: capture('onStartup'),
     onMessage: capture('runtime.onMessage'),
@@ -389,7 +394,7 @@ describe('error badge for right-click and shortcut speech (D2)', () => {
     await click(42);
 
     expect(badgeTexts()).toEqual(['']);
-    expect(titles()).toEqual(['Natural Text-to-Speech']);
+    expect(titles()).toEqual(['Natural TTS']);
     expect(setBadgeBackgroundColor).not.toHaveBeenCalled();
   });
 

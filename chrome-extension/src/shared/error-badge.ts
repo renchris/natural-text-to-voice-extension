@@ -11,11 +11,13 @@
 export const ERROR_BADGE_TEXT = '!';
 export const ERROR_BADGE_COLOR = '#D93025';
 
+/** The toolbar tooltip with no error: the manifest's action.default_title. */
 function defaultTitle(): string {
   try {
-    return chrome.runtime.getManifest().name;
+    const manifest = chrome.runtime.getManifest();
+    return manifest.action?.default_title ?? manifest.short_name ?? manifest.name;
   } catch {
-    return 'Natural Text-to-Speech';
+    return 'Natural TTS';
   }
 }
 

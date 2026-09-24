@@ -580,8 +580,8 @@ async function run() {
       await waitFor('the recovery request to settle', () => sw(h, 'globalThis.__e2e.settledAt'), 30000, 250);
       const after = await badge(h);
       check(
-        'helper back: the next successful speak clears the badge',
-        after.text === '' && mock.speakRequests().length === speaksBefore + 1,
+        'helper back: the next successful speak clears the badge and restores the "Natural TTS" tooltip',
+        after.text === '' && after.title === 'Natural TTS' && mock.speakRequests().length === speaksBefore + 1,
         `badge ${JSON.stringify(after.text)}, title ${JSON.stringify(after.title)}`
       );
       await h.cdp.send('Target.closeTarget', { targetId: page.targetId });
