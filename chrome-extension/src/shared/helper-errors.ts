@@ -2,11 +2,13 @@
  * Helper error bodies and the user-facing messages for them (C1 D12).
  *
  * The helper answers a failed request with JSON of the form
- * `{"error": "<code>", "message": "...", "retry_after_seconds": n}`. Worker
- * failures arrive wrapped: `{"error": "generation_failed", "message": "Audio
- * generation failed: nan_audio"}`, and an over-long text is a `bad_request`
- * whose message says "Text too long". parseHelperErrorBody recovers the
- * underlying code from any of these shapes.
+ * `{"error": "<code>", "message": "...", "retry_after_seconds": n}`. A 1.5
+ * helper sends the worker's own code unwrapped (400 for a bad request, 503
+ * while the engine is down). Helpers before that wrapped worker failures:
+ * `{"error": "generation_failed", "message": "Audio generation failed:
+ * nan_audio"}`, and sent an over-long text as a `bad_request` whose message
+ * says "Text too long". parseHelperErrorBody recovers the underlying code
+ * from any of these shapes.
  */
 
 import { HelperNotFoundError, InvalidResponseError, NetworkTimeoutError } from './types';
