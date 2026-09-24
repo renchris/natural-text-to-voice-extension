@@ -1,10 +1,7 @@
 # Natural TTS Helper
 
-**Production-ready native macOS helper for Metal-accelerated text-to-speech using MLX Kokoro-82M**
-
-[![Performance](https://img.shields.io/badge/RTF-8.3x%20(short)%20%7C%2025x%20(long)-brightgreen)](native-helper/TEST_RESULTS_OPTIMIZED.md)
-[![Reliability](https://img.shields.io/badge/Reliability-100%25%20(20%2F20)-brightgreen)](native-helper/TEST_RESULTS_OPTIMIZED.md)
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-success)]()
+**The macOS helper behind Natural TTS: Private Kokoro Voices for Mac. It runs Kokoro-82M on the Apple GPU with
+MLX and serves speech to the Chrome extension over HTTP on 127.0.0.1.**
 
 ---
 
@@ -27,18 +24,27 @@
 
 ## Overview
 
-This Swift-based helper app provides a local HTTP API for the Natural Text-to-Voice Chrome extension. It spawns a Python subprocess that runs MLX Kokoro-82M with Metal GPU acceleration, achieving **8.3x real-time factor for short text** and **25x for longer text** — far exceeding the 2.5x target.
+A Swift command-line app (SwiftNIO) listens on `127.0.0.1`, port 8249 or the next free port up to 8260. It starts
+a Python 3.12 worker that runs Kokoro-82M through mlx-audio 0.5.5 on MLX 0.32.2, and the two exchange
+length-prefixed JSON frames over the worker's stdin and stdout. The Chrome extension calls `/health`, `/voices`
+and `/speak`; the helper answers `/speak` with a WAV.
 
 **Architecture**:
-- **Swift HTTP Server** (SwiftNIO) on `127.0.0.1:random-port`
-- **Python MLX Worker** subprocess with Kokoro-82M generation
-- **Communication**: Length-prefixed JSON (Native Messaging protocol)
-- **Performance**:
-  - **Warm startup**: ~0.18s for short text, ~0.85s for long text
-  - **RTF**: 8.3x (short) | 25x (long) — **3.3x-10x better than target**
-  - **Reliability**: 100% (20/20 requests, zero crashes)
+- **Swift HTTP server** (SwiftNIO) on `127.0.0.1:8249` (falling back through 8260). It refuses any request
+  whose `Host` is not loopback, and web-page `Origin`s on `/speak` and `/voices`
+- **Python worker** (`Sources/NaturalTTSHelper/Resources/tts_worker.py`): Kokoro-82M, 28 English voices,
+  offline (`HF_HUB_OFFLINE=1`), weights pinned to one Hugging Face revision
+- **Framing**: a 4-byte little-endian length, then JSON, in each direction
+- **Supervision**: a worker that exits is restarted, up to 3 times in 2 minutes
 
-**Status**: ✅ **Production Ready** — Phase 1 & 2 optimizations complete
+**Performance** (M1 Max, helper 1.5.0, GPU otherwise idle): ~26.5× faster than real time at every text length,
+0.35 s for the first request, 1.95 s from launch to ready. See [Performance](#performance).
+
+<!-- Diagram source: assets/diagrams/architecture.mmd. Edit it, run `bun run diagrams` at the repo root, commit the SVGs. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/architecture-dark.svg">
+  <img src="../assets/diagrams/architecture-light.svg" alt="Inside Chrome, the popup and the service worker. The service worker hands text to an offscreen document, or, when the helper is not running, speaks it with a chrome.tts system voice. The popup and the offscreen document call the Natural TTS helper over HTTP on 127.0.0.1:8249 only. On the Mac, the Swift helper checks the Host and Origin headers and passes the request as JSON frames over stdio to a Python worker running Kokoro-82M with mlx-audio, on the Apple GPU through MLX and Metal, offline.">
+</picture>
 
 ---
 
@@ -50,8 +56,9 @@ Get up and running in 5 minutes:
 # 1. Install uv (builds the locked Python env) and espeak-ng (phoneme data)
 brew install uv espeak-ng
 
-# 2. Clone repository
-cd /path/to/natural-text-to-voice-extension/native-helper
+# 2. Clone the repository
+git clone https://github.com/renchris/natural-text-to-voice-extension.git
+cd natural-text-to-voice-extension/native-helper
 
 # 3. Build the locked Python environment, fetch the model once, verify the worker
 ./Scripts/setup-python-env.sh
@@ -63,24 +70,25 @@ swift build -c release
 .build/release/natural-tts-helper
 ```
 
-**Expected output**:
+**Expected output** (abridged; timestamps and the `com.naturaltts.helper` labels trimmed):
 ```
-[info] Natural TTS Helper starting...
-[info] Starting Python MLX worker...
-[info] Waiting for Kokoro model to warm up...
-[Python] [INFO] Loading Kokoro-82M model...
-[Python] [INFO] Model loaded, ready for requests
-[info] Kokoro model loaded and ready
-================================
-Natural TTS Helper is ready!
-Listening on: http://127.0.0.1:8249
-Model: Kokoro-82M (MLX Metal)
-================================
+info: Natural TTS Helper 1.5.0 (API 2) starting...
+info: Starting Python MLX worker...
+info: Waiting for Kokoro model to warm up...
+info: [worker] [INFO] MLX buffer cache limit: 256 MB
+info: [worker] [INFO] Eagerly loading Kokoro weights at startup (revision e02c9ea)...
+info: [worker] [INFO] Warming up (one short generation per English pipeline)...
+info: Kokoro model loaded and ready
+info: ================================
+info: Natural TTS Helper is ready!
+info: Listening on: http://127.0.0.1:8249
+info: Model: Kokoro-82M (MLX Metal)
+info: ================================
 ```
 
 **Test it**:
 ```bash
-# Find the port from the output above (e.g., 8249)
+# 8249 unless it was taken; the "Listening on" line says which port
 curl -X POST http://127.0.0.1:8249/speak \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello from Metal GPU!"}' \
@@ -89,6 +97,10 @@ curl -X POST http://127.0.0.1:8249/speak \
 
 Step 3 is the only step that needs the network: ~0.65 GB for the Python environment plus a ~0.36 GB
 Kokoro-82M download. After that the helper runs offline (the worker sets `HF_HUB_OFFLINE=1`).
+
+`Scripts/quickstart.sh` does steps 1-5 for you and runs the helper in a background tmux session; with Homebrew,
+`brew install renchris/tap/natural-tts && brew services start natural-tts` does the same as a login service
+(the tap is published together with the store listing).
 
 ---
 
@@ -106,28 +118,19 @@ Kokoro-82M download. After that the helper runs offline (the worker sets `HF_HUB
 
 ### Optional
 
-- **Homebrew** (recommended for espeak-ng installation)
-- **jq** (for JSON pretty-printing in tests): `brew install jq`
+- **tmux** and **jq**, which `Scripts/quickstart.sh` uses (it installs both with Homebrew if they are missing)
 
 ### Why espeak-ng?
 
-Kokoro-82M requires phoneme sequences generated by espeak-ng. Without it, you'll get:
-```
-ModuleNotFoundError: No module named 'phonemizer'
-OSError: espeak not found
-```
+Kokoro's text-to-phoneme step (misaki) falls back to espeak-ng for words outside its dictionary. The Python
+environment includes `phonemizer-fork` and `espeakng-loader`, which bundles its own espeak-ng library and data;
+both install paths (the Homebrew formula and `quickstart.sh`) also install Homebrew's `espeak-ng`. Whether the
+bundled copy alone is enough has not been tested on a clean machine, so keep the Homebrew package.
 
-**Installation**:
 ```bash
-# macOS (Homebrew)
 brew install espeak-ng
-
-# Verify installation
 espeak-ng --version
-# Expected: eSpeak NG text-to-speech: 1.52.0
 ```
-
-The helper will automatically detect espeak-ng installed via Homebrew at `/opt/homebrew/opt/espeak-ng/share/espeak-ng-data`.
 
 ---
 
@@ -159,8 +162,6 @@ swift build -c release
 
 The binary will be at: `.build/release/natural-tts-helper`
 
-**Build time**: ~30-60 seconds
-
 ### 3. Run Helper
 
 ```bash
@@ -175,11 +176,20 @@ startup with a hint to re-run `Scripts/setup-python-env.sh`.
 
 ## API Documentation
 
-The helper exposes three HTTP endpoints on `http://127.0.0.1:<random-port>`.
+The helper exposes three HTTP endpoints on `http://127.0.0.1:<port>`, where the port is 8249 unless it was taken
+(then the next free one up to 8260).
+
+**Request checks**, applied before the body is read:
+- **Host**: must be `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>`, otherwise 403 `bad_host`. This
+  stops DNS-rebinding pages.
+- **Origin**: on `/speak` and `/voices`, a web-page `Origin` gets 403 `forbidden`. Extension origins
+  (`chrome-extension://…`) are allowed and get CORS headers. A request with no `Origin` (curl, local tools) is
+  allowed. `/health` answers any origin, so the extension can probe ports.
+- **Size**: request bodies are capped at 1 MiB.
 
 ### GET /health
 
-Health check and model status.
+Health check and model status. Always `200 OK`; read `status`.
 
 **Response**:
 ```json
@@ -188,13 +198,20 @@ Health check and model status.
   "model": "kokoro-82m",
   "model_loaded": true,
   "uptime_seconds": 123.45,
-  "requests_served": 42
+  "requests_served": 42,
+  "version": "1.5.0",
+  "apiVersion": 2
 }
 ```
 
-**Status Codes**:
-- `200 OK`: Helper is ready
-- `503 Service Unavailable`: Model still loading
+**`status`**:
+- `ok`: the model is loaded and the worker is ready
+- `warming`: the worker is (re)starting. At launch the helper binds its port only after the warm-up, so this
+  appears only while a crashed worker restarts
+- `error`: the worker exited more than 3 times in 2 minutes and the helper stopped restarting it; restart the
+  helper
+
+`apiVersion` 2 marks a 1.5 helper; the extension asks older helpers to update.
 
 ---
 
@@ -206,29 +223,35 @@ Generate TTS audio.
 ```json
 {
   "text": "Hello from Metal GPU!",
-  "voice": "af_heart",  // optional, default: "af_heart"
+  "voice": "af_heart",  // optional; default: config.json's default_voice, af_heart for new installs
   "speed": 1.0          // optional, 0.25-4.0 (the extension sends 0.5-2.0), default: 1.0
 }
 ```
 
-**Available Voices**:
-- `af_heart` (US Female) - Default for new installs (a stored `default_voice` is kept)
-- `af_bella` (US Female)
-- `af_sarah` (UK Female)
-- `am_adam` (US Male)
-- `am_michael` (UK Male)
-- See `/voices` endpoint for full list
+`text` is at most 5,000 characters. A voice outside the 28 below gets 400 `unknown_voice`.
+
+**Available Voices** (the same 28 in `GET /voices`, best-graded first in each group, grades from Kokoro's
+[VOICES.md](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md)):
+
+| Group | Voices |
+|---|---|
+| American female (11) | `af_heart` (A, the default), `af_bella`, `af_nicole`, `af_aoede`, `af_kore`, `af_sarah`, `af_alloy`, `af_nova`, `af_sky`, `af_jessica`, `af_river` |
+| American male (9) | `am_fenrir`, `am_michael`, `am_puck`, `am_echo`, `am_eric`, `am_liam`, `am_onyx`, `am_santa`, `am_adam` |
+| British female (4) | `bf_emma`, `bf_isabella`, `bf_alice`, `bf_lily` |
+| British male (4) | `bm_fable`, `bm_george`, `bm_lewis`, `bm_daniel` |
+
+`a*` voices use American pronunciation (`lang_code a`), `b*` voices British (`lang_code b`). Both pipelines are
+warmed at startup, so the first British request is as fast as later ones.
 
 **Response Headers**:
 - `Content-Type: audio/wav`
-- `X-Audio-Duration: 6.1` (seconds of audio generated)
-- `X-Generation-Time: 0.73` (seconds to generate)
-- `X-Real-Time-Factor: 8.36` (audio_duration / generation_time)
+- `X-Audio-Duration: 5.275` (seconds of audio generated)
+- `X-Generation-Time: 0.399` (seconds the worker took)
+- `X-Real-Time-Factor: 13.2` (audio duration / generation time; excludes HTTP overhead)
 
 **Response Body**: Binary WAV audio
-- Format: WAV, 16-bit, mono
-- Sample rate: 24kHz
-- Size: ~74KB for 1.57s audio, ~321KB for 21.7s audio
+- Format: WAV, 16-bit PCM, mono
+- Sample rate: 24 kHz, so 48,000 bytes per second of audio plus a 44-byte header (a 9 s clip is 432,044 bytes)
 
 **Status Codes**:
 - `200 OK`: Audio generated successfully
@@ -257,14 +280,12 @@ curl -X POST http://127.0.0.1:8249/speak \
 
 List available voices.
 
-**Response**:
+**Response** (28 entries; the first two shown):
 ```json
 {
   "voices": [
-    {"id": "af_bella", "name": "Bella (US)", "language": "en-US"},
-    {"id": "af_sarah", "name": "Sarah (UK)", "language": "en-GB"},
-    {"id": "am_adam", "name": "Adam (US)", "language": "en-US"},
-    {"id": "am_michael", "name": "Michael (UK)", "language": "en-GB"}
+    {"id": "af_heart", "name": "Heart (US)", "language": "en-US", "accent": "American", "gender": "female", "grade": "A"},
+    {"id": "af_bella", "name": "Bella (US)", "language": "en-US", "accent": "American", "gender": "female", "grade": "A-"}
   ]
 }
 ```
@@ -279,19 +300,9 @@ List available voices.
 ### Quick Health Check
 
 ```bash
-# Find port from config
-PORT=$(cat ~/Library/Application\ Support/NaturalTTS/config.json | grep -o '"port":[0-9]*' | grep -o '[0-9]*')
-
-# Test health endpoint
-curl http://127.0.0.1:$PORT/health | jq
-
-# Expected output:
-# {
-#   "status": "ok",
-#   "model": "kokoro-82m",
-#   "model_loaded": true,
-#   ...
-# }
+PORT=8249   # or the port in the "Listening on" log line
+curl -s http://127.0.0.1:$PORT/health | jq
+# "status": "ok", "model_loaded": true, "version": "1.5.0", "apiVersion": 2
 ```
 
 ---
@@ -299,7 +310,6 @@ curl http://127.0.0.1:$PORT/health | jq
 ### Test Speech Generation
 
 ```bash
-# Simple test
 curl -X POST http://127.0.0.1:$PORT/speak \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello world"}' \
@@ -308,180 +318,117 @@ curl -X POST http://127.0.0.1:$PORT/speak \
 
 ---
 
-### Performance Testing (10 Consecutive Requests)
+### Timing a few requests
 
-**Short text test** (1.57s audio):
+The helper reports its own numbers in response headers, so there is nothing to hard-code:
+
 ```bash
-#!/bin/bash
-echo "Testing 10 consecutive requests..."
-for i in $(seq 1 10); do
-    echo -n "Request $i: "
-    echo '{"text": "Hello world", "voice": "af_bella", "speed": 1.0}' | \
-        curl -X POST http://127.0.0.1:8249/speak \
-        -H "Content-Type: application/json" \
-        --data-binary @- \
-        -o /tmp/test_$i.wav \
-        -w "%{time_total}s\n" \
-        -s
-    sleep 0.2
+for i in 1 2 3; do
+  curl -s -o /dev/null -D - -X POST "http://127.0.0.1:$PORT/speak" \
+    -H 'Content-Type: application/json' \
+    -d '{"text":"The quick brown fox jumps over the lazy dog, then naps in the afternoon sun.","voice":"af_heart"}' \
+    | grep -i '^x-' | tr -d '\r' | paste -sd' ' -
 done
 ```
 
-**Expected output**:
-```
-Request 1:  0.31s → RTF:  5.06x  (cold start)
-Request 2:  0.19s → RTF:  8.09x
-Request 3:  0.20s → RTF:  7.85x
-Request 4:  0.19s → RTF:  8.32x
-Request 5:  0.18s → RTF:  8.56x
-...
-Average warm RTF: 8.3x
-```
+Each line prints `X-Audio-Duration`, `X-Generation-Time` and `X-Real-Time-Factor`. Expect about 26× on an idle
+M1-class GPU; anything else using the GPU lowers it. (`Scripts/test-performance-short.sh` and
+`test-performance-long.sh` predate these headers and compute the factor from hard-coded audio durations: do not
+use their "RTF" lines.)
 
----
+### The full verification gate
 
-**Long text test** (21.7s audio, 50 words):
-```bash
-# Create test payload
-cat > /tmp/long_test.json << 'EOF'
-{
-  "text": "The development of modern text-to-speech systems has revolutionized how we interact with technology, enabling natural-sounding voices that can convey emotion and nuance with remarkable accuracy and speed.",
-  "voice": "af_bella",
-  "speed": 1.0
-}
-EOF
-
-# Run 10 requests
-for i in $(seq 1 10); do
-    echo -n "Request $i: "
-    curl -X POST http://127.0.0.1:8249/speak \
-        -H "Content-Type: application/json" \
-        --data-binary @/tmp/long_test.json \
-        -o /tmp/test_long_$i.wav \
-        -w "%{time_total}s\n" \
-        -s
-    sleep 0.2
-done
-```
-
-**Expected output**:
-```
-Request 1:  0.90s → RTF: 24.1x
-Request 2:  0.86s → RTF: 25.2x
-Request 3:  0.85s → RTF: 25.5x
-...
-Average warm RTF: ~25x
-```
+`scripts/verify-all.sh` at the repository root is the fail-closed gate for a release: it builds the helper,
+starts it on a private port with `--port/--python/--worker` (so it never touches port 8249 or `config.json`),
+and checks the API, the voices, the error codes, long tokens, memory, a clean SIGTERM and the extension.
+`Scripts/verify-python.sh` and `Scripts/verify_worker.py` check the Python environment alone.
 
 ---
 
 ### Audio Quality Validation
 
 ```bash
-# Check WAV format
-file /tmp/test_1.wav
-# Expected: RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono 24000 Hz
-
-# Check file size
-ls -lh /tmp/test_1.wav
-# Expected: ~74KB for "Hello world" (1.57s)
-
-# Play audio
-afplay /tmp/test_1.wav
+file test.wav
+# RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono 24000 Hz
+afplay test.wav
 ```
 
-**See also**: [TEST_RESULTS_OPTIMIZED.md](TEST_RESULTS_OPTIMIZED.md) for comprehensive validation report.
+The 2025 benchmark reports are kept as history: [TEST_RESULTS_OPTIMIZED.md](TEST_RESULTS_OPTIMIZED.md) and the
+two before it. Their "25x" long-text figure was not a measurement; see [docs/history.md](../docs/history.md).
 
 ---
 
 ## Performance
 
-### Achieved Results (Apple Silicon M1 Max)
+### Measured Results (helper 1.5.0, Apple M1 Max, macOS 15.7.9)
 
-| Metric | Short Text (1.57s) | Long Text (21.7s) | Target | Status |
-|--------|-------------------|-------------------|--------|--------|
-| **Cold start** | 0.31s (5.06x RTF) | 2.4s | N/A | ✅ |
-| **Warm request** | **0.18s (8.3x RTF)** | **0.85s (25x RTF)** | ≥2.5x | ✅ **3.3x-10x better** |
-| **Memory** | ~2GB (model cached) | ~2GB | <3GB | ✅ |
-| **Reliability** | 100% (10/10) | 100% (10/10) | 100% | ✅ |
+Measured 2026-09-23 with `curl` on an otherwise idle GPU, voice `af_bella`, speed 1.0; real-time factor = audio
+seconds ÷ client wall time. Full method and raw numbers:
+[W2-integration-measurements.md](../docs/research/2026-09-upgrade/W2-integration-measurements.md).
 
-Memory, re-measured 2026-09-23 for 1.5 with `footprint`: the worker holds 0.6–0.7 GB between requests, and peaks at
-~3.6 GB on a 5,000-character request. It peaked at 7.9 GB before the MLX buffer cache was capped at 256 MB. Set
-`NTTS_MLX_CACHE_LIMIT_MB` to change the cap. Details:
-`docs/research/2026-09-upgrade/W2-integration-measurements.md` §9.
+| Text | Audio | Warm request (median) | Faster than real time |
+|---|---:|---:|---:|
+| 15 words | 9.0 s | 0.34 s | 26.6× |
+| 60 words | 29.0 s | 1.11 s | 26.2× |
+| 407 words | 171.5 s | 6.47 s | 26.5× |
+| 751 words (4,985 characters) | 325.2 s | 12.2 s | 26.6× |
+
+| Startup and memory | Value |
+|---|---|
+| Launch to ready (includes the warm-up generation) | 1.95 s |
+| First `/speak` after launch (15 words) | 0.35 s |
+| `/health` during a long `/speak` | under 1 ms |
+| Worker memory between requests | 0.6-0.7 GB |
+| Worker memory peak, 5,000-character request | ~3.6 GB (MLX buffer cache capped at 256 MB; `NTTS_MLX_CACHE_LIMIT_MB`) |
+| Swift process | ~10 MB idle, ~140 MB peak |
+| Python environment on disk | 655 MB (89 packages) |
+| Model (Hugging Face cache) | 349 MB |
+
+**Time to first audio** equals the whole synthesis time: the helper returns the complete WAV, so a long selection
+starts playing when all of it is ready.
 
 ### Real-Time Factor (RTF) Explained
 
-**RTF = Audio Duration / Generation Time**
+**RTF = Audio Duration / Generation Time**. 1.0× generates audio as fast as it plays; 26× generates 26 seconds
+of audio per second of work. `X-Real-Time-Factor` reports it per request, measured inside the helper.
 
-- **1.0x RTF**: Generates audio at the same speed as playback (real-time)
-- **8.3x RTF**: Generates audio 8.3x faster than playback
-- **25x RTF**: Generates 21.7s of audio in just 0.85s
+### How it got here
 
-**Example**:
-- Text: "Hello world"
-- Audio duration: 1.57 seconds
-- Generation time: 0.18 seconds
-- **RTF: 1.57 / 0.18 = 8.72x**
-
-This means the helper can generate ~8.7 seconds of audio per second of processing time.
-
-### Key Performance Findings
-
-1. **RTF scales with text length**: Longer text achieves better RTF due to fixed overhead amortization
-   - Short text (1.57s): ~8x RTF
-   - Long text (21.7s): ~25x RTF
-
-2. **Model caching is critical**: First request is slower due to model load
-   - Cold: 2.4s (model load + generation)
-   - Warm: 0.18s (cached model, 13.3x faster)
-
-3. **File I/O elimination**: In-memory BytesIO WAV generation eliminated 30-40% overhead
-
-4. **Bottleneck**: Base64 encoding (~67% of warm request time), but at 8-25x RTF, further optimization is unnecessary
-
-### Optimizations Applied
-
-**Phase 1: Model Caching** (`tts_worker.py:22-33`)
-- Global `_model_cache` variable
-- Load Kokoro-82M once on first request
-- Reuse cached model for all subsequent requests
-- **Impact**: Eliminated 1-2s model reload overhead per request
-
-**Phase 2: Eliminate File I/O** (`tts_worker.py:95-158`)
-- Direct `model.generate()` API (bypasses high-level wrappers)
-- In-memory `BytesIO` WAV generation with `soundfile.write()`
-- Eliminated: temp directory creation, file write, glob search, file read
-- **Impact**: Removed 30-40% overhead from file operations
-
-**Combined Result**: 8.3x-25x RTF (target was 2.5x)
+The November 2025 helper went from 0.62× (crashing on the second request) to ~1× (stdout kept off the JSON pipe)
+to ~8× (model cached across requests, WAV built in memory). The 1.5.0 rebuild on the locked mlx 0.32.2 stack,
+with an eager warm-up, took it to ~26×. The story and the three reports: [docs/history.md](../docs/history.md).
 
 ---
 
 ## Configuration
 
-Config is saved to: `~/Library/Application Support/NaturalTTS/config.json`
+A source install reads and writes `~/Library/Application Support/NaturalTTS/config.json`:
 
 ```json
 {
   "port": 8249,
-  "secret": "uuid-token",
-  "python_path": "/path/to/Sources/NaturalTTSHelper/Resources/python-env/bin/python3",
-  "worker_script_path": "/path/to/Sources/NaturalTTSHelper/Resources/tts_worker.py",
+  "python_path": "/path/to/native-helper/Sources/NaturalTTSHelper/Resources/python-env/bin/python3",
+  "worker_script_path": "/path/to/native-helper/Sources/NaturalTTSHelper/Resources/tts_worker.py",
   "default_voice": "af_heart"
 }
 ```
 
 **Fields**:
-- `port`: Random port assigned at first run (reused on subsequent runs)
-- `secret`: UUID token for future authentication (not yet implemented)
-- `python_path`: Absolute path to venv Python
-- `worker_script_path`: Absolute path to `tts_worker.py`
-- `default_voice`: Voice used when not specified in request
+- `port`: 8249 on first run. If it is taken at launch, the helper scans 8249-8260, uses the first free port and
+  saves it
+- `python_path`, `worker_script_path`: resolved on first run
+- `default_voice`: used when a request names no voice. New configs get `af_heart`; an existing value is kept
 
-The Chrome extension reads this file to discover the helper's port.
+A `secret` field written by helpers before 1.5 was never checked; it is ignored and dropped on the next save.
 
-**Location rationale**: macOS App Sandbox requirement for future distribution.
+**Overrides**, which are never saved: `--port`, `--python`, `--worker` (or `NATURAL_TTS_PORT`,
+`NATURAL_TTS_PYTHON`, `NATURAL_TTS_WORKER`; flags win). With any override the helper does not write the shared
+`config.json`, and without `NATURAL_TTS_CONFIG_DIR` it does not read it either. An explicit port that is taken
+is an error, never a silent fallback. The Homebrew service uses these overrides and keeps its own config in
+`$(brew --prefix)/var/natural-tts`.
+
+**Discovery.** The extension cannot read files. It probes `GET /health` on 127.0.0.1 ports 8249-8260, starting
+from the port it last found, and uses the first that identifies as the helper.
 
 ---
 
@@ -491,232 +438,132 @@ The Chrome extension reads this file to discover the helper's port.
 
 ```
 native-helper/
-├── Package.swift              # Swift Package Manager config
+├── Package.swift                 # SwiftPM manifest (macOS 14+, Swift 6.0 toolchain)
+├── Package.resolved              # pinned swift-nio 2.97.1, swift-log 1.8.0
+├── python/
+│   ├── pyproject.toml            # the worker's Python project (Python 3.12)
+│   └── uv.lock                   # hash-locked dependencies
 ├── Sources/
 │   └── NaturalTTSHelper/
-│       ├── main.swift         # Entry point
-│       ├── HTTPServer.swift   # SwiftNIO HTTP server
-│       ├── PythonWorker.swift # Subprocess manager
-│       ├── Config.swift       # Configuration
-│       ├── Models.swift       # Data models
+│       ├── App.swift             # entry point (@main): config, port, worker, server
+│       ├── Config.swift          # config.json, launch overrides, port selection
+│       ├── HTTPServer.swift      # SwiftNIO server, Host/Origin checks, endpoints
+│       ├── PythonWorker.swift    # worker process, framing, restarts, cancellation
+│       ├── Models.swift          # request/response types, the 28-voice catalogue
+│       ├── Shutdown.swift        # SIGTERM/SIGINT handling
 │       └── Resources/
-│           ├── tts_worker.py  # Python MLX worker (optimized)
-│           └── python-env/    # Bundled venv (gitignored)
-├── Tests/
-├── Scripts/
-│   └── setup-python-env.sh    # Python setup script
-├── README.md                  # This file
-└── TEST_RESULTS_OPTIMIZED.md  # Performance validation
+│           ├── tts_worker.py     # the Python worker
+│           └── python-env/       # built by setup-python-env.sh (gitignored)
+├── Scripts/                      # setup, quickstart, status/logs/teardown, verification
+└── examples/sample-texts.json
 ```
 
 ### Key Files
 
-**`tts_worker.py:22-158`**: Python MLX worker with Phase 1 & 2 optimizations
-- Global model cache
-- Direct MLX API usage
-- In-memory BytesIO WAV generation
+**`Resources/tts_worker.py`**: loads the pinned Kokoro revision offline, warms both English pipelines, normalises
+text (punctuation kept; long numbers and tokens split so they are spoken whole), generates every chunk of a
+multi-sentence text, and writes a WAV back in one frame.
 
-**`HTTPServer.swift:45-120`**: SwiftNIO HTTP server
-- Handles `/health`, `/speak`, `/voices` endpoints
-- Spawns Python worker subprocess
-- Manages Native Messaging IPC
+**`HTTPServer.swift`**: the three endpoints, the Host and Origin gates, and error codes.
 
-**`PythonWorker.swift:30-85`**: Subprocess manager
-- Length-prefixed JSON protocol
-- Error handling and recovery
-- Process lifecycle management
+**`PythonWorker.swift`**: spawns the worker, frames requests, forwards the worker's own log lines (the
+`[worker] ` prefix) with sensitive tokens redacted, cancels a request whose client went away, and restarts a
+crashed worker (at most 3 times in 2 minutes).
 
 ### Debugging
 
-Enable debug logging by editing `main.swift:15`:
-```swift
-handler.logLevel = .debug  // Change from .info
-```
+The log level is set in `App.swift` (`handler.logLevel = .info`). Set it to `.debug` to also see per-request
+lines ("Generating audio: … characters") and any output on the worker's stderr that did not come from its own
+logger. At `.info` the log never carries the request text; at `.debug` that unprefixed library output can (for
+example mlx-audio's phoneme dump of a long token), so keep `.debug` for local debugging only.
 
-View Python worker logs:
-```
-[Python] [INFO] Loading Kokoro-82M model...
-[Python] [DEBUG] Model cache hit
-[Python] [DEBUG] Generated 37680 samples in 0.05s
-```
+### Iterating on the worker
 
-### Hot Reload (Development)
-
-For faster iteration:
-1. Keep helper running
-2. Edit Python worker: `Sources/NaturalTTSHelper/Resources/tts_worker.py`
-3. Restart helper (Ctrl+C, then rerun)
-4. Model stays cached in `~/.cache/huggingface/`, warm startup is fast (~2.5s)
+1. Edit `Sources/NaturalTTSHelper/Resources/tts_worker.py`
+2. Restart the helper; the model is already cached, so startup takes about 2 s
+3. `Sources/NaturalTTSHelper/Resources/python-env/bin/python3 Scripts/verify_worker.py` (from `native-helper/`)
+   exercises the worker without the Swift side
 
 ### Testing Changes
 
 ```bash
 # Debug build (faster compilation, slower runtime)
 swift build
-.build/debug/natural-tts-helper
+.build/debug/natural-tts-helper --port 18249   # a private port: leaves 8249 and config.json alone
 
-# Release build (slower compilation, optimized runtime)
+# Release build
 swift build -c release
-.build/release/natural-tts-helper
 ```
-
-**Performance note**: Debug builds have ~2-3x slower generation than release builds.
 
 ---
 
 ## Troubleshooting
 
-### "Python worker process not running"
+### The helper exits at startup: "model is missing" or an import error
 
-**Cause**: Invalid Python path or missing dependencies
+The worker loads the model offline and fails at launch, not on the first request, if the environment or the model
+is missing. Re-run:
 
-**Fix**:
 ```bash
-# 1. Check Python path in config
-cat ~/Library/Application\ Support/NaturalTTS/config.json
-
-# 2. Verify Python has MLX installed
-/path/to/python-env/bin/python3 -c "import mlx; print(mlx.__version__)"
-# Expected: 0.29.3
-
-# 3. Re-run setup if needed
 cd native-helper
 ./Scripts/setup-python-env.sh
 ```
 
----
-
-### "ModuleNotFoundError: No module named 'phonemizer'"
-
-**Cause**: espeak-ng not installed or not in PATH
-
-**Fix**:
-```bash
-# Install espeak-ng
-brew install espeak-ng
-
-# Verify installation
-espeak-ng --version
-# Expected: eSpeak NG text-to-speech: 1.52.0
-
-# Check espeak data path
-ls /opt/homebrew/opt/espeak-ng/share/espeak-ng-data
-# Should show: lang/, voices/, phondata, etc.
-```
-
-The helper sets `ESPEAK_DATA_PATH` automatically to `/opt/homebrew/opt/espeak-ng/share/espeak-ng-data`.
-
-**If still failing**:
-```bash
-# Manual test
-export ESPEAK_DATA_PATH=/opt/homebrew/opt/espeak-ng/share/espeak-ng-data
-/path/to/python-env/bin/python3 -c "from phonemizer import phonemize; print(phonemize('test'))"
-```
+It rebuilds the environment from `uv.lock`, fetches the model once, and runs `verify_worker.py`.
 
 ---
 
-### "Model warmup timed out"
+### "Model warmup timed out after 60s"
 
-**Cause**: First run downloads models (~200MB), or network issue
-
-**Fix**:
-```bash
-# Check network connection
-ping huggingface.co
-
-# Check download progress
-ls -lh ~/.cache/huggingface/hub/
-# Should show: models--prince-canuma--Kokoro-82M/
-
-# If stuck, clear cache and retry
-rm -rf ~/.cache/huggingface/hub/models--prince-canuma--Kokoro-82M
-.build/release/natural-tts-helper
-```
-
-**Subsequent runs**: Model is cached, warm startup is ~2.5s.
+The worker did not report ready within 60 s. On a busy GPU the warm-up is slower (it took 26 s on a contended
+M1 Max against 2 s idle); a timeout usually means the worker is stuck or crashed. Check the `[worker]` lines
+above the error, then run `./Scripts/setup-python-env.sh` to rebuild and verify the environment.
 
 ---
 
-### "Failed to start HTTP server"
+### "All ports 8249..8260 are in use"
 
-**Cause**: Port already in use
+Twelve other processes, or old helper copies, hold the range:
 
-**Fix**:
 ```bash
-# Find process using the port (e.g., 8249)
-lsof -ti :8249 | xargs kill
-
-# Or delete config to get new random port
-rm ~/Library/Application\ Support/NaturalTTS/config.json
-.build/release/natural-tts-helper
+lsof -nP -iTCP -sTCP:LISTEN | grep -E ':82(49|5[0-9]|60) '
 ```
+
+Stop the ones you do not need. A second copy of the helper is the usual cause: `./Scripts/teardown.sh` stops the
+tmux one, `brew services stop natural-tts` the Homebrew one.
 
 ---
 
-### "Address already in use" on launch
+### "Port … is in use and was set explicitly"
 
-**Cause**: Previous helper instance still running
-
-**Fix**:
-```bash
-# Kill all helper instances
-pkill -f natural-tts-helper
-
-# Wait 2 seconds
-sleep 2
-
-# Restart
-.build/release/natural-tts-helper
-```
+You passed `--port` (or `NATURAL_TTS_PORT`) and that port is taken. Explicit ports never fall back; pick
+another.
 
 ---
 
-### Low RTF performance (< 5x)
+### `/health` says `"status": "error"`
 
-**Possible causes**:
-1. **Debug build**: Use release build for 2-3x better performance
-   ```bash
-   swift build -c release
-   .build/release/natural-tts-helper
-   ```
+The worker crashed more than 3 times in 2 minutes and the helper stopped restarting it. Restart the helper; if it
+happens again, the log above says why (often memory pressure on a very long request).
 
-2. **CPU throttling**: Check Activity Monitor for CPU usage
-   - Helper should use 100-200% CPU during generation (2 cores)
-   - MLX should use Metal GPU (check GPU History)
+---
 
-3. **Memory pressure**: Check for memory warnings
-   ```bash
-   # Check available memory
-   vm_stat | grep "Pages free"
-   # Should have >2GB free
-   ```
+### Slow speech
 
-4. **Cold start**: First request is slower (model load)
-   - Expected: 0.31s (5.06x RTF)
-   - Warm: 0.18s (8.3x RTF)
+1. **Release build**: `swift build -c release` (the worker does the heavy work, but debug builds add overhead)
+2. **The GPU is shared**: other MLX, video or game workloads slow generation; watch GPU History in Activity Monitor
+3. **Long text**: the whole WAV is generated before playback starts, so 400 words take ~6.5 s before any audio
 
 ---
 
 ### Audio is choppy or corrupted
 
-**Cause**: Incomplete WAV file or decoding issue
-
-**Fix**:
 ```bash
-# 1. Verify WAV format
 file test.wav
-# Expected: RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono 24000 Hz
-
-# 2. Check file size
-ls -lh test.wav
-# Should be >50KB for short text
-
-# 3. Re-generate
-curl -X POST http://127.0.0.1:8249/speak \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Test"}' \
-  --output test2.wav && afplay test2.wav
+# RIFF (little-endian) data, WAVE audio, Microsoft PCM, 16 bit, mono 24000 Hz
 ```
+
+If the file is not a WAV, it is a JSON error body: `cat test.wav` shows the `error` code.
 
 ---
 
@@ -724,167 +571,101 @@ curl -X POST http://127.0.0.1:8249/speak \
 
 ### Q: What models are supported?
 
-**A**: Currently only **Kokoro-82M** via MLX. This 82-million parameter model achieves 8.3x-25x RTF on Apple Silicon.
-
-Future support planned for:
-- Larger Kokoro models (if released)
-- Other MLX-compatible TTS models
+**A**: Kokoro-82M only, through mlx-audio, pinned to one revision of `prince-canuma/Kokoro-82M`.
 
 ---
 
-### Q: Can I run this on Intel Mac?
+### Q: Can I run this on an Intel Mac?
 
-**A**: No. MLX requires Apple Silicon (M1/M2/M3/M4) for Metal GPU acceleration. Intel Macs do not support Metal Performance Shaders used by MLX.
+**A**: No. MLX needs Apple silicon, and the current MLX needs macOS 14 or later.
 
 ---
 
 ### Q: How much disk space is needed?
 
-**A**:
-- **Python dependencies**: ~500MB (`mlx`, `mlx-audio`, etc.)
-- **Kokoro-82M model**: ~200MB (cached in `~/.cache/huggingface/`)
-- **spaCy model**: ~13MB
-- **Binary**: ~500KB
-- **Total**: ~715MB
+**A**: About 1 GB: the Python environment (655 MB) and the model (349 MB), plus ~0.3 GB for a release build
+(`.build`).
 
 ---
 
 ### Q: Can I use a different voice?
 
-**A**: Yes! Use the `/voices` endpoint to see all available voices, then specify `voice` in the `/speak` request:
+**A**: Pick one in the extension, or name it in a request:
 
 ```bash
-# List voices
-curl http://127.0.0.1:8249/voices | jq
-
-# Use specific voice
+curl -s http://127.0.0.1:8249/voices | jq '.voices[].id'
 curl -X POST http://127.0.0.1:8249/speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"Hello","voice":"am_adam"}' \
+  -d '{"text":"Hello","voice":"bf_emma"}' \
   --output test.wav
 ```
 
 ---
 
-### Q: How do I update to a newer version?
+### Q: How do I update?
 
-**A**:
+**A**: Homebrew: `brew upgrade natural-tts && brew services restart natural-tts`. From source, in your checkout:
+
 ```bash
-# 1. Pull latest changes
-git pull origin main
-
-# 2. Re-run Python setup (if dependencies changed)
-cd native-helper
-./Scripts/setup-python-env.sh
-
-# 3. Rebuild
-swift build -c release
-
-# 4. Restart helper
-.build/release/natural-tts-helper
+git pull && native-helper/Scripts/quickstart.sh
 ```
+
+It rebuilds the environment and the binary and restarts the helper in its tmux session.
 
 ---
 
 ### Q: Can I change the default voice?
 
-**A**: Yes, edit the config file:
-
-```bash
-# Open config
-open ~/Library/Application\ Support/NaturalTTS/config.json
-
-# Change "default_voice" to desired voice ID
-# Example: "default_voice": "am_adam"
-
-# Restart helper
-pkill -f natural-tts-helper && .build/release/natural-tts-helper
-```
+**A**: The extension always names a voice, so set it in the extension's Options. For other clients, edit
+`default_voice` in `config.json` and restart the helper.
 
 ---
 
-### Q: Why is the first request slower?
+### Q: Why was the first request slow in older versions?
 
-**A**: The first request loads the Kokoro-82M model into memory (~2s). Subsequent requests reuse the cached model and are much faster (0.18s for short text).
-
-This is by design (Phase 1 optimization: model caching).
+**A**: Before 1.5 the model loaded on the first request (3-5 s). The 1.5 helper loads it and runs a warm-up
+sentence before it reports ready, so the first request takes the same ~0.35 s as later ones.
 
 ---
 
 ### Q: How do I uninstall?
 
-**A**:
+**A**: Homebrew: `brew services stop natural-tts && brew uninstall natural-tts` (the model is inside the keg).
+From source:
+
 ```bash
-# 1. Stop helper
-pkill -f natural-tts-helper
-
-# 2. Remove config
+native-helper/Scripts/teardown.sh
 rm ~/Library/Application\ Support/NaturalTTS/config.json
-
-# 3. Remove cached models (optional, saves ~215MB)
-rm -rf ~/.cache/huggingface/hub/models--prince-canuma--Kokoro-82M
-
-# 4. Remove repository
-cd /path/to
+rm -rf ~/.cache/huggingface/hub/models--prince-canuma--Kokoro-82M   # the model, 349 MB
 rm -rf natural-text-to-voice-extension
 ```
 
 ---
 
-### Q: Is this production-ready?
-
-**A**: ✅ **Yes!** Phase 1 & 2 optimizations achieved:
-- 8.3x-25x RTF (far exceeds 2.5x target)
-- 100% reliability (20/20 requests, zero crashes)
-- Valid WAV output
-- Comprehensive testing
-
-See [TEST_RESULTS_OPTIMIZED.md](TEST_RESULTS_OPTIMIZED.md) for validation details.
-
----
-
-### Q: What's the Chrome extension development timeline?
-
-**A**: Phase 2 (Chrome extension development) begins now that the native helper is production-ready.
-
-Planned features:
-- Native Messaging client in extension
-- Popup UI for voice selection
-- Content scripts for text selection
-- Integration with helper HTTP API
-
----
-
 ## Future Enhancements
 
-- [ ] LaunchAgent for auto-start on login
-- [ ] Code signing and notarization for macOS distribution
-- [ ] DMG installer for easier installation
-- [ ] Streaming audio for very long texts (>1000 words)
-- [ ] Voice cloning support (if Kokoro adds this)
-- [ ] Phrase caching for frequently used text
-- [ ] Native MLX Swift bindings (when available)
-- [ ] Custom voice training UI
-- [ ] Multi-language support (beyond English)
+- [ ] Streaming audio, so long selections start playing before synthesis finishes
+- [ ] A signed, notarized binary (today the helper is built from source, by Homebrew or `quickstart.sh`)
+- [ ] Non-English voices, once text normalisation stops folding to ASCII
 
 ---
 
 ## License
 
-MIT License (see project root LICENSE)
+MIT License. See [LICENSE](../LICENSE). The helper's dependencies and their licenses, including the GPL/LGPL
+components installed into your own environment (espeak-ng, phonemizer-fork, num2words, libsndfile), are listed in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ---
 
 ## Acknowledgments
 
-- [MLX](https://github.com/ml-explore/mlx) by Apple — Metal-accelerated ML framework
-- [SwiftNIO](https://github.com/apple/swift-nio) by Apple — Asynchronous networking
-- [Kokoro-82M](https://huggingface.co/prince-canuma/Kokoro-82M) — 82M parameter TTS model
-- [espeak-ng](https://github.com/espeak-ng/espeak-ng) — Phoneme generation
+- [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad (Apache-2.0), in the MLX conversion
+  [prince-canuma/Kokoro-82M](https://huggingface.co/prince-canuma/Kokoro-82M)
+- [mlx-audio](https://github.com/Blaizzy/mlx-audio) and [MLX](https://github.com/ml-explore/mlx) by Apple — Kokoro on the Apple GPU
+- [SwiftNIO](https://github.com/apple/swift-nio) by Apple — asynchronous networking
+- [misaki](https://github.com/hexgrad/misaki) and [espeak-ng](https://github.com/espeak-ng/espeak-ng) — text to phonemes
 
 ---
 
-**Version**: v0.2.0
-**Status**: ✅ Production Ready
-**Last Updated**: 2025-11-10
-**Performance**: 8.3x RTF (short) | 25x RTF (long)
+**Version**: 1.5.0
