@@ -81,6 +81,8 @@ MODEL_FILES = ["config.json", "*.safetensors"]
 SETUP_HINT = "run Scripts/setup-python-env.sh (model not cached or dependency missing)"
 # Voice for a request that names none (the helper always names one; OD-5: af_heart, grade A).
 DEFAULT_VOICE = "af_heart"
+# One warm-up generation per English pipeline (lang_code, voice), in this order, before the ready line.
+WARMUP_VOICES = (("a", DEFAULT_VOICE), ("b", "bf_emma"))
 PEAK_LIMIT = 0.98
 SAMPLE_RATE = 24000
 # Largest request frame the worker accepts. The helper caps request text far below this (HTTPServer.swift
@@ -213,12 +215,18 @@ def load_mlx_model():
         logger.info(f"Eagerly loading Kokoro weights at startup (revision {MODEL_REVISION[:7]})...")
         _model_cache = load_pinned_model()
 
-        logger.info("Warming up (one short generation)...")
+        logger.info("Warming up (one short generation per English pipeline)...")
         # mlx-audio print()s to stdout; stdout is the length-prefixed protocol channel, so silence it.
+        # Both pipelines, American (a) and British (b): mlx-audio builds a KokoroPipeline (its misaki G2P
+        # and lexicon) per lang_code on first use, so the first British request used to take 1.1-2.6 s (now
+        # ~0.17 s, like any warm request), at the cost of ~1-2 s more before the ready line.
         with open(os.devnull, "w") as devnull:
             with redirect_stdout(devnull), redirect_stderr(devnull):
-                for _ in _model_cache.generate("Ready.", voice=voice_file("af_bella"), speed=1.0):
-                    pass
+                for lang_code, voice in WARMUP_VOICES:
+                    for _ in _model_cache.generate(
+                        "Ready.", voice=voice_file(voice), speed=1.0, lang_code=lang_code
+                    ):
+                        pass
 
         # PythonWorker.swift matches this exact line; do not reword it.
         logger.info("Model loaded, ready for requests")
