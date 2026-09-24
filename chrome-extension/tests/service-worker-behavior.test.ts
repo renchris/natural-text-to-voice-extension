@@ -20,7 +20,8 @@ let executeScriptThrows = false;
 
 const executeScript = mock(async (_injection: unknown) => {
   if (executeScriptThrows) throw new Error('Cannot access contents of the page');
-  return [{ result: pageSelection }];
+  // The page answers { text, pdf } (selection.ts probeSelection); a string here is its text.
+  return [{ result: typeof pageSelection === 'string' ? { text: pageSelection, pdf: false } : pageSelection }];
 });
 const defaultSendMessage = async (message: { type: string }) => {
   if (message.type === 'SPEAK_IN_OFFSCREEN') return { type: 'SPEAK_COMPLETE', success: true };

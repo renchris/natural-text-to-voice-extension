@@ -103,7 +103,8 @@ function installGlobals(): void {
     },
     windows: { getLastFocused: async () => ({ tabs: [{ id: 5, active: true }] }) },
     tabs: { query: async () => [{ id: 5, active: true }], create: mock(async () => ({})) },
-    scripting: { executeScript: async () => [{ result: pageSelection }] },
+    // The page answers { text, pdf } (selection.ts probeSelection).
+    scripting: { executeScript: async () => [{ result: { text: pageSelection, pdf: false } }] },
     commands: { getAll: async () => [] },
   };
   globalThis.fetch = fetchMock as unknown as typeof fetch;
