@@ -1,323 +1,106 @@
-# Privacy Policy
-**Natural TTS Chrome Extension**
+# Privacy Policy: Natural TTS
 
-**Last Updated**: September 2026
-**Version**: 1.5.0
+This policy covers **Natural TTS: Private Kokoro Voices for Mac** (the Chrome extension) and the **Natural TTS helper**
+(its companion app for macOS).
 
----
+Version 1.5.0 · Effective 23 September 2026
 
-## Overview
-
-Natural TTS is a **100% local, privacy-first** Chrome extension. This privacy policy explains how the extension handles your data and protects your privacy.
-
-**TL;DR**:
-- ✅ All processing happens on your device
-- ✅ No data is sent to external servers
-- ✅ No analytics, tracking, or telemetry
-- ✅ No user accounts or cloud storage
-- ✅ Open source and auditable
-
----
-
-## Data Collection
-
-### What Data We Collect
-
-**We collect ZERO data.**
-
-The Natural TTS extension does not:
-- ❌ Collect personal information
-- ❌ Track your browsing history
-- ❌ Record text you convert to speech
-- ❌ Upload any data to external servers
-- ❌ Use analytics or telemetry services
-- ❌ Store cookies or persistent identifiers
-- ❌ Share data with third parties
-
-### What Data Stays Local
-
-The extension stores minimal settings data **locally on your device only**:
-
-| Data Type | Storage Location | Purpose | Synced? |
-|-----------|------------------|---------|---------|
-| Voice preference | Chrome Storage Local | Remember your selected voice | No |
-| Playback speed | Chrome Storage Local | Remember your speed setting | No |
-| Helper port | Chrome Storage Local | Reconnect to the helper without probing every port (stored with the helper's default voice name) | No |
-| When the helper isn't running | Chrome Storage Local | Your choice: speak with a system voice, or show an error | No |
-
-All four live in `chrome.storage.local` on this device. The extension does not use `chrome.storage.sync`, so nothing is copied to your other devices, even with Chrome Sync on.
-
----
-
-## Data Processing
-
-### Text-to-Speech Conversion
-
-When you use the extension to convert text to speech:
-
-1. **Text stays on your device**: Selected text is processed locally
-2. **Local API call**: Extension sends text to `localhost:8249` (your own computer)
-3. **Native helper processes**: The helper (running on your Mac) converts text to audio
-4. **Audio plays locally**: Generated audio is played through your browser
-5. **Nothing is stored**: Text and audio are discarded after playback. The helper's log records sizes, timings and error codes, never the text, its phonetic transcription, or an error message that quotes it
-
-**Network diagram**:
-```
-┌─────────────┐         HTTP (localhost only)        ┌─────────────┐
-│   Chrome    │ ──────────────────────────────────> │   Native    │
-│  Extension  │         127.0.0.1:8249              │   Helper    │
-│             │ <────────────────────────────────── │  (on your   │
-│             │         Audio response               │    Mac)     │
-└─────────────┘                                      └─────────────┘
-```
-
----
-
-## Network Requests
-
-### Localhost Only
-
-The extension makes **zero external network requests**. The only network communication is:
-
-- **Destination**: `http://127.0.0.1:8249` (localhost), or the next free port in 8250-8260 if something else already holds 8249
-- **Purpose**: Communicate with the native TTS helper running on your Mac
-- **Data sent**: Text to convert, voice name, playback speed
-- **Data received**: Generated audio (WAV format)
-
-Before sending any text, the extension checks that the port answers `/health` as the helper (it names the helper's model). Another local service on 8249, or a tunnel forwarded there, is skipped and never receives your text.
-
-**Security**: The native helper listens on `127.0.0.1` only, so no other computer can reach it. On this Mac it applies two more rules:
-
-- **Host check**: a request whose `Host` header is not `127.0.0.1`, `localhost` or `[::1]` with the helper's port is refused. This stops a web page that re-points its own hostname at your computer (DNS rebinding). The refusal is sent before any of the request body is read.
-- **Origin check**: `/speak` and `/voices` refuse requests from web pages (any `http://`, `https://` or `null` origin), so no website can make the helper read text or list voices. Requests from browser extensions (`chrome-extension://` and the Firefox and Safari equivalents) are accepted, and so are requests with no `Origin` header, which come from programs running under your account (for example `curl`). The helper treats your installed extensions and your own programs as trusted, like any other per-user service on `localhost`. `/health` answers anyone, and says only whether the helper is ready and which version it is.
-
-### When the helper isn't running
-
-By default the extension then reads the selection with a voice built into your Mac, through Chrome's `chrome.tts`. It only picks voices built into the system that speak on this computer, and always names the voice itself: a remote (network) voice, or a voice another extension provides, is never chosen. If no such voice is available, or the list of voices cannot be read, the extension shows an error instead of speaking. Choose **Show an error** under "When the helper isn't running" in Settings to turn the system voice off. Adding the `tts` permission adds no install-time warning (measured with `bun run verify:permissions`).
-
-### No External Servers
-
-The extension does **NOT** connect to:
-- ❌ Cloud APIs
-- ❌ Analytics services (Google Analytics, Mixpanel, etc.)
-- ❌ Advertising networks
-- ❌ Content delivery networks (CDNs)
-- ❌ Update servers
-- ❌ Authentication servers
-- ❌ Any third-party services
-
----
-
-## Chrome Permissions
-
-The extension requests minimal permissions required for functionality:
-
-| Permission | Purpose | Risk Level |
-|------------|---------|------------|
-| `storage` | Save your voice, speed and "When the helper isn't running" choice, and the helper's port, locally | ⚪ Minimal |
-| `contextMenus` | Add "Speak selected text" to right-click menu | ⚪ Minimal |
-| `activeTab` | Read the selected text in the current tab, only after you click the menu, the toolbar button or a shortcut | 🟡 Low |
-| `scripting` | Run one `getSelection()` call in that tab to read the selection | 🟡 Low |
-| `offscreen` | Play audio in background (Chrome API requirement) | ⚪ Minimal |
-| `tts` | Read the selection with a voice built into your Mac when the helper isn't running (Settings: "When the helper isn't running") | ⚪ Minimal |
-
-### Host Permissions
-
-The extension declares:
-```json
-"host_permissions": ["http://127.0.0.1/*"]
-```
-
-**Why**: To communicate with the native helper on `localhost:8249`
-**Risk**: Minimal (localhost only, no external hosts)
-
-### No Content Scripts
-
-The extension does not inject anything into the pages you visit. It reads the
-selection only when you ask it to speak: your click or shortcut grants
-`activeTab` for that one tab, and the extension runs a single
-`getSelection()` call there. The install prompt therefore shows only
-"Read and change your data on 127.0.0.1" (the local helper).
-
-**What it does NOT do**:
-- ❌ Modify webpage content
-- ❌ Inject ads or tracking scripts
-- ❌ Read passwords or form data
-- ❌ Monitor your browsing activity
-
----
-
-## Third-Party Services
-
-### None
-
-The extension uses **zero third-party services**:
-- No analytics (Google Analytics, Amplitude, etc.)
-- No crash reporting (Sentry, Bugsnag, etc.)
-- No A/B testing platforms
-- No advertising networks
-- No social media integrations
-
----
-
-## Open Source Transparency
-
-### Auditable Code
-
-The extension is **fully open source** under the MIT License:
-- **Repository**: [GitHub](https://github.com/renchris/natural-text-to-voice-extension)
-- **License**: MIT (permissive, allows auditing)
-- **Audit**: Anyone can review the source code to verify privacy claims
-
-### Technologies Used
-
-- **Frontend**: TypeScript, Bun
-- **Backend**: Swift (SwiftNIO), Python (MLX framework)
-- **ML Model**: Kokoro-82M (local inference, no cloud)
-
-All dependencies are open source and listed in `package.json`.
-
----
-
-## Data Retention
-
-### Short-Term (Session Only)
-
-The following data is stored **temporarily** and discarded after use:
-- Selected text (cleared after TTS generation)
-- Generated audio (cleared after playback)
-- API responses (cleared after processing)
-
-### Long-Term (Persistent)
-
-The only persistent data is:
-- Voice preference (stored until you change it or uninstall)
-- Playback speed (stored until you change it or uninstall)
-- "When the helper isn't running" choice (stored until you change it or uninstall)
-- Helper port (updated when the helper moves to another port; removed when you uninstall)
-
-**Storage location**: Chrome Storage API (encrypted by Chrome)
-
----
-
-## User Rights
-
-### Your Data, Your Control
-
-You have full control over your data:
-
-**Access**: All data is stored locally and accessible via Chrome DevTools
-**Modify**: Change settings anytime via the Options page
-**Delete**: Uninstall the extension to remove all stored data
-**Export**: Settings are human-readable JSON (no proprietary format)
-
-### No Accounts
-
-The extension does **not** require:
-- User accounts
-- Email addresses
-- Login credentials
-- Payment information
-
----
-
-## Children's Privacy
-
-The extension is safe for all ages. We do not:
-- Collect data from children (or anyone)
-- Require age verification
-- Show targeted advertising
-- Share data with third parties
-
-The extension complies with COPPA (Children's Online Privacy Protection Act) by collecting zero personal information.
-
----
-
-## Changes to This Policy
-
-We may update this privacy policy as the extension evolves. Changes will be:
-- Documented in the [CHANGELOG](../CHANGELOG.md)
-- Reflected in the "Last Updated" date above
-- Published in the repository before release
-
-**Current version**: 1.5.0
-
----
-
-## Contact
-
-### Questions or Concerns?
-
-If you have privacy questions or concerns:
-
-1. **File an issue**: [GitHub Issues](https://github.com/renchris/natural-text-to-voice-extension/issues)
-2. **Review the code**: Source code is fully public and auditable
-
-### Security Issues
-
-If you discover a security vulnerability:
-1. **Do NOT** open a public issue
-2. **Report it privately** through GitHub's private vulnerability reporting: [Report a vulnerability](https://github.com/renchris/natural-text-to-voice-extension/security/advisories/new)
-3. We will respond within 48 hours
-
----
-
-## Compliance
-
-### Legal Framework
-
-This extension is designed to comply with:
-- ✅ **GDPR** (General Data Protection Regulation) - EU
-- ✅ **CCPA** (California Consumer Privacy Act) - California, USA
-- ✅ **COPPA** (Children's Online Privacy Protection Act) - USA
-- ✅ **Chrome Web Store Policies** - Google
-
-**How we comply**: By collecting zero personal data, we avoid most regulatory requirements.
-
-### Data Protection Principles
-
-We adhere to:
-1. **Data minimization**: Collect only what's necessary (settings only)
-2. **Purpose limitation**: Use data only for stated purposes
-3. **Storage limitation**: Keep data only as long as needed
-4. **Security**: Use Chrome's encrypted storage
-5. **Transparency**: Open source code and clear documentation
-
----
+<!-- Every statement below is traced to the 1.5.0 code, file:line, in docs/publishing/PRIVACY_TRACEABILITY.md.
+     If you change the code or this file, update the other and the trace in the same commit. -->
 
 ## Summary
 
-### Privacy Highlights
+The developer receives no data from you. The extension reads the text you ask it to speak and sends it only to the
+Natural TTS helper on your own computer, at `127.0.0.1`. If the helper isn't running, the extension can read the text
+with a voice built into your operating system instead, also on your computer. It never sends your text to the
+developer or to any other server, and it has no analytics.
 
-| Aspect | Status |
-|--------|--------|
-| Data collection | ❌ None |
-| External servers | ❌ None |
-| Analytics/tracking | ❌ None |
-| Third-party services | ❌ None |
-| User accounts | ❌ None |
-| Cloud processing | ❌ None |
-| Local processing | ✅ 100% |
-| Open source | ✅ Yes |
-| Minimal permissions | ✅ Yes |
+## What the extension handles
 
-### Your Privacy Is Our Priority
+**The text you choose to hear (website content).** The extension reads the text you selected only when you ask it to
+speak, in one of three ways: the "Speak selected text" item in the right-click menu, the Speak button in its toolbar
+popup, or a keyboard shortcut you have assigned yourself. That action gives it access to the current tab for that
+moment only (Chrome's `activeTab`), and it runs a small function there that returns the selection and whether the page
+is a PDF. In a PDF, or where the page can't be read that way, it uses the selected text that Chrome passes to the
+right-click menu. The extension adds no scripts to the pages you visit, and it reads nothing from a page until you
+ask it to speak.
 
-Natural TTS is built with **privacy by design**:
-- All processing happens on your device
-- No data leaves your computer (except to localhost)
-- No tracking, no analytics, no telemetry
-- Open source and auditable
-- Minimal permissions
+It then sends the text to the helper, with the voice and speed you chose, and the helper returns the audio. The
+extension plays the audio from memory and does not store the text or the audio.
 
-**We respect your privacy because we believe it's a fundamental right.**
+**Your settings.** The extension saves four things with `chrome.storage.local`, on this device only:
 
----
+| Setting | Why |
+| --- | --- |
+| Your chosen voice | To use it next time |
+| Your chosen speed | To use it next time |
+| "When the helper isn't running": use system voices, or show an error | Your choice for when the helper can't be reached |
+| The helper's port number, stored with the helper's default voice name | To reconnect without probing every port |
 
-## Acknowledgments
+It does not use `chrome.storage.sync`, so nothing is copied to your other devices, even with Chrome Sync on. Chrome
+deletes these settings when you remove the extension.
 
-Thank you for trusting Natural TTS. If you have any questions about this privacy policy, please don't hesitate to reach out via the contact methods above.
+## Where the extension sends data
 
----
+**Only to your own computer.** The extension's only host permission is `http://127.0.0.1/*`, the loopback address of
+the computer it runs on. It looks for the helper on ports 8249 to 8260, and before it sends any text it checks that
+the answer really comes from the helper. Any other program answering on those ports is skipped and never receives
+your text.
 
-**Built with ❤️ for privacy and performance**
+**When the helper isn't running.** By default the extension then reads the selection aloud with a voice built into
+your operating system, through Chrome's `chrome.tts`. It only uses voices that Chrome reports as local to your
+computer: never a voice marked as a network voice, and never a voice provided by another extension. If it finds no
+such voice, or can't read the list of voices, it shows an error instead of speaking. To turn this off, open the
+extension's settings and set "When the helper isn't running" to "Show an error".
+
+**Links.** The popup can show links to the project's GitHub page. They open only when you click them.
+
+The extension contains no analytics, advertising, tracking, crash reporting or third-party code.
+
+## What the helper does
+
+- **It listens only on your computer.** The helper accepts connections on `127.0.0.1` only, so other computers on your
+  network can't reach it.
+- **It refuses websites.** It refuses any request whose `Host` is not `127.0.0.1`, `localhost` or `[::1]` with its
+  own port, which stops a website that points its own name at your computer. It also refuses requests from web pages
+  to read text aloud or list voices. It answers browser extensions, and programs running on your computer (such as
+  `curl`). Like any service on `127.0.0.1`, it trusts the extensions and programs you have installed. Its status check
+  (`/health`) answers anyone, and reports only whether it is ready and which version it is.
+- **It keeps neither your text nor the audio.** It turns the text into audio in memory and sends the audio back. Its
+  log records sizes, timings, the voice and speed, error codes, and the `Host` or `Origin` of any request it refused.
+  It never records your text. With Homebrew the log is `$(brew --prefix)/var/log/natural-tts.log`. When you run the
+  helper yourself, the log goes to your terminal.
+- **It keeps a small settings file**, `config.json`, holding its port, the paths to its own files and its default
+  voice. With Homebrew the file is in `$(brew --prefix)/var/natural-tts/`.
+- **It works offline.** It runs with Hugging Face's offline mode on and its telemetry off, and connects to nothing
+  outside your computer while it runs.
+
+**One-time downloads when you install the helper.** Installing it downloads the Kokoro-82M voice model (one pinned
+version of `prince-canuma/Kokoro-82M`) from huggingface.co, its Python packages from pypi.org, and its source code and
+Swift packages from github.com. These downloads contain no personal data and none of your text, but like any
+download, those services can see your IP address. After that, speech works without an internet connection.
+
+## What we do not do
+
+We do not collect, receive, sell or share your data. There are no accounts, cookies, analytics, telemetry,
+advertising or tracking.
+
+## Limited Use
+
+The use of information received by this extension adheres to the Chrome Web Store User Data Policy, including the
+Limited Use requirements.
+
+## Children
+
+The extension and the helper collect no personal information from anyone, including children.
+
+## Changes and contact
+
+Changes to this policy are published in this file, with a new version and date, and noted in the
+[changelog](https://github.com/renchris/natural-text-to-voice-extension/blob/main/CHANGELOG.md).
+
+- **Questions:** [open an issue](https://github.com/renchris/natural-text-to-voice-extension/issues) on GitHub.
+- **Security problems:** please don't open a public issue. Report them privately through GitHub's
+  [private vulnerability reporting](https://github.com/renchris/natural-text-to-voice-extension/security/advisories/new).
+- **Source code:** the extension and the helper are open source under the MIT License, at
+  <https://github.com/renchris/natural-text-to-voice-extension>.
