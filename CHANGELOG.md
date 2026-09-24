@@ -72,6 +72,27 @@ permission to the local helper only, and it turns every silent failure into a vi
 - **Toolchain.** The unused vite chain is removed, and the project moves to TypeScript 6, @types/chrome 0.3.0 and
   happy-dom 20. `bun audit` goes from 45 advisories to 0.
 
+### Fixed (pre-release review)
+- **Helper log privacy.** Only the worker's own log lines reach the helper log. mlx-audio's phoneme dump of a long
+  token (a card number, a reset-URL token) and exception messages that quote the input no longer appear there or
+  in error responses.
+- **A dead worker is restarted** (at most 3 times in 2 minutes; after that `/health` reports `status: "error"`),
+  and the helper no longer spins a core at 100% once its worker has exited.
+- **One request cannot poison or kill the helper.** Audio past 20 minutes is refused (`audio_too_long`) instead of
+  desyncing the worker pipe; request text is also capped at 100,000 UTF-8 bytes and bodies at 1 MiB; a refused
+  Host or Origin is answered before the body is read; a write to a dead worker no longer kills the helper.
+- **Stop frees the helper.** A stopped or superseded request is cancelled in the worker at the next chunk, so the
+  next one does not wait behind it.
+- **Offline, always, and pinned.** The worker forces `HF_HUB_OFFLINE=1` whatever the shell exports, and loads the
+  model weights and voices from one pinned Hub commit (`MODEL_REVISION`) that the setup script fetches.
+- **Extension.** Right-click reads the frame that was clicked, never an older top-frame selection; PDFs at URLs
+  without `.pdf` get ligature cleanup; text is sent only to a port whose `/health` identifies the helper; the popup
+  can stop right-click and shortcut speech; a stop pressed while a request is being prepared is kept; the service
+  worker is answered when playback starts, so long playback no longer loses its result; discovery is retried after
+  a failure; Retry during warm-up polls until ready.
+- **`quickstart.sh` fails closed** on a failed build (and checks for Swift 6.0+), instead of restarting the old
+  helper and reporting success.
+
 ### Added
 - MIT `LICENSE` and `THIRD_PARTY_NOTICES.md`. The GPL/LGPL components (espeak-ng, phonemizer-fork, num2words,
   libsndfile) are installed into the user's own environment and are not redistributed.
