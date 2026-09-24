@@ -14,9 +14,11 @@
 #      the lock screen covers it.
 #   3. The extension's stored helper port is seeded to <helper-port>, the voice to af_heart and the speed to 1.0,
 #      before anything asks the helper for anything.
-#   4. port-guard.mjs is armed in every target: 8249 (where an older helper may be listening) is refused, and
+#   4. port-guard.mjs is armed in every target: every discovery port 8249-8260 except <helper-port> is refused
+#      (an older helper may listen on 8249, and a sibling session's capture helper on another port), and
 #      https://essays.example/ is served from <site-dir> (default: assets/media/src). HOLD_HEALTH is passed to the
-#      guard as --hold-health (status.webp uses 8250:1200 so the popup's real "Checking" pill is visible).
+#      guard as --hold-health (status.webp used 8250:600 so the popup's real "Checking" pill is visible; the
+#      popup makes two /health requests per open). BLOCK=<ports> overrides the refused list.
 #
 # Writes <out-dir>/env.txt (CHROME_PID GUARD_PID WS EXT_ID PROFILE) for the other capture commands and for
 # clean-up. Kill only those two pids; never anything else.
@@ -49,8 +51,9 @@ nohup "$CFT" --user-data-dir="$PROFILE" --load-extension="$DIST" --test-type=gpu
 CHROME_PID=$!
 for _ in $(seq 1 50); do curl -s 127.0.0.1:9555/json/version >/dev/null 2>&1 && break; sleep 0.2; done
 WS=$(curl -s 127.0.0.1:9555/json/version | node -pe 'JSON.parse(require("fs").readFileSync(0)).webSocketDebuggerUrl')
+BLOCK=${BLOCK:-$(seq 8249 8260 | grep -vx "$PORT" | paste -sd, -)}
 HOLD_ARGS=(); [ -n "${HOLD_HEALTH:-}" ] && HOLD_ARGS=(--hold-health "$HOLD_HEALTH")
-nohup node "$HERE/port-guard.mjs" "$WS" "$OUT/guard.jsonl" --block 8249 --serve "https://essays.example/=$SITE" ${HOLD_ARGS[@]+"${HOLD_ARGS[@]}"} \
+nohup node "$HERE/port-guard.mjs" "$WS" "$OUT/guard.jsonl" --block "$BLOCK" --serve "https://essays.example/=$SITE" ${HOLD_ARGS[@]+"${HOLD_ARGS[@]}"} \
   </dev/null >"$OUT/guard.out" 2>&1 &
 GUARD_PID=$!
 for _ in $(seq 1 30); do grep -q ready "$OUT/guard.out" 2>/dev/null && break; sleep 0.2; done

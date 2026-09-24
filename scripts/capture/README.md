@@ -27,7 +27,7 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
 | `versions.sh` | Prints the toolchain versions; save its output next to every capture set |
 | `launch.sh` | Launches the capture browser (headed, or `HEADLESS=1`), seeds the helper port/voice/speed, arms `port-guard.mjs`, writes `env.txt` |
-| `port-guard.mjs` | CDP `Fetch` guard in every target: refuses 8249, logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
+| `port-guard.mjs` | CDP `Fetch` guard in every target: refuses every port 8249-8260 but the capture helper's (`launch.sh`), logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
 | `shoot.mjs` | Headless-safe capture of the popup page (or any page) through CDP: `--fit` PNG at 2x, `--cast`/`--grab` frame sequences with timestamps |
 | `assemble-loop.mjs` | Resamples a `shoot.mjs` frame sequence onto a constant rate, merges identical frames, encodes `img2webp -near_lossless 40` |
 | `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`), their brand theme, `env.sh` (neutral paths), `retime.mjs`, `render.sh` |

@@ -84,7 +84,8 @@ recipe for that pass.
   script; if either is false, stop and ask.
 - Close HUD-style and notification apps; turn on Do Not Disturb by hand.
 - `lsof -nP -iTCP:9555 -sTCP:LISTEN` and `lsof -nP -iTCP:8250 -sTCP:LISTEN` are empty. An older helper on 8249
-  may be running: leave it alone; the guard refuses 8249 inside the capture browser.
+  may be running, and a sibling session's helper on another port: leave them alone; the guard refuses every
+  port 8249-8260 except 8250 inside the capture browser.
 - Never write `~/Library/Application Support/NaturalTTS/config.json`: always start the helper with overrides.
 
 ## Commands
