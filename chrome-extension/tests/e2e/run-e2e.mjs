@@ -544,6 +544,9 @@ async function run() {
         `voiceName ${JSON.stringify(voiceName ?? null)}, listed as ${JSON.stringify(chosen)}`
       );
 
+      // The stop must be what ended the speech: live speech before it, an "interrupted"/"cancelled" event (a
+      // natural "end" means the utterance simply finished) and nothing speaking after it.
+      const speakingBeforeStop = await sw(h, 'chrome.tts.isSpeaking()');
       await sw(h, `globalThis.__e2e.listeners['commands.onCommand'][0]('stop-speaking', undefined)`);
       const events = await waitFor(
         'chrome.tts to stop',
@@ -551,11 +554,18 @@ async function run() {
         10000,
         100
       ).catch(() => null);
+      const speakingAfterStop = await waitFor(
+        'chrome.tts.isSpeaking() to be false',
+        async () => ((await sw(h, 'chrome.tts.isSpeaking()')) === false ? 'false' : null),
+        3000,
+        100
+      ).catch(() => 'true');
       const after = await badge(h);
+      const interrupted = !!events && events.some(t => t === 'interrupted' || t === 'cancelled') && !events.includes('end');
       check(
         'stop-speaking stops the system voice',
-        !!events && after.text === '',
-        `events [${events}], badge ${JSON.stringify(after.text)}`
+        speakingBeforeStop === true && interrupted && speakingAfterStop === 'false' && after.text === '',
+        `isSpeaking before ${speakingBeforeStop}, events [${events}], isSpeaking after ${speakingAfterStop}, badge ${JSON.stringify(after.text)}`
       );
       await h.cdp.send('Target.closeTarget', { targetId: page.targetId });
     }
