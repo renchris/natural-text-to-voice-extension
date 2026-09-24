@@ -1,18 +1,23 @@
 // Timed hero-demo driver over raw CDP (CfT --load-extension, or branded Chrome + Extensions.loadUnpacked).
-// Usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector]
+// Usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector] [--menu-only]
 //   paragraphSelector defaults to '#mw-content-text p' (a Wikipedia article); the first match longer
 //   than 200 characters is selected.
 // Steps: animate a text selection -> open the REAL toolbar popup -> bump speed x3 inside the popup
 //        -> close popup -> native right-click context menu.
+// --menu-only (the README hero, GUI_PASS.md "Hero video"): animate the selection, then open the native context menu
+//   at 2.4 s. No popup and no speed change, so the speech stays at the 1.0x of hero.wav. It exits with the menu open;
+//   the caller hovers and clicks "Speak selected text" with the native tools and records that click's wall time.
 // Popup: Extensions.triggerAction on the tab target selected BY URL (never the first 'tab' target: the
 // hidden component-extension page is listed first and crashed Chrome 153 6/6). If no popup target
 // appears, retry with chrome.action.openPopup() from the service worker (R09 verifier: pinned
 // openPopup 3/3, pinned triggerAction 6/7).
 // Writes wall-clock timestamps per step so audio can be muxed at the exact offset later.
 import { writeFileSync } from 'node:fs';
-const [wsUrl, extId, match, outJson, paraSel = '#mw-content-text p'] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const MENU_ONLY = args.includes('--menu-only');
+const [wsUrl, extId, match, outJson, paraSel = '#mw-content-text p'] = args.filter((a) => a !== '--menu-only');
 if (!wsUrl || !extId || !match || !outJson) {
-  console.error('usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector]');
+  console.error('usage: node demo.mjs <browserWsUrl> <extId> <pageUrlSubstring> <timeline.json> [paragraphSelector] [--menu-only]');
   process.exit(64);
 }
 const ws = new WebSocket(wsUrl);
@@ -51,6 +56,16 @@ ws.onopen = async () => {
     }
     mark('select-done');
     const box = await evalIn(ps, `(()=>{const b=window.__p.getBoundingClientRect();return {x:b.x+120,y:b.y+12}})()`);
+    if (MENU_ONLY) {
+      await until(2.4);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: box.x, y: box.y }, ps);
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: box.x, y: box.y, button: 'right', clickCount: 1 }, ps);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: box.x, y: box.y, button: 'right', clickCount: 1 }, ps);
+      mark('context-menu');
+      const selected = await evalIn(ps, 'getSelection().toString()');
+      writeFileSync(outJson, JSON.stringify({ t0, words, selected, box, mode: 'menu-only', log }, null, 2));
+      process.exit(0);
+    }
     // 2) open the real toolbar popup anchored to the action icon
     await until(2.2);
     const findPopup = async () => (await send('Target.getTargets')).targetInfos
