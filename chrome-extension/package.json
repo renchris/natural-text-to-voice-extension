@@ -9,7 +9,8 @@
     "test:watch": "bun test --watch",
     "test:e2e": "bun run build && node tests/e2e/run-e2e.mjs",
     "type-check": "tsc --noEmit",
-    "verify:permissions": "node scripts/verify-permissions.cjs dist"
+    "verify:permissions": "node scripts/verify-permissions.cjs dist",
+    "package": "node scripts/package.mjs"
   },
   "keywords": [
     "chrome-extension",
