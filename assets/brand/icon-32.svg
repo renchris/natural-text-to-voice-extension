@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- 32 px variant: the 16 px toolbar icon at 2x (Retina). Full-canvas tile, speaker edges on
+       whole pixels, 3 px arcs on whole columns (inner x 19-22, outer x 25-28). -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B6CF3"/>
+      <stop offset="1" stop-color="#3441C6"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#tile)" d="M10.88,0H21.12C29.28,0 32,2.72 32,10.88V21.12C32,29.28 29.28,32 21.12,32H10.88C2.72,32 0,29.28 0,21.12V10.88C0,2.72 2.72,0 10.88,0Z"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="#FFFFFF" stroke-width="1" d="M5.5,12.5H9.5L14.5,7.5V24.5L9.5,19.5H5.5Z"/>
+    <path stroke-width="3" d="M18.54,11.79A5.5,5.5 0 0 1 18.54,20.21"/>
+    <path stroke-width="3" d="M23.13,7.87A11.5,11.5 0 0 1 23.13,24.13"/>
+  </g>
+</svg>

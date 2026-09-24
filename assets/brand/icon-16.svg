@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- 16 px toolbar variant: full-canvas tile, speaker on whole pixels, two flat 2 px arcs (large radii
+       from a centre behind the cone) whose middles sit on whole columns (x 9-11, 12-14), 1 px gap. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B6CF3"/>
+      <stop offset="1" stop-color="#3441C6"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#tile)" d="M5.44,0H10.56C14.64,0 16,1.36 16,5.44V10.56C16,14.64 14.64,16 10.56,16H5.44C1.36,16 0,14.64 0,10.56V5.44C0,1.36 1.36,0 5.44,0Z"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="#FFFFFF" stroke-width="0" d="M2,6H4L7,3V13L4,10H2Z"/>
+    <path stroke-width="2" d="M9.15,5.2A5,5 0 0 1 9.15,10.8"/>
+    <path stroke-width="2" d="M11.63,3.53A8,8 0 0 1 11.63,12.47"/>
+  </g>
+</svg>

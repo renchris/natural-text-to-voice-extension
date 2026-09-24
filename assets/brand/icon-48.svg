@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- 48 px variant: 44x44 tile at (2,2), two arcs, speaker edges on whole pixels
+       (geometry inset 0.5 px, 1 px round-join stroke); arc middles on whole columns (27-30, 33-36). -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="2" x2="0" y2="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B6CF3"/>
+      <stop offset="1" stop-color="#3441C6"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#tile)" d="M16.96,2H31.04C42.26,2 46,5.74 46,16.96V31.04C46,42.26 42.26,46 31.04,46H16.96C5.74,46 2,42.26 2,31.04V16.96C2,5.74 5.74,2 16.96,2Z"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path fill="#FFFFFF" stroke-width="1" d="M13.5,20.5H17.5L23.5,14.5V33.5L17.5,27.5H13.5Z"/>
+    <path stroke-width="3" d="M26.54,19.79A5.5,5.5 0 0 1 26.54,28.21"/>
+    <path stroke-width="3" d="M30.99,15.73A11.5,11.5 0 0 1 30.99,32.27"/>
+  </g>
+</svg>

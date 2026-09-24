@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Natural TTS master icon. 128 canvas, 96x96 artwork at (16,16), 16 px transparent padding.
+       Tile: continuous-corner square. Glyph: speaker + three sound arcs, white. See README.md. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="16" x2="0" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B6CF3"/>
+      <stop offset="1" stop-color="#3441C6"/>
+    </linearGradient>
+  </defs>
+  <path id="tile-shape" fill="url(#tile)" d="M48.64,16H79.36C103.84,16 112,24.16 112,48.64V79.36C112,103.84 103.84,112 79.36,112H48.64C24.16,112 16,103.84 16,79.36V48.64C16,24.16 24.16,16 48.64,16Z"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round"
+     transform="translate(65 64) scale(0.92) translate(-64 -64)">
+    <path fill="#FFFFFF" stroke-width="4" d="M33,54H43L59,40V88L43,74H33Z"/>
+    <path stroke-width="6" d="M67.36,54.04A13,13 0 0 1 67.36,73.96"/>
+    <path stroke-width="6" d="M75.37,46.45A24,24 0 0 1 75.37,81.55"/>
+    <path stroke-width="6" d="M83.75,39.25A35,35 0 0 1 83.75,88.75"/>
+  </g>
+</svg>
