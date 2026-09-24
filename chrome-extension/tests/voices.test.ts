@@ -62,8 +62,8 @@ describe('voice catalogue', () => {
     expect(findVoice('bf_emma')?.grade).toBe('B-');
   });
 
-  test('the default stays af_bella (OD-5 pending) and is a catalogue voice', () => {
-    expect(DEFAULT_VOICE).toBe('af_bella');
+  test('the default is af_heart (OD-5) and is a catalogue voice', () => {
+    expect(DEFAULT_VOICE).toBe('af_heart');
     expect(isCatalogueVoice(DEFAULT_VOICE)).toBe(true);
     expect(DEFAULT_SETTINGS.selectedVoice).toBe(DEFAULT_VOICE);
   });
@@ -83,14 +83,21 @@ describe('resolveVoice', () => {
   });
 
   test('replaces a non-catalogue or missing voice with the default', () => {
-    expect(resolveVoice('zz_nope')).toBe('af_bella');
-    expect(resolveVoice(undefined)).toBe('af_bella');
-    expect(resolveVoice(42)).toBe('af_bella');
+    expect(resolveVoice('zz_nope')).toBe('af_heart');
+    expect(resolveVoice(undefined)).toBe('af_heart');
+    expect(resolveVoice(42)).toBe('af_heart');
   });
 
   test('a stored voice the helper does not offer falls back to the default, then the first offered', () => {
+    expect(resolveVoice('bm_george', ['af_heart', 'af_bella'])).toBe('af_heart');
+    // A helper without af_heart: the first offered voice in catalogue order.
     expect(resolveVoice('af_heart', oldHelper)).toBe('af_bella');
     expect(resolveVoice('af_heart', ['bm_george', 'bf_emma'])).toBe('bf_emma');
+  });
+
+  test('a stored choice is never replaced by the new default', () => {
+    expect(resolveVoice('af_bella')).toBe('af_bella');
+    expect(resolveVoice('af_bella', [...VOICE_IDS])).toBe('af_bella');
   });
 });
 
@@ -102,7 +109,12 @@ describe('settings validation against the catalogue', () => {
   });
 
   test('rejects a voice outside the catalogue', () => {
-    expect(validateSettings({ selectedVoice: 'zz_nope' }).selectedVoice).toBe('af_bella');
+    expect(validateSettings({ selectedVoice: 'zz_nope' }).selectedVoice).toBe('af_heart');
+  });
+
+  test('fresh storage gets af_heart; a stored af_bella stays af_bella', () => {
+    expect(validateSettings({}).selectedVoice).toBe('af_heart');
+    expect(validateSettings({ selectedVoice: 'af_bella' }).selectedVoice).toBe('af_bella');
   });
 
   test('VOICE_NAMES is derived from the catalogue', () => {

@@ -20,10 +20,12 @@ export interface CatalogueVoice {
 }
 
 /**
- * The default voice. It stays af_bella until the operator rules on OD-5
- * (whether to switch to af_heart); change it here and nowhere else.
+ * The default voice for a fresh install: af_heart, Kokoro's best graded
+ * voice (OD-5, 2026-09-23). A voice the user already chose stays theirs:
+ * only an absent or invalid stored choice falls back to this. Change it here
+ * and nowhere else.
  */
-export const DEFAULT_VOICE = 'af_bella';
+export const DEFAULT_VOICE = 'af_heart';
 
 function voice(id: string, name: string, grade: string): CatalogueVoice {
   return {
