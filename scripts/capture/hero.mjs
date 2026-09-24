@@ -16,8 +16,15 @@
 //   --pid <pid>             the capture browser's main pid (CHROME_PID in env.txt), for axmenu
 //   --popup-at <s>          full mode: open the real anchored toolbar popup at this second (chrome.action.openPopup
 //                           from the service worker), to show the speaking state; omit for no popup
+//   --cursor                full mode, for a take that RECORDS the cursor (sckrec without --no-cursor): every gesture
+//                           is real OS input the viewer can follow. A real drag selects the text (glide --drag from
+//                           the first character to the last), a real right-click opens the menu, the pointer glides
+//                           onto the item and clicks it, and with --popup-at it glides to the pinned toolbar button
+//                           (found through Accessibility, axfind) and clicks it: the popup opens the way a user opens
+//                           it. The window is brought to the front first, and every point is checked to be on the
+//                           capture window (winlist z-order) before anything is pressed there.
 //
-// Real input only where it matters: the selection is set through the DOM (animated word by word), the right-click
+// Without --cursor, real input only where it matters: the selection is set through the DOM (animated word by word), the right-click
 // is a CDP mouse event (which is what opens Chrome's native NSMenu), and the hover and the click on the menu item
 // are real OS events (move, click from build.sh), because CDP cannot reach a native menu. The menu item is located
 // through the Accessibility API (axmenu), never by a hard-coded offset. Every step's wall time goes into the
@@ -39,6 +46,7 @@ const top = Number(opt('top', '300'));
 const [parkX, parkY] = opt('park', '1600,300').split(',').map(Number);
 const shot = opt('shot', '');
 const popupAt = opt('popup-at') ? Number(opt('popup-at')) : null;
+const cursor = argv.includes('--cursor');
 // full-mode schedule, seconds from start
 const AT = { select: 0.8, right: 2.7, hover: 3.5, click: 4.4 };
 for (const kv of (opt('at', '') || '').split(',').filter(Boolean)) { const [k, v] = kv.split('='); AT[k] = Number(v); }
@@ -71,6 +79,20 @@ async function menuItem(title, ms = 3000) {
   throw new Error(`menu item "${title}" did not appear`);
 }
 let chromePid;
+const glide = (x, y, secs, drag = false) => tool('glide', Math.round(x), Math.round(y), secs, ...(drag ? ['--drag'] : []));
+// The front-most normal window (layer 0) under a screen point must be the capture browser's, or a real press there
+// would land in another app. winlist lists windows front to back.
+function assertOnCapture(x, y, what) {
+  for (const l of tool('winlist').split('\n')) {
+    const m = l.match(/pid=(\d+) layer=(-?\d+) onscreen=true .*bounds=(-?\d+),(-?\d+) (\d+)x(\d+)$/);
+    if (!m || m[2] !== '0') continue;
+    const [bx, by, bw, bh] = m.slice(3).map(Number);
+    if (x < bx || y < by || x >= bx + bw || y >= by + bh) continue;
+    if (Number(m[1]) !== chromePid) throw new Error(`${what}: another app's window is on top at ${x},${y}; not pressing`);
+    return;
+  }
+  throw new Error(`${what}: no window at ${x},${y}`);
+}
 
 ws.onopen = async () => {
   try {
@@ -86,7 +108,14 @@ ws.onopen = async () => {
       console.log('prep', JSON.stringify(r));
       process.exit(0);
     }
-    const parked = tool('move', parkX, parkY);
+    let parked;
+    if (cursor) {
+      await send('Page.bringToFront', {}, ps);
+      await sleep(400);
+      const r = await evalIn(ps, `(()=>{const p=${findPara};const b=p.getBoundingClientRect();
+        return [screenX+Math.min(innerWidth-110,b.right+80),screenY+outerHeight-innerHeight+(b.top+b.bottom)/2]})()`);
+      parked = tool('move', r[0], r[1]);               // rests in the page, in view from the first frame
+    } else parked = tool('move', parkX, parkY);
     const orig = parked.match(/orig=(\d+) (\d+)/).slice(1).map(Number);
     t0 = Date.now();
     mark('start', { parked });
@@ -97,7 +126,26 @@ ws.onopen = async () => {
       return {words:text.split(/\\s+/).length,chars:text.length,left:b.left,top:b.top,bottom:b.bottom,
         screenX,screenY,chromeH:outerHeight-innerHeight,innerW:innerWidth}})()`);
     mark('select-begin', { words: geo.words });
-    const steps = 28;
+    const toScreen = (x, y) => [geo.screenX + x, geo.screenY + geo.chromeH + y];
+    if (cursor) {
+      // the first and last character of the text to select, from the DOM; the drag itself is real
+      const ends = await evalIn(ps, `(()=>{const p=window.__p;const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,total=0,chars=[];
+        while(n=w.nextNode()){chars.push([n,total]);total+=n.length}
+        const all=chars.map(c=>c[0].data).join('');const sel=${JSON.stringify(selText)};
+        let a=sel?all.indexOf(sel):0, b=sel?a+sel.length:total; if(a<0) throw new Error('sentence not found');
+        while(/\\s/.test(all[a]))a++; while(/\\s/.test(all[b-1]))b--;
+        const at=(pos)=>{let node=chars[0][0],off=0;for(const [nd,start] of chars){if(start<=pos&&pos<start+nd.length){node=nd;off=pos-start}}return [node,off]};
+        const rect=(pos)=>{const r=document.createRange();const [nd,o]=at(pos);r.setStart(nd,o);r.setEnd(nd,o+1);return r.getBoundingClientRect()};
+        const f=rect(a),l=rect(b-1);getSelection().removeAllRanges();
+        return {x1:f.left+1,y1:f.top+f.height/2,x2:l.right-1,y2:l.top+l.height/2}})()`);
+      const [sx, sy] = toScreen(ends.x1, ends.y1), [ex, ey] = toScreen(ends.x2, ends.y2);
+      assertOnCapture(sx, sy, 'drag start'); assertOnCapture(ex, ey, 'drag end');
+      glide(sx, sy, 0.55);
+      const d = glide(ex, ey, selText ? 0.9 : 1.5, true);
+      mark('drag', { from: [sx, sy], to: [ex, ey], out: d });
+      await sleep(120);
+    }
+    const steps = cursor ? 0 : 28;
     for (let i = 1; i <= steps; i++) {
       await evalIn(ps, `(()=>{const p=window.__p;const w=document.createTreeWalker(p,NodeFilter.SHOW_TEXT);let n,total=0,chars=[];
         while(n=w.nextNode()){chars.push([n,total]);total+=n.length}
@@ -111,14 +159,28 @@ ws.onopen = async () => {
     }
     const selected = await evalIn(ps, 'getSelection().toString()');
     mark('select-done', { chars: selected.length });
+    if (cursor) {
+      const want = await evalIn(ps, `${JSON.stringify(selText)}||window.__p.innerText.trim()`);
+      if (selected.replace(/\s+/g, ' ').trim() !== want.replace(/\s+/g, ' ').trim()) throw new Error(`drag selected ${JSON.stringify(selected)}, not the text; retake`);
+    }
     // 2) native context menu: a CDP right-click inside the selection (first line, ~200 CSS px in)
     const first = await evalIn(ps, `(()=>{const r=getSelection().getRangeAt(0).getClientRects()[0];return {x:r.left,y:r.top,w:r.width,h:r.height}})()`);
     const cx = first.x + Math.min(200, first.w / 2), cy = first.y + first.h / 2;
-    await until(mode === 'full' ? AT.right : 1.9);
-    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy }, ps);
-    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'right', clickCount: 1 }, ps);
-    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'right', clickCount: 1 }, ps);
-    mark('right-click', { css: [cx, cy], screen: [geo.screenX + cx, geo.screenY + geo.chromeH + cy] });
+    if (cursor) {
+      const [rx, ry] = toScreen(cx, cy);
+      assertOnCapture(rx, ry, 'right-click');
+      await until(Math.max(0, AT.right - 0.45));
+      glide(rx, ry, 0.4);
+      await until(AT.right);
+      const out = tool('click', rx, ry, 0.05, '--right', '--stay');
+      mark('right-click', { css: [cx, cy], screen: [rx, ry], downAt: Number(out.match(/down_at=(\d+)/)[1]) });
+    } else {
+      await until(mode === 'full' ? AT.right : 1.9);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy }, ps);
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'right', clickCount: 1 }, ps);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'right', clickCount: 1 }, ps);
+      mark('right-click', { css: [cx, cy], screen: [geo.screenX + cx, geo.screenY + geo.chromeH + cy] });
+    }
     const item = await menuItem('Speak selected text');
     let items = ''; try { items = tool('axmenu', String(chromePid)); } catch { /* listed below if possible */ }
     mark('menu-open', { item, items: items.split('\n') });
@@ -132,18 +194,36 @@ ws.onopen = async () => {
       process.exit(0);
     }
     await until(AT.hover);
-    tool('move', item.x, item.y);
+    if (cursor) glide(item.x, item.y, 0.35); else tool('move', item.x, item.y);
     mark('hover');
     await until(AT.click - 0.05);
     // Never click blind: if the menu closed (the operator clicked elsewhere), the point is some other window.
     const again = await menuItem('Speak selected text', 300).catch(() => null);
     if (!again || again.x !== item.x || again.y !== item.y) throw new Error('menu closed or moved before the click; not clicking');
-    const out = tool('click', item.x, item.y, 0.05);
+    const out = tool('click', item.x, item.y, 0.05, ...(cursor ? ['--stay'] : []));
     const downAt = Number(out.match(/down_at=(\d+)/)[1]);
     mark('speak-click', { downAt, tDown: (downAt - t0) / 1000 });
-    tool('move', parkX, parkY);
+    if (!cursor) tool('move', parkX, parkY);
     // 4) optional: the real anchored popup, opened from the service worker, shows the speaking state
-    if (popupAt != null) {
+    if (popupAt != null && cursor) {
+      // the real way: the pointer goes to the pinned toolbar button and clicks it
+      // Located only now, and again after the glide: once audio plays, Chrome adds its media-controls button to the
+      // toolbar and every icon to its right shifts, so a position read earlier can be the Extensions (puzzle) button.
+      const findButton = () => tool('axfind', chromePid, 'Natural TTS', 'AXPopUpButton').split(/[ \t]/).slice(0, 2).map(Number);
+      await until(popupAt - 0.75);
+      let [bx, by] = findButton();
+      assertOnCapture(bx, by, 'toolbar button');
+      glide(bx, by, 0.6);
+      const [nx, ny] = findButton();
+      if (nx !== bx || ny !== by) { glide(nx, ny, 0.25); [bx, by] = [nx, ny]; }
+      await until(popupAt);
+      if (findButton().join() !== [bx, by].join()) throw new Error('toolbar button moved before the click; not clicking');
+      const o = tool('click', bx, by, 0.05, '--stay');
+      mark('popup-click', { at: [bx, by], downAt: Number(o.match(/down_at=(\d+)/)[1]) });
+      await sleep(900);
+      glide(bx - 430, by + 260, 0.6);                 // off the popup, onto the page, so no tooltip shows
+      mark('cursor-rest');
+    } else if (popupAt != null) {
       await until(popupAt);
       const sw = (await send('Target.getTargets')).targetInfos
         .find((t) => t.type === 'service_worker' && t.url.startsWith(`chrome-extension://${extId}/`));
