@@ -430,7 +430,7 @@ The helper is a small HTTP API on `127.0.0.1`: `GET /health`, `GET /voices`, and
 Full reference: [native-helper/README.md](native-helper/README.md).
 
 <p align="center">
-  <img src="assets/media/helper.webp" width="700" alt="A terminal session. natural-tts-helper --port 8250 starts, loads Kokoro, warms up both English pipelines and prints Natural TTS Helper is ready, listening on 127.0.0.1:8250. Then curl -s localhost:8250/health prints apiVersion 2, model kokoro-82m, model_loaded true, status ok, version 1.5.0. A curl POST to /speak with the text Hello from a private Kokoro voice and voice af_heart writes hello.wav; the worker logs that it generated 2.52 s of audio in 0.20 s, 12.7 times faster than real time. afinfo hello.wav reports 1 channel, 24000 Hz, Int16, 2.525 seconds.">
+  <img src="assets/media/helper.webp" width="700" alt="A terminal session. natural-tts-helper --port 8250 starts, loads Kokoro, warms up both English pipelines and prints Natural TTS Helper is ready, listening on 127.0.0.1:8250. Then curl -s localhost:8250/health prints apiVersion 2, model kokoro-82m, model_loaded true, status ok, version 1.5.0. A curl POST to /speak with the text Hello from a private Kokoro voice and voice af_heart writes hello.wav; the worker logs that it generated 2.52 s of audio in 0.20 s, 12.9 times faster than real time. afinfo hello.wav reports 1 channel, 24000 Hz, Int16, 2.525 seconds.">
 </p>
 
 More: the [documentation index](docs/README.md), the [CHANGELOG](CHANGELOG.md), where every image and sound here came
