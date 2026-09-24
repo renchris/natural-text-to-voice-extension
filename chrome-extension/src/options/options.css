@@ -139,9 +139,9 @@ body {
 }
 
 .message.message-info {
-  background: rgba(26, 115, 232, 0.1);
+  background: rgba(61, 78, 215, 0.1);
   color: var(--color-primary);
-  border: 1px solid rgba(26, 115, 232, 0.2);
+  border: 1px solid rgba(61, 78, 215, 0.2);
 }
 
 /* Settings Section */
@@ -214,7 +214,7 @@ body {
 .form-select:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+  box-shadow: 0 0 0 3px rgba(61, 78, 215, 0.1);
 }
 
 .form-select:disabled {
@@ -264,7 +264,7 @@ body {
 
 .form-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.1);
+  box-shadow: 0 0 0 8px rgba(61, 78, 215, 0.1);
 }
 
 .form-slider::-webkit-slider-thumb:active {
@@ -284,7 +284,7 @@ body {
 
 .form-slider::-moz-range-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.1);
+  box-shadow: 0 0 0 8px rgba(61, 78, 215, 0.1);
 }
 
 .form-slider:disabled {
@@ -360,7 +360,7 @@ body {
 
 .form-checkbox:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+  box-shadow: 0 0 0 3px rgba(61, 78, 215, 0.1);
 }
 
 .checkbox-label span {
