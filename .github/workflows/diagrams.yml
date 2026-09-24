@@ -1,0 +1,45 @@
+name: diagrams
+
+# Fails when a diagram source (assets/diagrams/*.mmd) changed without its SVGs
+# being re-rendered, when an SVG was edited by hand, when a synced mermaid fence
+# drifted from its source, or when a diagram is wider than the README column.
+# Fix locally with `bun run diagrams` and commit the result.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "assets/diagrams/**"
+      - "scripts/render-diagrams.mjs"
+      - "package.json"
+      - "bun.lock"
+      - "README.md"
+      - "docs/*.md"
+      - "chrome-extension/*.md"
+      - "native-helper/*.md"
+      - ".github/workflows/diagrams.yml"
+  pull_request:
+    paths:
+      - "assets/diagrams/**"
+      - "scripts/render-diagrams.mjs"
+      - "package.json"
+      - "bun.lock"
+      - "README.md"
+      - "docs/*.md"
+      - "chrome-extension/*.md"
+      - "native-helper/*.md"
+      - ".github/workflows/diagrams.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.x"
+      # The lockfile pins elkjs, which decides the layout: never resolve afresh.
+      - run: bun install --frozen-lockfile
+      - run: bun run diagrams:check

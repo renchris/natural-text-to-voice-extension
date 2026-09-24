@@ -1,0 +1,40 @@
+name: ci
+
+# The Chrome extension: type-check, unit tests, production build, dependency
+# audit. The live-helper integration suite skips itself without
+# NTTS_LIVE_HELPER_PORT, and the headed end-to-end suite (bun run test:e2e)
+# needs a desktop Chrome, so neither runs here.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "chrome-extension/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "chrome-extension/**"
+      - ".github/workflows/ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chrome-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.x"
+      - run: bun install --frozen-lockfile
+      - run: bun run type-check
+      - run: bun test
+      - run: bun run build
+      - run: bun audit
