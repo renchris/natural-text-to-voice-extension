@@ -25,6 +25,12 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `cws/*.html`, `cws/base.css` | Store-image templates (screenshots 1–2, small tile, marquee) |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs |
 | `versions.sh` | Prints the toolchain versions; save its output next to every capture set |
+| `launch.sh` | Launches the capture browser (headed, or `HEADLESS=1`), seeds the helper port/voice/speed, arms `port-guard.mjs`, writes `env.txt` |
+| `port-guard.mjs` | CDP `Fetch` guard in every target: refuses 8249, logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
+| `shoot.mjs` | Headless-safe capture of the popup page (or any page) through CDP: `--fit` PNG at 2x, `--cast`/`--grab` frame sequences with timestamps |
+| `assemble-loop.mjs` | Resamples a `shoot.mjs` frame sequence onto a constant rate, merges identical frames, encodes `img2webp -near_lossless 40` |
+| `tapes/` | VHS terminal casts (`helper.tape`, `gate.tape`), their brand theme, `env.sh` (neutral paths), `retime.mjs`, `render.sh` |
+| `GUI_PASS.md` | The assets that still need a real display, with preconditions and commands |
 
 The helper mock is **not** in this directory: it is `chrome-extension/tests/e2e/mock-helper.mjs`, shared with the
 extension's E2E tests, so there is exactly one copy.
@@ -158,6 +164,39 @@ Needs `window.png`, `contextmenu-crop.png` and `popup-anchored-crop.png` in `$OU
 Writes the two 1280×800 screenshots, the 440×280 small tile and the 1400×560 marquee, asserts each size, and writes
 640×400 proofs: the store downscales screenshots to 640×400, so check the popup text is still legible there. Crop the
 popup at ≥ 1:1 CSS scale; a whole-window framing leaves ~6 px text.
+
+## Headless capture (no display, no window server)
+
+Use this when the console is locked or the display asleep, or whenever the screen must not be taken over. Nothing
+here calls `screencapture`, ScreenCaptureKit, `winlist`, `hover`, `click` or `key`. Measured 2026-09-24 on CfT 153.
+
+```bash
+PY=<main checkout>/native-helper/Sources/NaturalTTSHelper/Resources/python-env/bin/python3
+nohup native-helper/.build/release/natural-tts-helper --port 8250 --python "$PY" \
+  --worker "$PWD/native-helper/Sources/NaturalTTSHelper/Resources/tts_worker.py" </dev/null >"$OUT/helper.log" 2>&1 &
+HEADLESS=1 HOLD_HEALTH=8250:600 scripts/capture/launch.sh "$OUT" 8250; source "$OUT/env.txt"
+P="chrome-extension://$EXT_ID/popup/popup.html"
+ID='document.getElementById'
+# popup.png: waits for the real state, then sizes the viewport to the content (360 CSS px wide, 2x)
+node scripts/capture/shoot.mjs "$WS" "$P" --png popup.png --fit \
+  --wait-for "$ID('statusLabel').textContent==='Connected' && $ID('voiceSelect').value==='af_heart'"
+# fallback.png: the same with the helper stopped
+node scripts/capture/shoot.mjs "$WS" "$P" --png fallback.png --fit \
+  --wait-for "$ID('statusLabel').textContent==='Offline' && !$ID('fallbackNotice').hidden"
+# status.webp: grab full-resolution frames while the popup reloads, then assemble with real timing
+node scripts/capture/shoot.mjs "$WS" "$P" --fit --wait-for "$ID('statusLabel').textContent==='Connected'" \
+  --cast "$OUT/status" --grab --secs 3.5 --before "setTimeout(()=>location.reload(),300),1"
+node scripts/capture/assemble-loop.mjs "$OUT/status" status.webp --from <first Checking s> --to <first Connected s> --hold 2500
+scripts/capture/tapes/render.sh helper && scripts/capture/tapes/render.sh gate
+```
+
+- **`--grab`, not the screencast, for loops.** Headless `Page.startScreencast` delivers frames at 1x CSS size
+  whatever the device scale factor, and only when something repaints. `--grab` takes back-to-back
+  `Page.captureScreenshot` calls (~20 frames/s at 2x); a capture issued while a reload commits can go unanswered,
+  so each is raced against 400 ms and dropped if late.
+- **`--hold-health` is a timing change, and must be disclosed.** It delays the popup's `/health` requests so the real
+  "Checking" pill is visible; the popup makes two per open, so the state lasts twice the hold.
+- The anchored popup, the native context menu and the native `<select>` list do not exist headless: see `GUI_PASS.md`.
 
 ## Clean-up
 
