@@ -301,7 +301,7 @@ setup_python_env() {
     # Always run the setup script, even when an environment exists: it is idempotent
     # (uv sync --frozen reconciles in place), and it is what updates a pre-1.5 install.
     # Skipping it left the old pip environment under a new worker. Failures stop here.
-    log_info "Syncing the locked Python environment (first run: ~0.65 GB + ~0.36 GB model)..."
+    log_info "Syncing the locked Python environment (first run: ~0.66 GB + ~0.35 GB model)..."
     if [ "$VERBOSE" = true ]; then
         ./Scripts/setup-python-env.sh
     else

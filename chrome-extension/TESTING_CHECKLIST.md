@@ -94,7 +94,7 @@ This checklist ensures all functionality works correctly before tagging and rele
 1. [ ] Open any webpage (e.g., Wikipedia)
 2. [ ] Select a short paragraph (20-30 words)
 3. [ ] Click extension icon to open popup
-4. [ ] Click "Speak Selected Text" button
+4. [ ] Click "Speak selected text" button
 5. [ ] Verify audio plays
 6. [ ] Verify message: "Playing audio…", and the button reads **Stop** until the audio ends
 
@@ -102,14 +102,14 @@ This checklist ensures all functionality works correctly before tagging and rele
 
 #### Test 2.1b: No Text Selected
 1. [ ] Open popup without selecting text
-2. [ ] Click "Speak Selected Text"
+2. [ ] Click "Speak selected text"
 3. [ ] Verify warning message: "Select some text on the page first."
 
 **Expected**: Clear warning, no errors
 
 #### Test 2.1c: Long Text (> 5000 characters)
 1. [ ] Select very long text (> 5000 chars)
-2. [ ] Click "Speak Selected Text"
+2. [ ] Click "Speak selected text"
 3. [ ] Verify warning: "Text is too long..."
 
 **Expected**: Validation prevents overflow

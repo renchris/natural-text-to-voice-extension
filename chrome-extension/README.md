@@ -95,7 +95,7 @@ the helper for Kokoro voices. It clears the next time a Kokoro voice speaks.
 2. **Click** extension icon in Chrome toolbar
 3. **Choose** voice from dropdown (optional)
 4. **Adjust** speed slider (optional)
-5. **Click** "Speak Selected Text". While it plays, the same button is **Stop**
+5. **Click** "Speak selected text". While it plays, the same button is **Stop**
 
 The popup plays this audio itself, so closing the popup stops it. Right-click and shortcut speech keep playing,
 and an open popup offers Stop for them too.

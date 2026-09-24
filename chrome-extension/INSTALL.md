@@ -142,7 +142,7 @@ If it says **Offline** and you installed the helper, see [Troubleshooting](#trou
 **Method B: the popup**
 
 1. Select some text on the page.
-2. Click the Natural TTS icon, then **Speak Selected Text**. While it plays the button is **Stop**.
+2. Click the Natural TTS icon, then **Speak selected text**. While it plays the button is **Stop**.
 3. 🔊 **Audio plays** until it ends or you close the popup.
 
 ### Test 3: Try different voices
