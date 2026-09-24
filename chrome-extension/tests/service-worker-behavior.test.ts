@@ -188,6 +188,44 @@ describe('context menu → selection → offscreen', () => {
     ]);
   });
 
+  test('an update from 1.4 with no stored voice keeps af_bella (OD-5 is for new installs)', async () => {
+    storedSettings = {};
+    const set = mockChrome.storage.local.set as unknown as ReturnType<typeof mock>;
+    set.mockClear();
+    set.mockImplementation(async (items: Record<string, unknown>) => { Object.assign(storedSettings, items); });
+    try {
+      await listeners['onInstalled']({ reason: 'update', previousVersion: '1.4.0' });
+      expect(set.mock.calls.map(call => call[0])).toEqual([{ selectedVoice: 'af_bella' }]);
+
+      pageSelection = 'Upgraded';
+      await listeners['contextMenus.onClicked'](
+        { menuItemId: 'natural-tts-speak-selection', selectionText: 'Upgraded', pageUrl: 'https://example.com/' },
+        { id: 12 }
+      );
+      expect(speakMessages()).toEqual([{ type: 'SPEAK_IN_OFFSCREEN', text: 'Upgraded', voice: 'af_bella', speed: 1 }]);
+    } finally {
+      set.mockImplementation(async () => {});
+    }
+  });
+
+  test('a stored voice, a fresh install and an update from 1.5 or later write nothing', async () => {
+    const set = mockChrome.storage.local.set as unknown as ReturnType<typeof mock>;
+    const cases: Array<[Record<string, unknown>, unknown]> = [
+      [{ selectedVoice: 'af_nicole' }, { reason: 'update', previousVersion: '1.4.0' }],
+      [{}, { reason: 'install' }],
+      [{}, { reason: 'update', previousVersion: '1.5.0' }],
+      [{}, { reason: 'update', previousVersion: '1.10.2' }],
+      [{}, { reason: 'chrome_update', previousVersion: '1.4.0' }],
+      [{}, undefined],
+    ];
+    for (const [stored, details] of cases) {
+      storedSettings = stored;
+      set.mockClear();
+      await listeners['onInstalled'](details);
+      expect(set).not.toHaveBeenCalled();
+    }
+  });
+
   test('ignores other menu items', async () => {
     await listeners['contextMenus.onClicked'](
       { menuItemId: 'something-else', selectionText: 'x' },

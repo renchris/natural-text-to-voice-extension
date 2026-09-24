@@ -32,7 +32,8 @@ permission to the local helper only, and it turns every silent failure into a vi
   the helper for Kokoro voices. Options → "When the helper isn't running" chooses "Use system voices" (the default)
   or "Show an error". The new `tts` permission adds no install warning.
 - **af_heart is the default voice for new installs** (OD-5), in the helper and the extension. A voice already
-  chosen and stored is left as it is.
+  chosen and stored is left as it is, and an install updated from an earlier release that never stored a voice
+  keeps af_bella, the default it was using.
 - **Homebrew install** (OD-1). `packaging/homebrew/Formula/natural-tts.rb` builds the helper from source, installs
   the uv-locked worker environment on python@3.12, prefetches the pinned Kokoro snapshot for offline use, and runs
   as `brew services start natural-tts`. `packaging/homebrew/publish-tap.sh` publishes it to `renchris/tap`, and

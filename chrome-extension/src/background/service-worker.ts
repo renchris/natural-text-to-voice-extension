@@ -12,7 +12,7 @@ import type {
   OffscreenMessage,
   SystemVoiceStatusResponse,
 } from '../shared/types';
-import { loadSettings } from '../shared/settings-defaults';
+import { loadSettings, pinPreviousDefaultVoice } from '../shared/settings-defaults';
 import type { HelperUnavailableAction } from '../shared/system-voice';
 import { SYSTEM_VOICE_FAILED_MESSAGE } from '../shared/system-voice';
 import {
@@ -72,9 +72,13 @@ console.log('[Natural TTS] Background service worker loaded');
  * subsequent /speak. Helper-side eager-load (tts_worker.py) is the proper
  * warmup mechanism; extension-side prewarm was redundant.
  */
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details?: chrome.runtime.InstalledDetails) => {
   console.log('[Background] Extension installed/updated');
   await setupContextMenu();
+  // OD-5's af_heart default is for new installs: an update keeps the voice it used.
+  if (await pinPreviousDefaultVoice(details)) {
+    console.log('[Background] Kept the previous default voice (af_bella) for this update');
+  }
 });
 
 chrome.runtime.onStartup.addListener(async () => {

@@ -22,7 +22,9 @@ export interface CatalogueVoice {
 /**
  * The default voice for a fresh install: af_heart, Kokoro's best graded
  * voice (OD-5, 2026-09-23). A voice the user already chose stays theirs:
- * only an absent or invalid stored choice falls back to this. Change it here
+ * only an absent or invalid stored choice falls back to this. An install
+ * updated from before 1.5 with no stored voice keeps af_bella, the default it
+ * was using (pinPreviousDefaultVoice, settings-defaults.ts). Change it here
  * and nowhere else.
  */
 export const DEFAULT_VOICE = 'af_heart';
