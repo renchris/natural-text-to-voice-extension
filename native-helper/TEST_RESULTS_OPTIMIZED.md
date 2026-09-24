@@ -1,5 +1,15 @@
 # Phase 1 & 2 Optimization - Final Results
 
+> **Historical record, with an erratum.** This run measured the helper released as `v0.2.0` (2025-11-10) on
+> mlx-audio 0.2.6. It has not been re-run; nothing here describes helper 1.5.0.
+>
+> **Erratum: the "21-25x RTF for longer text" is wrong.** `Scripts/test-performance-long.sh` divided a hard-coded
+> 21.7 s of audio by the request time. The test text was 27 words, not 50, and the 321 KB WAV this report
+> records holds about 6.85 s of audio (24 kHz, 16-bit mono), so the true long-text figure was about **8x**, like
+> the short one. The "Key Code" below also generated only the first sentence of a text (fixed in 1.3.0).
+> Current numbers, measured from the helper's `X-Audio-Duration` header: [README.md#performance](README.md#performance)
+> (about 26.5x on an M1 Max with helper 1.5.0). Details: [docs/history.md](../docs/history.md).
+
 **Date**: 2025-11-10
 **Test Environment**: macOS 15.6 (Darwin 24.6.0), Apple Silicon
 **Model**: Kokoro-82M via MLX

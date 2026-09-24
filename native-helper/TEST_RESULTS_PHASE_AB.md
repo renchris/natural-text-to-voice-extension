@@ -1,5 +1,10 @@
 # Phase 1 Validation - After Phase A & B Fixes
 
+> **Historical record.** This run measured the Phase 1 helper after the stdout-redirect fix (2025-11-09, before
+> the `v0.2.0` release, committed in `2af5779`) on mlx-audio 0.2.6. It has not been re-run; nothing here
+> describes helper 1.5.0. Current numbers: [README.md#performance](README.md#performance). History:
+> [docs/history.md](../docs/history.md).
+
 **Date**: 2025-11-09
 **Test Environment**: macOS 15.6 (Darwin 24.6.0), Apple Silicon
 **Model**: Kokoro-82M via MLX

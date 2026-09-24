@@ -1,5 +1,11 @@
 # Phase 1: Native Helper Validation Results
 
+> **Historical record.** This run measured the first Phase 1 helper (2025-11-09, before the `v0.2.0` release,
+> committed in `2af5779`) on mlx-audio 0.2.6. It has not been re-run; nothing here describes helper 1.5.0. Its
+> RTF figures divide an audio duration hard-coded in the test script by the request time. Current numbers:
+> [README.md#performance](README.md#performance). The story of the three 2025 runs:
+> [docs/history.md](../docs/history.md).
+
 **Date**: 2025-11-09
 **Test Environment**: macOS 15.6 (Darwin 24.6.0), Apple Silicon
 **Model**: Kokoro-82M via MLX
