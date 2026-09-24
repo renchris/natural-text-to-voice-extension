@@ -19,6 +19,14 @@ The thresholds are parameters because the shipped path can move them: IN-03 adds
 scales when the peak exceeds 0.98; the prose fixture peaks near -3 dBFS, so it should not engage) and
 IN-04 changes normalize_text (the prose fixture is plain ASCII, so it should not change the text).
 
+Loudness normalization (1.5.0) is switched OFF for the synthesis compared here (NTTS_LOUDNESS_NORMALIZE=0,
+honoured by the worker and set only by verification tooling), so this gate still sees the decoder's own
+level. The reference is PyTorch Kokoro's un-normalized output, and the level check exists to catch a
+decoder that has drifted in gain (mlx-audio 0.2.6 sat 2.65 dB low); comparing the normalized output, or
+gain-matching it to the reference, would erase exactly that signal. Normalization is one gain applied
+afterwards, and Scripts/verify_loudness.py proves the normalized output is this synthesis times one gain,
+sample for sample, so the two gates together cover the shipped path.
+
 Usage (from native-helper/):
   E=Sources/NaturalTTSHelper/Resources/python-env/bin/python3
   $E Scripts/ref_compare.py                       # synthesise through the bundled tts_worker.py
@@ -126,7 +134,8 @@ def compare(x, ref, lm_ref_gate, lm_ref_r01):
 
 
 def synth_worker(py, worker, text):
-    env = dict(os.environ, HF_HUB_OFFLINE="1", ESPEAK_DATA_PATH=ESPEAK_DATA_PATH)
+    # The pre-normalization synthesis: see the module docstring.
+    env = dict(os.environ, HF_HUB_OFFLINE="1", ESPEAK_DATA_PATH=ESPEAK_DATA_PATH, NTTS_LOUDNESS_NORMALIZE="0")
     p = subprocess.Popen(
         [py, worker],
         stdin=subprocess.PIPE,
@@ -226,6 +235,7 @@ def main():
 
     out = {
         "source": source,
+        "loudness_normalization": "off (pre-normalization synthesis)" if not (a.wav or a.direct) else "n/a",
         "ref_len_s": round(len(ref) / SR, 3),
         "ref_rms_db": round(rms_db(ref), 2),
         "noise_floor": floor,

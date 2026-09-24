@@ -106,6 +106,26 @@ CANCEL_FILE = os.environ.get("NTTS_CANCEL_FILE")
 # limit that costs <= 5% real-time factor. Set with MLX's top-level API (mx.metal.* is deprecated in 0.32).
 MLX_CACHE_LIMIT_MB = int(os.environ.get("NTTS_MLX_CACHE_LIMIT_MB", "256"))
 
+# Loudness normalization of every /speak response (ITU-R BS.1770-4 integrated loudness, gated). Kokoro
+# speaks at about -23 to -28 LUFS and the macOS system voice the extension falls back to at about -13, so
+# the engine switch was a jump of ~10 LU. One gain per response, never a compressor or limiter: the gain is
+# the smallest of the one that reaches LOUDNESS_TARGET_LUFS, the one that puts the 4x-oversampled true peak
+# at TRUE_PEAK_CEILING_DBTP (so no sample can clip) and MAX_GAIN_DB. Kokoro's speech runs 14-24 dB from
+# true peak to loudness, more than the 14.5 dB between the target and the ceiling, so most responses stop
+# at the ceiling below the target (W2-integration-measurements.md §10 has the numbers).
+LOUDNESS_TARGET_LUFS = -16.0
+TRUE_PEAK_CEILING_DBTP = -1.5
+# BS.1770-4's absolute gate. A response whose loudness is below it is silence (or nearly), and is returned
+# unchanged rather than amplified.
+LOUDNESS_FLOOR_LUFS = -70.0
+# Upper bound on the gain, so an almost-silent response is never lifted into audible noise. Kokoro's
+# speech needs +3 to +12 dB.
+MAX_GAIN_DB = 24.0
+# Verification only: "0" returns the synthesis exactly as generated (the pre-normalization audio), so
+# Scripts/ref_compare.py can hold the decoder's own level against the PyTorch reference. The helper never
+# sets it.
+LOUDNESS_NORMALIZE = os.environ.get("NTTS_LOUDNESS_NORMALIZE", "1") != "0"
+
 
 def bound_mlx_memory():
     import mlx.core as mx
@@ -398,6 +418,142 @@ def parse_speed(value):
     return speed
 
 
+# ---------------------------------------------------------------------------------------------- loudness
+# numpy only. The two K-weighting biquads are derived for any sample rate from the analogue prototypes
+# behind BS.1770-4's 48 kHz table (the libebur128 / pyloudnorm derivation: bilinear transform with
+# prewarping); at 48 kHz they reproduce the table's coefficients to 1e-8 (Scripts/verify_loudness.py
+# checks it). The filters run as an FFT convolution with their impulse response, truncated at 16,384
+# samples where it has decayed below 1e-30, which keeps every call vectorised.
+_K_SHELF = (1681.974450955533, 3.999843853973347, 0.7071752369554196)  # f0 Hz, gain dB, Q
+_K_HIGHPASS = (38.13547087602444, 0.5003270373238773)  # f0 Hz, Q
+_K_IR_SAMPLES = 16384
+_TRUE_PEAK_OVERSAMPLE = 4
+_TRUE_PEAK_HALF_TAPS = 16  # input samples each side of an interpolated point
+
+
+def k_weighting_coefficients(rate):
+    """((b, a) of the high shelf, (b, a) of the high-pass) at `rate` Hz, each a[0] == 1."""
+    f0, gain_db, q = _K_SHELF
+    k = math.tan(math.pi * f0 / rate)
+    vh = 10.0 ** (gain_db / 20.0)
+    vb = vh**0.4996667741545416
+    a0 = 1.0 + k / q + k * k
+    shelf = (
+        ((vh + vb * k / q + k * k) / a0, 2.0 * (k * k - vh) / a0, (vh - vb * k / q + k * k) / a0),
+        (1.0, 2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0),
+    )
+    f0, q = _K_HIGHPASS
+    k = math.tan(math.pi * f0 / rate)
+    a0 = 1.0 + k / q + k * k
+    highpass = ((1.0, -2.0, 1.0), (1.0, 2.0 * (k * k - 1.0) / a0, (1.0 - k / q + k * k) / a0))
+    return shelf, highpass
+
+
+_k_ir_cache = {}
+
+
+def _k_weighting_ir(rate):
+    """Impulse response of the two K-weighting biquads in cascade (direct form I, computed once per rate)."""
+    if rate not in _k_ir_cache:
+        import numpy as np
+
+        h = [1.0] + [0.0] * (_K_IR_SAMPLES - 1)
+        for (b0, b1, b2), (_, a1, a2) in k_weighting_coefficients(rate):
+            out, x1, x2, y1, y2 = [], 0.0, 0.0, 0.0, 0.0
+            for x0 in h:
+                y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+                out.append(y0)
+                x2, x1, y2, y1 = x1, x0, y1, y0
+            h = out
+        _k_ir_cache[rate] = np.asarray(h)
+    return _k_ir_cache[rate]
+
+
+def _fir(x, h, block=1 << 16):
+    """x convolved with h, full length len(x) + len(h) - 1, by overlap-add FFT in bounded memory."""
+    import numpy as np
+
+    n_fft = 1 << (block + len(h) - 2).bit_length()
+    h_f = np.fft.rfft(h, n_fft)
+    y = np.zeros(len(x) + len(h) - 1)
+    for start in range(0, len(x), block):
+        seg = x[start : start + block]
+        n = len(seg) + len(h) - 1
+        y[start : start + n] += np.fft.irfft(np.fft.rfft(seg, n_fft) * h_f, n_fft)[:n]
+    return y
+
+
+def integrated_loudness(audio, rate=SAMPLE_RATE):
+    """(LUFS, gated) of a mono signal per ITU-R BS.1770-4: K-weighting, 400 ms blocks with 75% overlap, the
+    -70 LUFS absolute gate, then the relative gate 10 LU below the absolutely-gated mean. A signal shorter
+    than one block cannot be gated, so it gets the ungated K-weighted mean square (gated=False). The LUFS is
+    None when it is below LOUDNESS_FLOOR_LUFS: silence."""
+    import numpy as np
+
+    x = np.asarray(audio, dtype=np.float64).reshape(-1)
+    if x.size == 0:
+        return None, False
+    y = _fir(x, _k_weighting_ir(rate))[: x.size]
+    energy = np.concatenate(([0.0], np.cumsum(y * y)))
+    block, step = int(round(0.4 * rate)), int(round(0.1 * rate))
+
+    def lufs(mean_square):
+        return -0.691 + 10.0 * math.log10(mean_square) if mean_square > 0 else -math.inf
+
+    if x.size < block:
+        level = lufs(energy[-1] / x.size)
+        return (level if level >= LOUDNESS_FLOOR_LUFS else None), False
+    starts = np.arange(0, x.size - block + 1, step)
+    z = np.maximum((energy[starts + block] - energy[starts]) / block, 0.0)
+    with np.errstate(divide="ignore"):
+        z = z[-0.691 + 10.0 * np.log10(z) > LOUDNESS_FLOOR_LUFS]
+        if z.size == 0:
+            return None, True
+        relative_gate = lufs(float(np.mean(z))) - 10.0
+        z = z[-0.691 + 10.0 * np.log10(z) > relative_gate]
+    return lufs(float(np.mean(z))), True
+
+
+_true_peak_phases = []
+
+
+def true_peak_dbtp(audio):
+    """True peak in dBTP: the largest |sample| of the signal and of its 4x interpolation (windowed sinc, 32
+    taps per phase, Kaiser beta 8, each phase normalised to unity gain at DC)."""
+    import numpy as np
+
+    x = np.asarray(audio, dtype=np.float64).reshape(-1)
+    if x.size == 0:
+        return -math.inf
+    if not _true_peak_phases:
+        m, half = _TRUE_PEAK_OVERSAMPLE, _TRUE_PEAK_HALF_TAPS
+        k = np.arange(-half + 1, half + 1)
+        for p in range(1, m):
+            taps = np.sinc(k - p / m) * np.kaiser(2 * half, 8.0)  # the point p/m past each input sample
+            _true_peak_phases.append((taps / taps.sum())[::-1])
+    peak = float(np.max(np.abs(x)))
+    for taps in _true_peak_phases:
+        peak = max(peak, float(np.max(np.abs(_fir(x, taps)))))
+    return 20.0 * math.log10(peak) if peak > 0 else -math.inf
+
+
+def normalize_loudness(audio, rate=SAMPLE_RATE):
+    """(audio * gain, report). The gain is the smallest of the loudness gain to LOUDNESS_TARGET_LUFS, the
+    gain that puts the true peak at TRUE_PEAK_CEILING_DBTP and MAX_GAIN_DB; silence is returned unchanged.
+    The report holds numbers only, never text: lufs_in, gated, true_peak_in, gain_db, limited_by."""
+    lufs_in, gated = integrated_loudness(audio, rate)
+    peak_in = true_peak_dbtp(audio)
+    report = {"lufs_in": lufs_in, "gated": gated, "true_peak_in": peak_in, "gain_db": 0.0, "limited_by": "silence"}
+    if lufs_in is None or not math.isfinite(peak_in):
+        return audio, report
+    report["gain_db"], report["limited_by"] = min(
+        (LOUDNESS_TARGET_LUFS - lufs_in, "target"),
+        (TRUE_PEAK_CEILING_DBTP - peak_in, "true_peak"),
+        (MAX_GAIN_DB, "max_gain"),
+    )
+    return audio * (10.0 ** (report["gain_db"] / 20.0)), report
+
+
 def generate_audio_mlx(text, voice, speed, request_id=None):
     """Generate audio using MLX with cached model and in-memory processing"""
     try:
@@ -491,6 +647,17 @@ def generate_audio_mlx(text, voice, speed, request_id=None):
         if not np.isfinite(audio_np).all():
             logger.error("Generated audio contains NaN or inf")
             return {"error": "nan_audio"}
+        if LOUDNESS_NORMALIZE:
+            t_loud_start = time.time()
+            audio_np, loud = normalize_loudness(audio_np)
+            level = "silence" if loud["lufs_in"] is None else f"{loud['lufs_in']:.2f} LUFS"
+            logger.info(
+                f"Loudness {level} ({'gated' if loud['gated'] else 'ungated: under 400 ms'}), true peak "
+                f"{loud['true_peak_in']:.2f} dBTP; gain {loud['gain_db']:+.2f} dB (limited by "
+                f"{loud['limited_by']}) in {time.time() - t_loud_start:.3f}s"
+            )
+        # With normalization the true-peak ceiling (-1.5 dBTP, 0.84) already keeps every sample below this
+        # limit; the guard stays for NTTS_LOUDNESS_NORMALIZE=0 and as the last line before the 16-bit encode.
         peak = float(np.max(np.abs(audio_np)))
         if peak > PEAK_LIMIT:
             logger.info(f"Peak {peak:.3f} above {PEAK_LIMIT}; scaling down")
