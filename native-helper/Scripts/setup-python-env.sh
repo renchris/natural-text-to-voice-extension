@@ -105,7 +105,16 @@ EOF
 
 echo
 echo "Fetching the Kokoro model once (weights + voices, ~360 MB on first run)..."
-PREFETCH="from huggingface_hub import snapshot_download as s; s('$MODEL_ID', ignore_patterns=['*.pt'])"
+# The worker pins the model commit (MODEL_REVISION in tts_worker.py); fetch exactly that commit and the
+# files the worker loads (MODEL_FILES), so a fresh install gets the weights and voices the gate measured,
+# not whatever upstream main holds today.
+MODEL_REVISION="$(sed -nE 's/^MODEL_REVISION = "([0-9a-f]{40})"$/\1/p' "$WORKER")"
+if [ -z "$MODEL_REVISION" ]; then
+    echo "Error: no MODEL_REVISION line in $WORKER" >&2
+    exit 1
+fi
+echo "Model revision: $MODEL_REVISION"
+PREFETCH="from huggingface_hub import snapshot_download as s; s('$MODEL_ID', revision='$MODEL_REVISION', allow_patterns=['config.json', '*.safetensors'])"
 if ! "$PY" -c "$PREFETCH"; then
     echo "Online fetch failed; checking the local cache instead (HF_HUB_OFFLINE=1)..."
     if ! HF_HUB_OFFLINE=1 "$PY" -c "$PREFETCH"; then

@@ -70,6 +70,14 @@ def describe_exception(e):
     return f"{type(e).__name__}{where}"
 
 MODEL_ID = "prince-canuma/Kokoro-82M"
+# The model is pinned to one Hub commit, as the Python environment is pinned by uv.lock. Weights AND voices
+# load from that commit's snapshot: by repo id alone mlx-audio resolves the cache's refs/main, i.e. whatever
+# upstream main held the day setup ran (voices are fetched by id, with no revision, even when load_model is
+# given one). Scripts/setup-python-env.sh reads this line and fetches exactly this commit. Change it only
+# together with a fidelity re-run (Scripts/ref_compare.py).
+MODEL_REVISION = "e02c9eada7ce7416798af36b190a8a2dd2ecd566"
+# What the worker needs from the snapshot; setup fetches the same set.
+MODEL_FILES = ["config.json", "*.safetensors"]
 SETUP_HINT = "run Scripts/setup-python-env.sh (model not cached or dependency missing)"
 PEAK_LIMIT = 0.98
 SAMPLE_RATE = 24000
@@ -82,8 +90,32 @@ MAX_MESSAGE_BYTES = 10 * 1024 * 1024
 # 5,000 digit-dense characters at 1.0x made ~38 minutes, which used to desync the pipe for good.
 MAX_AUDIO_SECONDS = float(os.environ.get("NTTS_MAX_AUDIO_SECONDS", "1200"))
 
-# Global model cache for reuse across requests
+# Global model cache for reuse across requests, and the pinned snapshot directory it was loaded from
 _model_cache = None
+_model_dir = None
+
+
+def load_pinned_model():
+    """Load the weights of MODEL_REVISION and remember its snapshot directory for the voices. Offline:
+    fails if setup has not fetched that commit."""
+    global _model_dir
+    from huggingface_hub import snapshot_download
+    from mlx_audio.tts.utils import load_model
+
+    _model_dir = snapshot_download(
+        MODEL_ID, revision=MODEL_REVISION, allow_patterns=MODEL_FILES, local_files_only=True
+    )
+    return load_model(MODEL_ID, revision=MODEL_REVISION)
+
+
+def voice_file(voice):
+    """The pinned snapshot's file for a voice id, or None if the snapshot lacks it. mlx-audio loads a
+    voice given as a .safetensors path directly, instead of resolving the id through refs/main. With no
+    pinned model loaded (a test stub) the id is returned unchanged."""
+    if _model_dir is None:
+        return voice
+    path = os.path.join(_model_dir, "voices", f"{voice}.safetensors")
+    return path if os.path.isfile(path) else None
 
 
 class BadFrame(Exception):
@@ -147,10 +179,8 @@ def get_cached_model():
     """Get or create cached MLX model instance"""
     global _model_cache
     if _model_cache is None:
-        from mlx_audio.tts.utils import load_model
-
         logger.info("Loading model (first time)...")
-        _model_cache = load_model(MODEL_ID)
+        _model_cache = load_pinned_model()
         logger.info("Model loaded and cached")
     else:
         logger.info("Using cached model")
@@ -163,16 +193,15 @@ def load_mlx_model():
     global _model_cache
     try:
         from contextlib import redirect_stdout, redirect_stderr
-        from mlx_audio.tts.utils import load_model
 
-        logger.info("Eagerly loading Kokoro weights at startup...")
-        _model_cache = load_model(MODEL_ID)
+        logger.info(f"Eagerly loading Kokoro weights at startup (revision {MODEL_REVISION[:7]})...")
+        _model_cache = load_pinned_model()
 
         logger.info("Warming up (one short generation)...")
         # mlx-audio print()s to stdout; stdout is the length-prefixed protocol channel, so silence it.
         with open(os.devnull, "w") as devnull:
             with redirect_stdout(devnull), redirect_stderr(devnull):
-                for _ in _model_cache.generate("Ready.", voice="af_bella", speed=1.0):
+                for _ in _model_cache.generate("Ready.", voice=voice_file("af_bella"), speed=1.0):
                     pass
 
         # PythonWorker.swift matches this exact line; do not reword it.
@@ -250,6 +279,10 @@ def generate_audio_mlx(text, voice, speed):
 
         # Only American (a) and British (b) voices are exposed; j/z would need extra misaki extras.
         lang_code = voice[0] if voice[:1] in ("a", "b") else "a"
+        voice_ref = voice_file(voice)
+        if voice_ref is None:
+            logger.error(f"Voice {voice} is not in the pinned model snapshot")
+            return {"error": "unknown_voice"}
 
         logger.info(
             f"Generating [{len(text)} chars] (voice={voice}, lang_code={lang_code}, speed={speed})"
@@ -269,7 +302,7 @@ def generate_audio_mlx(text, voice, speed):
                 # Use model's direct generate method (returns a generator)
                 # The generator yields one result per sentence/chunk
                 result_gen = model.generate(
-                    text, voice=voice, speed=speed, lang_code=lang_code
+                    text, voice=voice_ref, speed=speed, lang_code=lang_code
                 )
                 # Collect all audio chunks from the generator, stopping at the response-size bound.
                 audio_chunks = []

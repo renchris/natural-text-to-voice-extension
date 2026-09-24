@@ -222,6 +222,59 @@ def offline_phase(py, worker, env, check):
         server.shutdown()
 
 
+def pin_phase(py, worker, env, check):
+    """The worker loads the pinned MODEL_REVISION, weights and voices, whatever the cache's refs/main says.
+    A temporary HF cache shares the real cache's entries but points refs/main at a commit that does not
+    exist; a worker that resolves the repo id (weights, or voices by id) through refs/main fails."""
+    import shutil
+
+    try:
+        from huggingface_hub import constants
+    except ImportError:
+        check(False, "pin phase needs huggingface_hub: run verify_worker.py with the helper's python-env")
+        return
+    repo_dir = "models--prince-canuma--Kokoro-82M"
+    real = os.path.join(constants.HF_HUB_CACHE, repo_dir)
+    tmp = tempfile.mkdtemp(prefix="ntts-pin-")
+    try:
+        fake = os.path.join(tmp, repo_dir)
+        os.makedirs(os.path.join(fake, "refs"))
+        for sub in os.listdir(real):  # blobs, snapshots, trees, .no_exist: everything but refs
+            if sub != "refs":
+                os.symlink(os.path.join(real, sub), os.path.join(fake, sub))
+        with open(os.path.join(fake, "refs", "main"), "w") as f:
+            f.write("0" * 40)
+        p = subprocess.Popen(
+            [py, worker],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=dict(env, HF_HUB_CACHE=tmp),
+        )
+        b = json.dumps({"text": "Pinned.", "voice": "af_heart", "speed": 1.0}).encode()
+        try:
+            p.stdin.write(struct.pack("<I", len(b)) + b)
+            p.stdin.flush()
+            h = p.stdout.read(4)
+            r = json.loads(p.stdout.read(struct.unpack("<I", h)[0])) if len(h) == 4 else None
+        except (BrokenPipeError, OSError):
+            r = None
+        ok = isinstance(r, dict) and "audio_base64" in r
+        print(f"PIN refs/main -> 000…0: af_heart -> {'audio' if ok else r}")
+        check(ok, f"with refs/main pointing elsewhere the worker did not serve the pinned model: {r}")
+        try:
+            p.stdin.close()
+        except OSError:
+            pass
+        try:
+            p.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     py = sys.argv[1] if len(sys.argv) > 1 else sys.executable
     worker = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_WORKER
@@ -343,6 +396,7 @@ def main():
     bounds_phase(py, worker, env, check)
     guard_phase(worker, check)
     offline_phase(py, worker, env, check)
+    pin_phase(py, worker, env, check)
 
     if failures:
         print("verify_worker: FAIL", file=sys.stderr)
