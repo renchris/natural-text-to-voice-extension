@@ -1,9 +1,9 @@
 # Manual Testing Checklist
-**Natural TTS Chrome Extension v1.4.0**
+**Natural TTS: Private Kokoro Voices for Mac, v1.5.0**
 
 **Pre-Release Testing Checklist**
 
-This checklist ensures all functionality works correctly before tagging and releasing v1.4.0. Complete all sections and mark items as ✅ (pass), ❌ (fail), or ⏭️ (skipped).
+This checklist ensures all functionality works correctly before tagging and releasing v1.5.0. The automated gates cover most of it (`bun test`, `bun run test:e2e`, and `scripts/verify-all.sh` at the repo root); this list is the by-hand pass on a real helper and real pages. Complete all sections and mark items as ✅ (pass), ❌ (fail), or ⏭️ (skipped).
 
 ---
 
@@ -12,11 +12,10 @@ This checklist ensures all functionality works correctly before tagging and rele
 ### Environment Preparation
 - [ ] **Native Helper Running**
   ```bash
-  cd ../native-helper
-  .build/release/natural-tts-helper
+  native-helper/Scripts/quickstart.sh     # from the repo root; or: brew services start natural-tts
   ```
-  - Verify: Terminal shows "Ready to serve requests"
-  - Verify: Port 8249 is listening
+  - Verify: the helper log shows "Natural TTS Helper is ready!" (`native-helper/Scripts/logs.sh`)
+  - Verify: `curl -s http://127.0.0.1:8249/health` reports `"status":"ok"`, `"apiVersion":2`
 
 - [ ] **Extension Loaded in Chrome**
   ```bash
@@ -51,26 +50,33 @@ This checklist ensures all functionality works correctly before tagging and rele
 
 #### Test 1.2a: Helper Running (Normal Case)
 - [ ] Start helper before opening extension
-- [ ] Open popup → Status indicator shows green
+- [ ] Open popup → status pill reads **Connected**
 - [ ] Voices load correctly
 - [ ] "Speak" button is enabled
 
-**Expected**: Green status indicator, all features enabled
+**Expected**: Connected, all features enabled
 
-#### Test 1.2b: Helper Not Running (Error Case)
-- [ ] Stop helper (Ctrl+C in terminal)
-- [ ] Open popup → Status indicator shows red
-- [ ] Error message: "Native helper not running..."
-- [ ] "Retry Connection" button appears
-- [ ] "Speak" button is disabled
-- [ ] Voice dropdown shows "Helper not connected"
+#### Test 1.2b: Helper Not Running, System Voices (Default)
+- [ ] Stop helper (`native-helper/Scripts/teardown.sh` or `brew services stop natural-tts`)
+- [ ] Open popup → status pill reads **Offline**
+- [ ] Message: "The helper isn’t running, so a system voice will read your selection."
+- [ ] The install notice shows `brew install renchris/tap/natural-tts && brew services start natural-tts`
+- [ ] "Retry Connection" button appears; "Speak" is enabled
+- [ ] Speak reads the selection in a system voice; the engine line says "System voice"
 
-**Expected**: Graceful degradation with clear error messaging
+**Expected**: Speech still works, and the popup says how to get the Kokoro voices
+
+#### Test 1.2b-2: Helper Not Running, "Show an error"
+- [ ] In Options, set "When the helper isn't running" to **Show an error** and save
+- [ ] Open popup → **Offline**, message "Native helper not running. Please start the helper and click Retry."
+- [ ] "Speak" is disabled; the voice list shows "Helper not connected - Start helper to load voices"
+
+**Expected**: A clear error and Retry, no system voice
 
 #### Test 1.2c: Retry Connection
 - [ ] Start helper while popup is open
 - [ ] Click "Retry Connection" button
-- [ ] Status indicator changes from red → yellow → green
+- [ ] Status pill changes from **Offline** → **Checking** → **Connected** (or **Warming** first, then Connected)
 - [ ] Success message: "Successfully connected to helper!"
 - [ ] Voices load correctly
 - [ ] "Speak" button becomes enabled
@@ -89,14 +95,14 @@ This checklist ensures all functionality works correctly before tagging and rele
 3. [ ] Click extension icon to open popup
 4. [ ] Click "Speak Selected Text" button
 5. [ ] Verify audio plays
-6. [ ] Verify message: "Playing audio..."
+6. [ ] Verify message: "Playing audio…", and the button reads **Stop** until the audio ends
 
 **Expected**: Clear speech audio at normal speed (1.0x)
 
 #### Test 2.1b: No Text Selected
 1. [ ] Open popup without selecting text
 2. [ ] Click "Speak Selected Text"
-3. [ ] Verify warning message: "Please select text..."
+3. [ ] Verify warning message: "Select some text on the page first."
 
 **Expected**: Clear warning, no errors
 
@@ -201,9 +207,22 @@ Test special characters and formatting:
 - [ ] **Styled text**: "𝐁𝐨𝐥𝐝" → Should read as "Bold"
 - [ ] **Mathematical**: "ℝ𝕖𝕒𝕝" → Should read as "Real"
 - [ ] **Emoji**: "Hello 👋 World" → Should skip emoji gracefully
-- [ ] **Accented**: "Café résumé" → Should pronounce correctly
+- [ ] **Accented**: "Café résumé" → Read with the accents folded ("Cafe resume")
+- [ ] **Typographic punctuation**: curly quotes, dashes and "…" shape the pauses instead of being dropped
+- [ ] **Long tokens**: a 20-digit number is read in groups of three; a 300-character URL is read in full
 
 **Expected**: Text normalizes correctly, no pronunciation errors
+
+---
+
+### 2.7 Keyboard Commands and Stop ✅ / ❌
+- [ ] `chrome://extensions/shortcuts` lists **Speak the selected text** and **Stop speaking**, with no keys bound
+- [ ] The popup footer shows **Set a shortcut** until one is bound, then the bound key
+- [ ] Bind both; select text and press the speak key → audio plays
+- [ ] Press the stop key → audio stops at once
+- [ ] Right-click speak a long passage, open the popup → it offers **Stop**, and Stop ends the speech
+
+**Expected**: Commands work once bound; Stop ends speech from any entry point
 
 ---
 
@@ -243,6 +262,19 @@ Test special characters and formatting:
 
 ---
 
+### 3.4 When the Helper Isn't Running ✅ / ❌
+1. [ ] Open options page; the setting shows **Use system voices** (the default)
+2. [ ] Change it to **Show an error**, click "Save Settings"
+3. [ ] Stop the helper, right-click a selection → "Speak selected text"
+4. [ ] Verify the toolbar icon shows a red **!**, and hovering it gives the reason
+5. [ ] Change the setting back to **Use system voices**, save, right-click again
+6. [ ] Verify a system voice speaks, and the icon shows a grey **i** whose tooltip says to install the helper
+7. [ ] Start the helper, speak again → the badge clears
+
+**Expected**: The setting decides between a system voice and an error, on both the popup and the right-click path
+
+---
+
 ### 3.5 Reset to Defaults ✅ / ❌
 1. [ ] Change voice to "Sarah"
 2. [ ] Change speed to 1.8x
@@ -257,7 +289,7 @@ Test special characters and formatting:
 
 ---
 
-### 3.6 Settings Sync ✅ / ❌
+### 3.6 Popup and Options Share Settings ✅ / ❌
 1. [ ] Open popup, change voice to "Nicole"
 2. [ ] Save (settings auto-save in popup)
 3. [ ] Open options page
@@ -267,7 +299,7 @@ Test special characters and formatting:
 7. [ ] Open popup
 8. [ ] Verify popup shows "Adam"
 
-**Expected**: Settings sync across popup and options
+**Expected**: Popup and options read and write the same settings (`chrome.storage.local`; not synced to other computers)
 
 ---
 
@@ -276,7 +308,7 @@ Test special characters and formatting:
 ### 4.1 Network Errors ✅ / ❌
 - [ ] Stop helper mid-request
 - [ ] Verify graceful error handling
-- [ ] Verify error message is user-friendly
+- [ ] Verify error message is user-friendly (for example "The Natural TTS helper is not running. Start it, then try again."), never "Server error: 500"
 
 **Expected**: No crashes, clear error messages
 
@@ -284,7 +316,8 @@ Test special characters and formatting:
 
 ### 4.2 Invalid Input ✅ / ❌
 - [ ] Select empty text (whitespace only)
-- [ ] Verify warning: "Please select text..."
+- [ ] Verify warning: "Select some text on the page first."
+- [ ] Select text with nothing speakable (only emoji, or only CJK) → "There is no speakable text in the selection."
 
 **Expected**: Validation prevents empty requests
 
@@ -323,10 +356,11 @@ Check for errors in:
 
 ### 5.3 Concurrent Requests ✅ / ❌
 - [ ] Click "Speak" button rapidly 5 times
-- [ ] Verify only one request processes at a time
-- [ ] Verify no race conditions or overlapping audio
+- [ ] Verify only one request is sent (clicks while it generates are ignored)
+- [ ] Right-click speak a second selection while the first plays → the second replaces the first
+- [ ] Verify no overlapping audio
 
-**Expected**: Requests queue properly, no audio overlap
+**Expected**: One request at a time, no audio overlap
 
 ---
 
@@ -337,7 +371,7 @@ Check for errors in:
 - [ ] Options: Sections well-organized
 - [ ] Focus indicators visible on Tab navigation
 - [ ] Hover states work on all buttons
-- [ ] Status indicator colors correct (red/yellow/green)
+- [ ] Status pill label and colour match the state (Checking, Warming, Connected, Offline)
 
 **Expected**: Professional, polished UI
 
@@ -377,7 +411,7 @@ Test with VoiceOver (macOS):
 - [ ] **Chrome Beta** (if available)
 - [ ] Verify extension works on all tested versions
 
-**Expected**: Works on Chrome 88+
+**Expected**: Works on Chromium 148+ (`minimum_chrome_version`); Chrome refuses to install it on older versions
 
 ---
 
@@ -406,8 +440,11 @@ Test with VoiceOver (macOS):
 - [ ] Spanish text: "Hola mundo"
 - [ ] French text: "Bonjour le monde"
 - [ ] German text: "Hallo Welt"
+- [ ] Japanese or Russian text
 
-**Expected**: English model attempts pronunciation (may not be perfect)
+**Expected**: Latin-script text is read with English pronunciation (accents folded). Text in other scripts is
+dropped by the helper's ASCII folding, so an all-CJK or all-Cyrillic selection reports "There is no speakable
+text in the selection."
 
 ---
 
@@ -456,17 +493,21 @@ Test with VoiceOver (macOS):
 cd chrome-extension
 bun test
 ```
-- [ ] All tests pass (128/128)
+- [ ] All tests pass (at v1.5.0: 242 pass, 7 skipped, 0 fail; the skips are the live-helper suite)
 - [ ] No flaky tests
-- [ ] Coverage is adequate
+- [ ] `bun run type-check` and `bun run build` succeed
 
 **Expected**: 100% test pass rate
 
 ---
 
 ### 10.2 Integration Tests ✅ / ❌
+```bash
+NTTS_LIVE_HELPER_PORT=8249 bun test tests/integration   # against a running helper
+bun run test:e2e                                        # headed Chrome for Testing + mock helper
+```
 - [ ] API client integration tests pass
-- [ ] Helper connectivity tests pass
+- [ ] End-to-end suite passes
 
 **Expected**: All integration tests green
 
@@ -475,9 +516,9 @@ bun test
 ## 11. Security Tests
 
 ### 11.1 Permissions ✅ / ❌
-- [ ] Verify only required permissions requested
-- [ ] No unnecessary host permissions
-- [ ] Storage permission used correctly
+- [ ] Permissions are exactly `storage`, `contextMenus`, `activeTab`, `scripting`, `offscreen`, `tts`
+- [ ] Host permissions are exactly `http://127.0.0.1/*`; no content scripts
+- [ ] `bun run verify:permissions` prints only `["Read and change your data on 127.0.0.1"]`
 
 **Expected**: Minimal permissions, no overreach
 
@@ -486,7 +527,7 @@ bun test
 ### 11.2 Network Security ✅ / ❌
 - [ ] Open Chrome DevTools → Network tab
 - [ ] Generate TTS request
-- [ ] Verify only `http://127.0.0.1:8249` requests
+- [ ] Verify only `http://127.0.0.1` requests, on ports 8249-8260
 - [ ] Verify no external network calls
 
 **Expected**: Zero external network traffic
@@ -494,11 +535,11 @@ bun test
 ---
 
 ### 11.3 Content Security Policy ✅ / ❌
-- [ ] Verify manifest.json has strict CSP
+- [ ] manifest.json sets no `content_security_policy`, so Manifest V3's default applies
 - [ ] No inline scripts in HTML
 - [ ] No eval() usage in code
 
-**Expected**: Strict CSP enforced
+**Expected**: MV3's default CSP holds (no inline scripts, no eval, no remote code)
 
 ---
 
@@ -509,9 +550,9 @@ bun test
 - [ ] All manual tests completed above
 - [ ] No critical or high-priority bugs
 - [ ] Documentation is complete and accurate
-- [ ] CHANGELOG.md updated with v1.4.0 changes
+- [ ] CHANGELOG.md updated with v1.5.0 changes
 - [ ] Version numbers synced (manifest.json, package.json)
-- [ ] Screenshots captured (see SCREENSHOTS_GUIDE.md)
+- [ ] Store images and README media captured (see `scripts/capture/README.md`)
 - [ ] Clean git state (no uncommitted changes)
 
 ### Release Readiness ✅ / ❌
@@ -542,7 +583,7 @@ bun test
 **Critical Issues Found**: (list here if any)
 
 **Recommendation**:
-- [ ] ✅ **APPROVED** - Ready for v1.4.0 release
+- [ ] ✅ **APPROVED** - Ready for v1.5.0 release
 - [ ] ❌ **NOT APPROVED** - Critical issues must be fixed
 
 ---
@@ -551,9 +592,9 @@ bun test
 
 - **Priority**: Focus on sections 1-4 (core functionality) first
 - **Time Estimate**: Allow 2-3 hours for complete testing
-- **Automation**: Sections 2-5 could be automated in future (Playwright/Puppeteer)
+- **Automation**: `bun run test:e2e` already drives context-menu speech, a 40 s synthesis, Stop and the helper-down badge in Chrome for Testing
 - **Regression**: Re-run this checklist for all minor/major releases
 
 ---
 
-**Testing complete!** If all checks pass, proceed to STEP 8: Update CHANGELOG and STEP 9: Release.
+**Testing complete!** If all checks pass, the release can be tagged.
