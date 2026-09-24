@@ -2,6 +2,15 @@
 """Assemble the promo video (YouTube master, 1920x1080) and the README demo cut (1280x720) from the GUI-pass takes.
 
 Usage: python3 scripts/capture/promo-assemble.py <takes-dir> <out-master.mp4> <out-demo.mp4>
+       python3 scripts/capture/promo-assemble.py --remux-audio <takes-dir> <old-master.mp4> <out-master.mp4> \
+               <old-demo.mp4> <out-demo.mp4>
+
+--remux-audio rebuilds ONLY the sound, with exactly the graph a full run uses (same scenes, offsets, crossfades and
+AAC settings), and muxes it with the video stream COPIED from the finished file, so the picture is never re-encoded.
+This is how the clips are replaced after they are regenerated (1.5.0 loudness normalization). NTTS_AUDIO_DIR points
+it at another clip directory: run with the clips the old file was made from and every packet of both streams, with its
+timestamps, comes out identical to the old file's (checked 2026-09-24 on the master and the demo), which proves the
+rebuild is exact before any new clip goes in.
 
 <takes-dir> holds the raw takes (sckrec, 1612x907 pt at 2x, live audio), tapes/privacy.mp4 and cards/ (video-cards.sh:
 title and end cards and the caption overlays). Render the cards into a directory no other capture run writes to.
@@ -25,9 +34,15 @@ scripts/capture/youtube-meta.mjs, which makes the chapter list and youtube-maste
 
 import array, json, os, subprocess, sys, wave
 
-takes, out_master, out_demo = sys.argv[1:4]
+REMUX = len(sys.argv) > 1 and sys.argv[1] == "--remux-audio"
+if REMUX:
+    takes, old_master, out_master, old_demo, out_demo = sys.argv[2:7]
+else:
+    takes, out_master, out_demo = sys.argv[1:4]
 HERE = os.path.dirname(os.path.abspath(__file__))
-AUD = os.path.join(HERE, "../../assets/media/src/audio")
+AUD = os.environ.get("NTTS_AUDIO_DIR") or os.path.join(
+    HERE, "../../assets/media/src/audio"
+)
 T = lambda f: os.path.join(takes, f)
 FADE = 0.3
 
@@ -185,6 +200,87 @@ def frames(s):
     )
 
 
+def audio_graph(s, total, k0, inputs, fc):
+    """Append the scene's sound to inputs/fc as [a]: the take's own track (live), or silence with each clip on it.
+    Input 0 is the take; k0 is the index of the next input."""
+    n = len(s["keep"])
+    if s.get("live"):
+        fc.append(f"[0:a]asplit={n}" + "".join(f"[t{i}]" for i in range(n)))
+        for i, (a, b) in enumerate(s["keep"]):
+            fc.append(f"[t{i}]atrim=start={a}:end={b},asetpts=PTS-STARTPTS[u{i}]")
+        # the take's own stereo 48 kHz track: resampling and the layout are no-ops, kept only as guards
+        fc.append(
+            "".join(f"[u{i}]" for i in range(n))
+            + f"concat=n={n}:v=0:a=1,aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:{total}[a]"
+        )
+    else:
+        inputs += ["-f", "lavfi", "-t", f"{total}", "-i", "anullsrc=r=48000:cl=stereo"]
+        mix = [f"[{k0}:a]"]
+        for k, (wav, at, _click) in enumerate(s.get("clips", [])):
+            inputs += ["-i", os.path.join(AUD, wav)]
+            ms = round(seg_time(s, at) * 1000)
+            fc.append(
+                f"[{k0 + 1 + k}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay={ms}|{ms}[c{k}]"
+            )
+            mix.append(f"[c{k}]")
+        fc.append(
+            "".join(mix)
+            + f"amix=inputs={len(mix)}:normalize=0:duration=first,atrim=0:{total}[a]"
+        )
+
+
+def segment_audio(name, out):
+    """--remux-audio: the scene's sound alone, the same samples segment() puts in its .mov, as 16-bit PCM."""
+    s = SCENES[name]
+    if "image" in s:
+        run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-t",
+                str(s["dur"]),
+                "-i",
+                "anullsrc=r=48000:cl=stereo",
+                "-c:a",
+                "pcm_s16le",
+                out,
+            ]
+        )
+        return s["dur"]
+    s = frames(s)
+    check(name, s)
+    total = sum(b - a for a, b in s["keep"])
+    inputs, fc = ["-i", s["src"]], []
+    audio_graph(s, total, 1, inputs, fc)
+    run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            *inputs,
+            "-filter_complex",
+            ";".join(fc),
+            "-map",
+            "[a]",
+            "-c:a",
+            "pcm_s16le",
+            "-t",
+            f"{total}",
+            out,
+        ]
+    )
+    return total
+
+
+# Output options that concern the sound or the container; --remux-audio keeps these and copies the video.
+AUDIO_AND_CONTAINER = {"-c:a", "-b:a", "-ar", "-ac", "-movflags", "-use_editlist"}
+
+
 def segment(name, w, h, out):
     s = SCENES[name]
     enc = [
@@ -254,29 +350,7 @@ def segment(name, w, h, out):
         k0 = 2
     else:
         fc.append("[vs]format=yuv420p[v]")
-    if s.get("live"):
-        fc.append(f"[0:a]asplit={n}" + "".join(f"[t{i}]" for i in range(n)))
-        for i, (a, b) in enumerate(s["keep"]):
-            fc.append(f"[t{i}]atrim=start={a}:end={b},asetpts=PTS-STARTPTS[u{i}]")
-        # the take's own stereo 48 kHz track: resampling and the layout are no-ops, kept only as guards
-        fc.append(
-            "".join(f"[u{i}]" for i in range(n))
-            + f"concat=n={n}:v=0:a=1,aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:{total}[a]"
-        )
-    else:
-        inputs += ["-f", "lavfi", "-t", f"{total}", "-i", "anullsrc=r=48000:cl=stereo"]
-        mix = [f"[{k0}:a]"]
-        for k, (wav, at, _click) in enumerate(s.get("clips", [])):
-            inputs += ["-i", os.path.join(AUD, wav)]
-            ms = round(seg_time(s, at) * 1000)
-            fc.append(
-                f"[{k0 + 1 + k}:a]aresample=48000,pan=stereo|c0=c0|c1=c0,adelay={ms}|{ms}[c{k}]"
-            )
-            mix.append(f"[c{k}]")
-        fc.append(
-            "".join(mix)
-            + f"amix=inputs={len(mix)}:normalize=0:duration=first,atrim=0:{total}[a]"
-        )
+    audio_graph(s, total, k0, inputs, fc)
     run(
         [
             "ffmpeg",
@@ -299,14 +373,16 @@ def segment(name, w, h, out):
     return total
 
 
-def build(order, w, h, out, venc, no_editlist=False):
-    work = os.path.join(os.path.dirname(os.path.abspath(out)), f"seg-{w}")
+def build(order, w, h, out, venc, no_editlist=False, old=None):
+    work = os.path.join(
+        os.path.dirname(os.path.abspath(out)), f"seg-{w}" + ("-audio" if old else "")
+    )
     os.makedirs(work, exist_ok=True)
     parts, durs, starts = [], [], {}
     t = 0.0
     for i, name in enumerate(order):
-        p = os.path.join(work, f"{name}.mov")
-        d = segment(name, w, h, p)
+        p = os.path.join(work, f"{name}.wav" if old else f"{name}.mov")
+        d = segment_audio(name, p) if old else segment(name, w, h, p)
         start = 0.0 if i == 0 else t - FADE
         s = SCENES[name]
         if "keep" in s:
@@ -322,9 +398,10 @@ def build(order, w, h, out, venc, no_editlist=False):
     ins = sum((["-i", p] for p in parts), [])
     fc, vprev, aprev, acc = [], "[0:v]", "[0:a]", durs[0]
     for i in range(1, len(parts)):
-        fc.append(
-            f"{vprev}[{i}:v]xfade=transition=fade:duration={FADE}:offset={acc - FADE:.4f}[xv{i}]"
-        )
+        if not old:
+            fc.append(
+                f"{vprev}[{i}:v]xfade=transition=fade:duration={FADE}:offset={acc - FADE:.4f}[xv{i}]"
+            )
         fc.append(f"{aprev}[{i}:a]acrossfade=d={FADE}:c1=tri:c2=tri[xa{i}]")
         vprev, aprev, acc = f"[xv{i}]", f"[xa{i}]", acc + durs[i] - FADE
     if no_editlist:
@@ -334,6 +411,57 @@ def build(order, w, h, out, venc, no_editlist=False):
         # together; measured in the finished file, click flash to clip onset equals the take's lag.
         fc.append(f"{aprev}adelay=2176S|2176S[xaout]")
         aprev = "[xaout]"
+    if old:
+        keep = [
+            o
+            for i in range(0, len(venc), 2)
+            if venc[i] in AUDIO_AND_CONTAINER
+            for o in venc[i : i + 2]
+        ]
+        if no_editlist:
+            # The copied video keeps the old file's timestamps: dts from 0, pts from its B-frame delay. A fresh
+            # encode hands the muxer dts from MINUS that delay, and the muxer's shift to non-negative timestamps is
+            # what places the sound (first AAC packet 45.3 ms long); move the copy back by the delay so the muxer
+            # sees the same thing and writes the same timestamps.
+            v0 = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=start_time",
+                    "-of",
+                    "csv=p=0",
+                    old,
+                ],
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            ins += ["-itsoffset", f"-{v0}"]
+        ins += ["-i", old]
+        run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-y",
+                *ins,
+                "-filter_complex",
+                ";".join(fc),
+                "-map",
+                f"{len(parts)}:v",
+                "-map",
+                aprev,
+                "-c:v",
+                "copy",
+                *keep,
+                out,
+            ]
+        )
+        print(f"{out}: {acc:.2f}s (sound rebuilt, video copied from {old})")
+        return starts, acc
     run(
         [
             "ffmpeg",
@@ -448,6 +576,7 @@ starts, total = build(
         "0",
     ],
     no_editlist=True,
+    old=old_master if REMUX else None,
 )
 timeline(MASTER, starts, total, os.path.splitext(out_master)[0] + ".timeline.json")
 print("demo")
@@ -471,4 +600,5 @@ build(
         "128k",
         *VENC_COMMON,
     ],
+    old=old_demo if REMUX else None,
 )
