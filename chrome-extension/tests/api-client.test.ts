@@ -9,6 +9,7 @@ import { discoverConfig } from '../src/shared/config';
 import {
   HelperNotFoundError,
   InvalidResponseError,
+  RequestAbortedError,
 } from '../src/shared/types';
 
 // Save original fetch before any mocking (for integration tests)
@@ -345,6 +346,30 @@ describe('ApiClient', () => {
 
       await expect(client.speak({ text: 'Hello world' })).rejects.toThrow(HelperNotFoundError);
       expect(speakCalls).toBe(1);
+    });
+
+    test('the caller\'s signal aborts an in-flight /speak as RequestAbortedError, not a timeout (EXT-5)', async () => {
+      let speakSignal: AbortSignal | undefined;
+      mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.includes('/health')) {
+          return { ok: true, json: async () => ({ status: 'ok', model_loaded: true }) };
+        }
+        speakSignal = init?.signal ?? undefined;
+        return new Promise((_resolve, reject) => {
+          speakSignal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        });
+      });
+      const stop = new AbortController();
+      const pending = client.speak({ text: 'Hello world' }, stop.signal);
+      for (let i = 0; i < 50 && !speakSignal; i++) await new Promise(r => setTimeout(r, 1));
+      expect(speakSignal?.aborted).toBe(false);
+      stop.abort();
+      await expect(pending).rejects.toThrow(RequestAbortedError);
+      expect(speakSignal?.aborted).toBe(true);
+      // An already-aborted signal never reaches the helper.
+      const speaksBefore = mockFetch.mock.calls.filter(c => String(c[0]).endsWith('/speak')).length;
+      await expect(client.speak({ text: 'Hello again' }, stop.signal)).rejects.toThrow(RequestAbortedError);
+      expect(mockFetch.mock.calls.filter(c => String(c[0]).endsWith('/speak')).length).toBe(speaksBefore);
     });
 
     test('GET requests are still retried on network errors', async () => {

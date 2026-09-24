@@ -41,7 +41,11 @@ actor HTTPServer {
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
             .childChannelInitializer { channel in
-                channel.pipeline.configureHTTPServerPipeline().flatMap {
+                // No pipelining assistance: it stops reading once a request
+                // has ended, so a client that disconnects mid-synthesis went
+                // unnoticed until the response was written. One request per
+                // connection (HTTPHandler closes after each response).
+                channel.pipeline.configureHTTPServerPipeline(withPipeliningAssistance: false).flatMap {
                     channel.pipeline.addHandler(HTTPHandler(server: self))
                 }
             }
@@ -271,6 +275,12 @@ actor HTTPServer {
 
             return (head, buffer)
 
+        } catch is CancellationError {
+            // The client disconnected; nobody reads this response.
+            logger.info("Request cancelled: the client went away")
+            let errorResponse = ErrorResponse(error: "cancelled", message: "Request cancelled", retryAfterSeconds: nil)
+            return jsonResponse(errorResponse, status: .internalServerError, origin: origin)
+
         } catch let error as WorkerError {
             // PythonWorker already redacts a generationFailed message; redact
             // again so this line never depends on where the error came from.
@@ -372,6 +382,12 @@ final class HTTPHandler: ChannelInboundHandler {
     /// Set once this request has been answered early (Host/Origin rejection
     /// or an oversized body): the rest of it is ignored, not buffered.
     private var answered = false
+    /// The request being handled; cancelled when the client disconnects, so
+    /// a /speak nobody will read stops queueing for, or occupying, the worker.
+    private var inflight: Task<Void, Never>?
+    /// One request per connection: anything after the first request's end
+    /// (a pipelined request) is ignored; the connection closes after the reply.
+    private var requestDone = false
 
     init(server: HTTPServer) {
         self.server = server
@@ -379,6 +395,7 @@ final class HTTPHandler: ChannelInboundHandler {
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let part = unwrapInboundIn(data)
+        guard !requestDone else { return }
 
         switch part {
         case .head(let head):
@@ -410,6 +427,7 @@ final class HTTPHandler: ChannelInboundHandler {
                 bodyBuffer = nil
                 answered = false
             }
+            requestDone = true
             guard !answered else { return }
             guard let head = requestHead else {
                 context.close(promise: nil)
@@ -421,7 +439,7 @@ final class HTTPHandler: ChannelInboundHandler {
             let savedBody = bodyBuffer
 
             // Handle request asynchronously
-            Task {
+            inflight = Task {
                 let response = await server.handleRequest(head: savedHead, body: savedBody)
 
                 // Execute response writing on the EventLoop
@@ -430,6 +448,12 @@ final class HTTPHandler: ChannelInboundHandler {
                 }
             }
         }
+    }
+
+    func channelInactive(context: ChannelHandlerContext) {
+        inflight?.cancel()
+        inflight = nil
+        context.fireChannelInactive()
     }
 
     /// Write a whole response and close the connection. Event loop only.

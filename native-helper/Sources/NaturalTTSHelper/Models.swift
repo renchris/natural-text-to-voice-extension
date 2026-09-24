@@ -131,6 +131,9 @@ struct ErrorResponse: Codable {
 // MARK: - Python Worker Protocol
 
 struct GenerateRequest: Codable {
+    /// Unique per request; the worker stops a request whose id appears in its
+    /// cancel file (PythonWorker.cancel).
+    let id: UInt64
     let text: String
     let voice: String
     let speed: Float

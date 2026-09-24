@@ -7,6 +7,7 @@ import {
   HelperNotFoundError,
   NetworkTimeoutError,
   InvalidResponseError,
+  RequestAbortedError,
 } from './types';
 import { getConfig } from './config';
 import { DEFAULT_VOICE } from './voices';
@@ -87,11 +88,19 @@ export class ApiClient implements NativeTTSClient {
     const method = (options.method ?? 'GET').toUpperCase();
     const retries = method === 'POST' ? 0 : maxRetries;
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+    // The caller's signal (Stop / supersede) aborts the fetch too. Closing
+    // the connection is what tells the helper to stop synthesising.
+    const callerSignal = options.signal ?? undefined;
+    if (callerSignal?.aborted) {
+      throw new RequestAbortedError();
+    }
 
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const onCallerAbort = () => controller.abort();
+      callerSignal?.addEventListener('abort', onCallerAbort);
+      try {
         const headers: Record<string, string> = {
           'Accept': 'application/json',
           ...(options.headers as Record<string, string> || {}),
@@ -107,8 +116,6 @@ export class ApiClient implements NativeTTSClient {
           headers,
           signal: controller.signal,
         });
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           // A helper error body ({"error": code}) becomes a HelperError with
@@ -128,6 +135,10 @@ export class ApiClient implements NativeTTSClient {
       } catch (error) {
         lastError = error as Error;
 
+        if (callerSignal?.aborted) {
+          throw new RequestAbortedError();
+        }
+
         // Don't retry on certain errors
         if (
           error instanceof InvalidResponseError ||
@@ -145,6 +156,9 @@ export class ApiClient implements NativeTTSClient {
           await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
           continue;
         }
+      } finally {
+        clearTimeout(timeoutId);
+        callerSignal?.removeEventListener('abort', onCallerAbort);
       }
     }
 
@@ -183,9 +197,11 @@ export class ApiClient implements NativeTTSClient {
   /**
    * Generate speech from text
    * @param request - Text and optional voice/speed parameters
+   * @param signal - Aborts the request (RequestAbortedError); the helper then
+   *   stops the synthesis at its next chunk
    * @returns Audio blob in WAV format
    */
-  async speak(request: SpeakRequest): Promise<Blob> {
+  async speak(request: SpeakRequest, signal?: AbortSignal): Promise<Blob> {
     // Validate parameters BEFORE getting config
     if (!request.text || request.text.trim().length === 0) {
       throw new Error('Text is required for speech generation');
@@ -210,6 +226,7 @@ export class ApiClient implements NativeTTSClient {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      signal,
     }, speakTimeoutMs(request.text));
   }
 

@@ -188,6 +188,18 @@ section_swift() {
   if [[ "$lcode" == 200 ]]; then pass "long /speak" "HTTP 200, $(wc -c <"$LOGDIR/speak-long.wav" | tr -d ' ') bytes"
   else fail "long /speak" "HTTP $lcode"; fi
 
+  # A /speak whose client goes away (Stop, or a newer selection) is cancelled in the worker at the next
+  # chunk, so the next request does not queue behind a synthesis nobody will play.
+  python3 -c 'import json,sys; print(json.dumps({"text": sys.argv[1], "voice": "af_bella"}))' "$text" >"$LOGDIR/speak-abandon.json"
+  curl -s --max-time 1.5 -o /dev/null -X POST "$base/speak" -H 'Content-Type: application/json' \
+    --data-binary @"$LOGDIR/speak-abandon.json" 2>/dev/null || true
+  local short_t short_c
+  read -r short_c short_t < <(curl -s --max-time 120 -o /dev/null -w '%{http_code} %{time_total}\n' -X POST "$base/speak" \
+      -H 'Content-Type: application/json' -d '{"text":"Right after a stop.","voice":"af_bella"}' || echo "000 0") || true
+  if [[ "$short_c" == 200 ]] && grep -q 'Request cancelled after\|Request cancelled before' "$hlog"; then
+    pass "abandoned /speak cancelled" "worker stopped it; next /speak HTTP 200 in ${short_t}s"
+  else fail "abandoned /speak cancelled" "next /speak HTTP $short_c in ${short_t}s; cancel line in log: $(grep -c 'Request cancelled' "$hlog")"; fi
+
   # Unknown voice -> 400.
   local c
   c="$(curl -s --max-time 30 -o "$LOGDIR/unknown-voice.json" -w '%{http_code}' -X POST "$base/speak" \

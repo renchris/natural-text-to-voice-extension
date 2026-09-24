@@ -89,6 +89,20 @@ MAX_MESSAGE_BYTES = 10 * 1024 * 1024
 # (PythonWorker.swift maxResponseBytes); 20 minutes of 16-bit mono WAV is 57.6 MB, 76.8 MB as base64.
 # 5,000 digit-dense characters at 1.0x made ~38 minutes, which used to desync the pipe for good.
 MAX_AUDIO_SECONDS = float(os.environ.get("NTTS_MAX_AUDIO_SECONDS", "1200"))
+# The helper writes a request's id here when that request's HTTP client goes away (Stop, or a newer
+# selection superseding it); generation stops at the next chunk and answers "cancelled", so the discarded
+# synthesis does not hold the worker while the next request waits.
+CANCEL_FILE = os.environ.get("NTTS_CANCEL_FILE")
+
+
+def is_cancelled(request_id):
+    if request_id is None or not CANCEL_FILE:
+        return False
+    try:
+        with open(CANCEL_FILE) as f:
+            return f.read().strip() == str(request_id)
+    except OSError:
+        return False
 
 # Global model cache for reuse across requests, and the pinned snapshot directory it was loaded from
 _model_cache = None
@@ -255,7 +269,7 @@ def parse_speed(value):
     return speed
 
 
-def generate_audio_mlx(text, voice, speed):
+def generate_audio_mlx(text, voice, speed, request_id=None):
     """Generate audio using MLX with cached model and in-memory processing"""
     try:
         import time
@@ -288,6 +302,10 @@ def generate_audio_mlx(text, voice, speed):
             f"Generating [{len(text)} chars] (voice={voice}, lang_code={lang_code}, speed={speed})"
         )
 
+        if is_cancelled(request_id):
+            logger.info("Request cancelled before generation")
+            return {"error": "cancelled"}
+
         # Get cached model
         t_model_start = time.time()
         model = get_cached_model()
@@ -313,6 +331,9 @@ def generate_audio_mlx(text, voice, speed):
                     if samples > MAX_AUDIO_SECONDS * SAMPLE_RATE:
                         logger.error(f"Audio longer than {MAX_AUDIO_SECONDS:.0f}s; not returning it")
                         return {"error": "audio_too_long"}
+                    if is_cancelled(request_id):
+                        logger.info(f"Request cancelled after {len(audio_chunks)} chunk(s)")
+                        return {"error": "cancelled"}
                 logger.info(f"Generated {len(audio_chunks)} audio chunks")
         t_gen_end = time.time()
         logger.info(f"MLX generation: {t_gen_end - t_gen_start:.3f}s")
@@ -420,7 +441,7 @@ def main():
                 continue
 
             # Generate audio
-            response = generate_audio_mlx(text, voice, speed)
+            response = generate_audio_mlx(text, voice, speed, request.get("id"))
 
             # Send response
             write_message(response)

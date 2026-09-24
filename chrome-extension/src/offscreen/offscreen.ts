@@ -28,6 +28,8 @@ interface SpeakJob {
   audioUrl: string | null;
   /** Resolves playAudio() when playback is cut short */
   endPlayback: (() => void) | null;
+  /** Aborts the /speak fetch; the closed connection makes the helper stop synthesising */
+  abort: AbortController;
   settle: (response: OffscreenSpeakResponse) => void;
 }
 
@@ -107,6 +109,7 @@ function stopSpeaking(): boolean {
   if (!job) {
     return false;
   }
+  job.abort.abort();
   releaseAudio(job);
   job.endPlayback?.();
   job.endPlayback = null;
@@ -148,6 +151,7 @@ function handleSpeakRequest(
       audio: null,
       audioUrl: null,
       endPlayback: null,
+      abort: new AbortController(),
       settle: (response) => {
         if (job.settled) return;
         job.settled = true;
@@ -188,7 +192,7 @@ async function runSpeakJob(
     text: message.text,
     voice: message.voice,
     speed: message.speed,
-  });
+  }, job.abort.signal);
 
   // Stopped (or superseded) while the helper was synthesising: do not play.
   if (job.settled) {

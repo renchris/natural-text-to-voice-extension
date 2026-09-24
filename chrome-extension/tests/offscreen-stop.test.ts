@@ -304,6 +304,35 @@ describe('offscreen speak / stop', () => {
     expect(FakeAudio.instances.length).toBe(before);
   });
 
+  test('STOP and a superseding speak abort the in-flight /speak fetch (the helper then stops synthesising)', async () => {
+    const lastSpeakSignal = () => {
+      const calls = fetchMock.mock.calls.filter(call => String(call[0]).endsWith('/speak'));
+      return (calls[calls.length - 1]?.[1] as RequestInit | undefined)?.signal;
+    };
+
+    const first = speak('first');
+    await until(() => pendingSpeaks.length > 0, 'first /speak');
+    const firstSignal = lastSpeakSignal();
+    expect(firstSignal?.aborted).toBe(false);
+    expect(await stop().response).toEqual({ type: 'STOPPED', stopped: true });
+    expect(firstSignal?.aborted).toBe(true);
+    expect(await first.response).toEqual({ type: 'SPEAK_STOPPED', success: true });
+    pendingSpeaks.shift()!.resolve();
+
+    const second = speak('second');
+    await until(() => pendingSpeaks.length > 0, 'second /speak');
+    const secondSignal = lastSpeakSignal();
+    const third = speak('third');
+    expect(secondSignal?.aborted).toBe(true);
+    expect(await settledWithin(second.response)).toEqual({ type: 'SPEAK_STOPPED', success: true });
+    pendingSpeaks.shift()!.resolve();
+    await until(() => pendingSpeaks.length > 0, 'third /speak');
+    expect(lastSpeakSignal()?.aborted).toBe(false);
+    expect(await stop().response).toEqual({ type: 'STOPPED', stopped: true });
+    pendingSpeaks.shift()!.resolve();
+    expect(await third.response).toEqual({ type: 'SPEAK_STOPPED', success: true });
+  });
+
   test('a new speak supersedes the one playing and settles it as stopped', async () => {
     const before = FakeAudio.instances.length;
     const first = speak('first');

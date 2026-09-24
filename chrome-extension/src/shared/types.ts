@@ -60,7 +60,7 @@ export interface NativeTTSClient {
    * @param request - Text and optional voice/speed parameters
    * @returns Audio blob in WAV format
    */
-  speak(request: SpeakRequest): Promise<Blob>;
+  speak(request: SpeakRequest, signal?: AbortSignal): Promise<Blob>;
 }
 
 /**
@@ -84,6 +84,17 @@ export class NetworkTimeoutError extends Error {
   constructor(message: string = 'Request to Native TTS Helper timed out.') {
     super(message);
     this.name = 'NetworkTimeoutError';
+  }
+}
+
+/**
+ * The caller aborted the request (Stop, or a newer speak request superseding
+ * it). Not a failure: nothing is shown to the user.
+ */
+export class RequestAbortedError extends Error {
+  constructor(message: string = 'Request aborted.') {
+    super(message);
+    this.name = 'RequestAbortedError';
   }
 }
 

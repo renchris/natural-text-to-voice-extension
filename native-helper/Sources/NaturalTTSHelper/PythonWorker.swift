@@ -46,6 +46,14 @@ actor PythonWorker {
     private let crashWindow: TimeInterval = 120
     private var crashTimes: [Date] = []
 
+    /// Cancelling a synthesis whose HTTP client went away: the helper writes
+    /// the request id to this file and the worker, which checks it between
+    /// chunks, answers "cancelled". Ids are unique, so a late cancel can never
+    /// stop a later request (a signal-set flag could). Holds only a number.
+    nonisolated let cancelURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("natural-tts-cancel-\(ProcessInfo.processInfo.processIdentifier)")
+    private var nextRequestID: UInt64 = 0
+
     private let warmupTimeout: TimeInterval = 60.0 // 60 seconds for model load
 
     /// Every line tts_worker.py's own logger writes starts with this.
@@ -84,6 +92,7 @@ actor PythonWorker {
         environment["ESPEAK_DATA_PATH"] = "/opt/homebrew/opt/espeak-ng/share/espeak-ng-data"
         environment["HF_HUB_OFFLINE"] = "1"
         environment["HF_HUB_DISABLE_TELEMETRY"] = "1"
+        environment["NTTS_CANCEL_FILE"] = cancelURL.path
         process.environment = environment
 
         // Forward worker stderr line by line, through the redactor so request
@@ -172,16 +181,30 @@ actor PythonWorker {
         logger.debug("Generating audio: \(text.count) characters (voice: \(voice), speed: \(speed))")
         redactor.remember(text)
 
+        // A request whose client went away while it queued behind another
+        // synthesis (this actor serves one at a time) is dropped here.
+        try Task.checkCancellation()
+
         // Create request
-        let request = GenerateRequest(text: text, voice: voice, speed: speed)
+        nextRequestID += 1
+        let request = GenerateRequest(id: nextRequestID, text: text, voice: voice, speed: speed)
 
         // Send request
         try await sendMessage(request)
 
-        // Receive response
-        let response: GenerateResponse = try await receiveMessage()
+        // Receive response. If the client goes away meanwhile, tell the worker
+        // to stop between chunks rather than finish audio nobody will play.
+        let response: GenerateResponse = try await withTaskCancellationHandler {
+            try await receiveMessage()
+        } onCancel: { [cancelURL] in
+            Self.cancel(request.id, via: cancelURL)
+        }
 
-        // Check for error
+        if response.error == "cancelled" {
+            logger.info("Synthesis cancelled: the client went away")
+            throw CancellationError()
+        }
+
         // Redacted once, here, so no later log line or response body can carry
         // request text quoted by a worker error.
         if let error = response.error {
@@ -208,6 +231,11 @@ actor PythonWorker {
             sampleRate: sampleRate,
             format: format
         )
+    }
+
+    /// Write the id atomically, so the worker never reads a partial number.
+    nonisolated static func cancel(_ requestID: UInt64, via url: URL) {
+        try? Data(String(requestID).utf8).write(to: url, options: .atomic)
     }
 
     nonisolated var healthState: WorkerHealth {
@@ -247,6 +275,7 @@ actor PythonWorker {
         self.stderr = nil
         self.isWarm = false
         health.withLock { $0 = .starting }
+        try? FileManager.default.removeItem(at: cancelURL)
     }
 
     // MARK: - Private Methods
