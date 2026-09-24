@@ -182,7 +182,7 @@ async function init(): Promise<void> {
     setPlaceholderOption('Helper not connected - Start helper to load voices');
     elements.voiceSelect.disabled = true;
     // Show retry button when disconnected
-    elements.retryButton.style.display = 'block';
+    elements.retryButton.style.display = 'flex';
   }
 
   // Update UI to reflect current state
@@ -218,7 +218,7 @@ function enterFallbackState(): void {
   elements.speakButton.disabled = false;
   setPlaceholderOption('System voice (Kokoro voices need the helper)');
   elements.voiceSelect.disabled = true;
-  elements.retryButton.style.display = 'block';
+  elements.retryButton.style.display = 'flex';
   refreshFallbackNotice();
 }
 
@@ -285,7 +285,7 @@ function schedulePollWhileWarming(): void {
       showMessage(disconnectedMessage(), 'error');
       elements.speakButton.disabled = true;
       elements.voiceSelect.disabled = true;
-      elements.retryButton.style.display = 'block';
+      elements.retryButton.style.display = 'flex';
     }
   }, 2000);
 }
@@ -679,7 +679,7 @@ async function speakWithSystemVoice(text: string): Promise<void> {
     state.helperUnreachable = true;
     showUpdateNotice(null);
     updateStatusIndicator('disconnected', 'Helper not found - speaking with a system voice');
-    elements.retryButton.style.display = 'block';
+    elements.retryButton.style.display = 'flex';
     setPlaceholderOption('System voice (Kokoro voices need the helper)');
     elements.voiceSelect.disabled = true;
   }

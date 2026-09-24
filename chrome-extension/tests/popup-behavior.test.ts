@@ -489,7 +489,7 @@ describe('system-voice fallback in the popup (OD-2)', () => {
     expect(el('messageContainer').textContent).toContain('system voice');
     expect(el<HTMLButtonElement>('speakButton').disabled).toBe(false);
     expect(el<HTMLSelectElement>('voiceSelect').disabled).toBe(true);
-    expect(el<HTMLButtonElement>('retryButton').style.display).toBe('block');
+    expect(el<HTMLButtonElement>('retryButton').style.display).toBe('flex');
     expect(notice().hidden).toBe(false);
     expect(notice().textContent!.replace(/\s+/g, ' ').trim()).toBe(
       'Install the free Natural TTS helper for natural Kokoro voices: ' +
