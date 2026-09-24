@@ -48,7 +48,7 @@ curl http://127.0.0.1:$PORT/health | jq
   "status": "ok",
   "model": "kokoro-82m",
   "model_loaded": true,
-  "uptime_seconds": 123.45,
+  "uptime_seconds": 123.4,
   "requests_served": 0,
   "version": "1.5.0",
   "apiVersion": 2

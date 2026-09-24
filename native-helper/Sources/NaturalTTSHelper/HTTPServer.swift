@@ -207,7 +207,7 @@ actor HTTPServer {
             status: status,
             model: "kokoro-82m",
             modelLoaded: state == .ready,
-            uptimeSeconds: uptime,
+            uptimeSeconds: (uptime * 10).rounded() / 10, // tenths: raw double precision is noise
             requestsServed: requestCount,
             version: HelperInfo.version,
             apiVersion: HelperInfo.apiVersion
@@ -285,7 +285,8 @@ actor HTTPServer {
             let genTime = Date().timeIntervalSince(startTime)
             let rtf = audio.duration / genTime
 
-            logger.info("Generated \(String(format: "%.2f", audio.duration))s audio in \(String(format: "%.2f", genTime))s (RTF: \(String(format: "%.2f", rtf))x)")
+            // "RTF" is compute/audio in the literature; this is its inverse, so say it in words.
+            logger.info("Generated \(String(format: "%.2f", audio.duration))s audio in \(String(format: "%.2f", genTime))s (\(String(format: "%.1f", rtf))× faster than real time)")
 
             // Create response with audio data
             var head = HTTPResponseHead(version: .http1_1, status: .ok)
