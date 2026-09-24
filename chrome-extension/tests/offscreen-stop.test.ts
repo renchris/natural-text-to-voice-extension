@@ -177,18 +177,28 @@ function settledWithin<T>(promise: Promise<T>, ms = 50): Promise<T | 'pending'> 
   return Promise.race([promise, new Promise<'pending'>(r => setTimeout(() => r('pending'), ms))]);
 }
 
-async function speakToEnd(text = 'Hello there'): Promise<OffscreenSpeakResponse> {
+/** Speak, let it play to the end, and return how the end was reported (SPEAK_FINISHED). */
+async function speakToEnd(text = 'Hello there'): Promise<unknown> {
   const before = FakeAudio.instances.length;
+  const finishedBefore = finishedMessages().length;
   const { response } = speak(text);
   await until(() => pendingSpeaks.length > 0, '/speak request');
   pendingSpeaks.shift()!.resolve();
   await until(() => FakeAudio.instances.length > before, 'audio element');
+  expect(await response).toEqual({ type: 'SPEAK_STARTED', success: true });
   lastAudio().finish();
-  return response;
+  await until(() => finishedMessages().length > finishedBefore, 'SPEAK_FINISHED');
+  return lastOf(finishedMessages());
 }
 
 function idleMessages(): unknown[] {
   return runtimeSendMessage.mock.calls.map(call => call[0]).filter((m: any) => m?.type === 'OFFSCREEN_IDLE');
+}
+
+const lastOf = <T>(list: T[]): T | undefined => list[list.length - 1];
+
+function finishedMessages(): unknown[] {
+  return runtimeSendMessage.mock.calls.map(call => call[0]).filter((m: any) => m?.type === 'SPEAK_FINISHED');
 }
 
 describe('offscreen idle close (IN-09)', () => {
@@ -201,7 +211,7 @@ describe('offscreen idle close (IN-09)', () => {
     idleTimers.clear();
     runtimeSendMessage.mockClear();
 
-    expect(await speakToEnd()).toEqual({ type: 'SPEAK_COMPLETE', success: true });
+    expect(await speakToEnd()).toEqual({ type: 'SPEAK_FINISHED', success: true });
     expect(idleTimers.size).toBe(1);
     expect(idleMessages()).toEqual([]);
 
@@ -227,7 +237,7 @@ describe('offscreen idle close (IN-09)', () => {
     await until(() => FakeAudio.instances.length > 0 && !lastAudio().paused, 'playback');
     lastAudio().finish();
     await response;
-    expect(idleTimers.size).toBe(1);
+    await until(() => idleTimers.size === 1, 'idle timer re-armed');
   });
 
   test('a failed request and a stop both arm the timer too', async () => {
@@ -252,22 +262,46 @@ describe('offscreen speak / stop', () => {
     expect(await response).toEqual({ type: 'STOPPED', stopped: false });
   });
 
-  test('a speak that plays to the end settles SPEAK_COMPLETE and revokes its URL', async () => {
+  test('the reply goes out when playback starts; the end follows as SPEAK_FINISHED (EXT-8)', async () => {
     const before = FakeAudio.instances.length;
+    const finishedBefore = finishedMessages().length;
     const { returned, response } = speak();
     expect(returned).toBe(true);
 
     await until(() => pendingSpeaks.length > 0, '/speak request');
+    expect(await settledWithin(response)).toBe('pending');
     pendingSpeaks.shift()!.resolve();
     await until(() => FakeAudio.instances.length > before, 'audio element');
 
     const audio = lastAudio();
     expect(audio.play).toHaveBeenCalledTimes(1);
-    expect(await settledWithin(response)).toBe('pending');
+    // The service worker's message is answered now, not after the audio: a
+    // reply held for the whole playback was lost past Chrome's ~5-minute cap.
+    expect(await settledWithin(response)).toEqual({ type: 'SPEAK_STARTED', success: true });
+    expect(finishedMessages().length).toBe(finishedBefore);
 
     audio.finish();
-    expect(await response).toEqual({ type: 'SPEAK_COMPLETE', success: true });
+    await until(() => finishedMessages().length > finishedBefore, 'SPEAK_FINISHED');
+    expect(lastOf(finishedMessages())).toEqual({ type: 'SPEAK_FINISHED', success: true });
     expect(liveUrls.has(audio.src)).toBe(false);
+  });
+
+  test('a playback error after the start is reported as a failed SPEAK_FINISHED', async () => {
+    const before = FakeAudio.instances.length;
+    const finishedBefore = finishedMessages().length;
+    const { response } = speak();
+    await until(() => pendingSpeaks.length > 0, '/speak request');
+    pendingSpeaks.shift()!.resolve();
+    await until(() => FakeAudio.instances.length > before, 'audio element');
+    expect(await response).toEqual({ type: 'SPEAK_STARTED', success: true });
+
+    const audio = lastAudio();
+    audio.error = { message: 'decode failed' };
+    audio.onerror?.();
+    await until(() => finishedMessages().length > finishedBefore, 'SPEAK_FINISHED');
+    const finished = lastOf(finishedMessages()) as { success: boolean; error?: string };
+    expect(finished.success).toBe(false);
+    expect(finished.error).toContain('decode failed');
   });
 
   test('STOP during playback pauses, revokes the URL and settles the pending speak', async () => {
@@ -279,10 +313,13 @@ describe('offscreen speak / stop', () => {
     const audio = lastAudio();
     expect(liveUrls.has(audio.src)).toBe(true);
 
+    expect(await response).toEqual({ type: 'SPEAK_STARTED', success: true });
+    const finishedBefore = finishedMessages().length;
     const stopped = stop();
     expect(await stopped.response).toEqual({ type: 'STOPPED', stopped: true });
 
-    expect(await settledWithin(response)).toEqual({ type: 'SPEAK_STOPPED', success: true });
+    await until(() => finishedMessages().length > finishedBefore, 'SPEAK_FINISHED');
+    expect(lastOf(finishedMessages())).toEqual({ type: 'SPEAK_FINISHED', success: true, stopped: true });
     expect(audio.pause).toHaveBeenCalled();
     expect(liveUrls.has(audio.src)).toBe(false);
 
@@ -341,15 +378,21 @@ describe('offscreen speak / stop', () => {
     await until(() => FakeAudio.instances.length > before, 'first audio');
     const firstAudio = lastAudio();
 
+    expect(await first.response).toEqual({ type: 'SPEAK_STARTED', success: true });
+    const finishedBefore = finishedMessages().length;
+
     const second = speak('second');
-    expect(await settledWithin(first.response)).toEqual({ type: 'SPEAK_STOPPED', success: true });
+    await until(() => finishedMessages().length > finishedBefore, 'first SPEAK_FINISHED');
+    expect(lastOf(finishedMessages())).toEqual({ type: 'SPEAK_FINISHED', success: true, stopped: true });
     expect(firstAudio.pause).toHaveBeenCalled();
 
     await until(() => pendingSpeaks.length > 0, 'second /speak');
     pendingSpeaks.shift()!.resolve();
     await until(() => FakeAudio.instances.length > before + 1, 'second audio');
+    expect(await second.response).toEqual({ type: 'SPEAK_STARTED', success: true });
     lastAudio().finish();
-    expect(await second.response).toEqual({ type: 'SPEAK_COMPLETE', success: true });
+    await until(() => finishedMessages().length > finishedBefore + 1, 'second SPEAK_FINISHED');
+    expect(lastOf(finishedMessages())).toEqual({ type: 'SPEAK_FINISHED', success: true });
   });
 
   test('empty text settles as an error without calling the helper', async () => {

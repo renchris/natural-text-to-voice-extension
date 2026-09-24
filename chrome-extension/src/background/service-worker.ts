@@ -155,8 +155,11 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
 
 /**
  * Speak text through the offscreen document with the user's preferences.
- * Resolves when playback completes, fails, or is stopped. A failure shows the
- * error badge; success (including a deliberate stop) clears it.
+ * Resolves once playback has started, or when the request failed or was
+ * stopped before that. A failure shows the error badge; a start (or a
+ * deliberate stop) clears it. How a started playback ends arrives later as
+ * SPEAK_FINISHED (onMessage below): this worker never holds a message open
+ * for the length of the audio, which Chrome cuts off after ~5 minutes.
  */
 async function speakText(text: string): Promise<void> {
   speaksInFlight++;
@@ -177,6 +180,8 @@ async function speakText(text: string): Promise<void> {
 
     if (response.type === 'SPEAK_STOPPED') {
       console.log('[Background] Speech stopped');
+    } else if (response.type === 'SPEAK_STARTED') {
+      console.log('[Background] Speech playback started');
     } else if (response.success) {
       console.log('[Background] Speech playback completed successfully');
     } else {
@@ -200,6 +205,12 @@ async function speakText(text: string): Promise<void> {
 chrome.runtime.onMessage.addListener((message: OffscreenMessage): boolean => {
   if (message?.type === 'OFFSCREEN_IDLE') {
     void closeIdleOffscreenDocument();
+  } else if (message?.type === 'SPEAK_FINISHED') {
+    // A started playback ended: to the end or stopped (clear the badge), or
+    // failed mid-way (show it).
+    void (message.success
+      ? clearErrorBadge()
+      : showErrorBadge(message.error || 'Speech failed. Try again.'));
   }
   return false;
 });

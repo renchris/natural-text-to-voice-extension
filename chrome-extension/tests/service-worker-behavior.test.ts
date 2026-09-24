@@ -369,6 +369,25 @@ describe('error badge for right-click and shortcut speech (D2)', () => {
     expect(badgeTexts()).toEqual(['!']);
   });
 
+  test('a started playback clears the badge at once; its end arrives later as SPEAK_FINISHED (EXT-8)', async () => {
+    pageSelection = 'Read this';
+    sendMessage.mockImplementation(async (message: { type: string }) =>
+      message.type === 'SPEAK_IN_OFFSCREEN' ? { type: 'SPEAK_STARTED', success: true } : undefined
+    );
+    await click(48);
+    expect(badgeTexts()).toEqual(['']);
+
+    const onMessage = listeners['runtime.onMessage'];
+    onMessage({ type: 'SPEAK_FINISHED', success: false, error: 'Failed to play audio: decode failed' });
+    await new Promise(r => setTimeout(r, 5));
+    expect(badgeTexts()).toEqual(['', '!']);
+    expect(titles()[titles().length - 1]).toBe('Natural TTS: Failed to play audio: decode failed');
+
+    onMessage({ type: 'SPEAK_FINISHED', success: true, stopped: true });
+    await new Promise(r => setTimeout(r, 5));
+    expect(badgeTexts()).toEqual(['', '!', '']);
+  });
+
   test('stop-speaking leaves the badge alone', async () => {
     await listeners['commands.onCommand']('stop-speaking', { id: 47 });
     expect(setBadgeText).not.toHaveBeenCalled();

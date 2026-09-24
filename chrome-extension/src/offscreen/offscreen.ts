@@ -13,17 +13,23 @@ import type {
   OffscreenStopResponse,
   OffscreenMessage,
   OffscreenIdleMessage,
+  SpeakFinishedMessage,
 } from '../shared/types';
 
 /**
  * The one speak request this document is serving.
  *
- * `settle` answers the service worker exactly once, whichever comes first:
- * the audio ends, generation or playback fails, a STOP arrives, or a newer
- * speak request supersedes this one.
+ * `settle` records the outcome exactly once, whichever comes first: the audio
+ * ends, generation or playback fails, a STOP arrives, or a newer speak request
+ * supersedes this one. The service worker's pending message is answered at
+ * the latest when playback starts (`started`, SPEAK_STARTED); an outcome after
+ * that is reported as a one-way SPEAK_FINISHED message.
  */
 interface SpeakJob {
   settled: boolean;
+  /** Playback began and SPEAK_STARTED was sent. */
+  started: boolean;
+  start: () => void;
   audio: HTMLAudioElement | null;
   audioUrl: string | null;
   /** Resolves playAudio() when playback is cut short */
@@ -148,10 +154,16 @@ function handleSpeakRequest(
   return new Promise<OffscreenSpeakResponse>(resolve => {
     const job: SpeakJob = {
       settled: false,
+      started: false,
       audio: null,
       audioUrl: null,
       endPlayback: null,
       abort: new AbortController(),
+      start: () => {
+        if (job.settled || job.started) return;
+        job.started = true;
+        resolve({ type: 'SPEAK_STARTED', success: true });
+      },
       settle: (response) => {
         if (job.settled) return;
         job.settled = true;
@@ -160,7 +172,11 @@ function handleSpeakRequest(
           // Playback ended, failed or was stopped: start the idle countdown.
           armIdleTimer();
         }
-        resolve(response);
+        if (job.started) {
+          reportFinished(response);
+        } else {
+          resolve(response);
+        }
       },
     };
     activeJob = job;
@@ -212,6 +228,19 @@ async function runSpeakJob(
   };
 }
 
+/** The outcome of a request whose reply (SPEAK_STARTED) has already gone. */
+function reportFinished(response: OffscreenSpeakResponse): void {
+  const finished: SpeakFinishedMessage = {
+    type: 'SPEAK_FINISHED',
+    success: response.success,
+    ...(response.type === 'SPEAK_STOPPED' ? { stopped: true } : {}),
+    ...(response.error ? { error: response.error } : {}),
+  };
+  chrome.runtime.sendMessage(finished).catch((error: unknown) => {
+    console.warn('[Offscreen] Could not report the end of playback:', error);
+  });
+}
+
 function toErrorResponse(error: unknown): OffscreenSpeakResponse {
   console.error('[Offscreen] Error generating/playing speech:', error);
 
@@ -251,8 +280,8 @@ function playAudio(audioBlob: Blob, job: SpeakJob): Promise<void> {
       reject(new Error(`Failed to play audio: ${audio.error?.message || 'Unknown error'}`));
     };
 
-    // Start playback
-    audio.play().catch((error) => {
+    // Start playback; once it is playing, answer the service worker.
+    audio.play().then(() => job.start(), (error) => {
       console.error('[Offscreen] Failed to start audio playback:', error);
       releaseAudio(job);
       job.endPlayback = null;

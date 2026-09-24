@@ -427,9 +427,11 @@ async function run() {
       await waitFor('speech to settle', () => sw(h, 'globalThis.__e2e.settledAt'), 30000, 250);
       const settled = await sw(h, 'globalThis.__e2e.settledAt');
       const reply = await lastReply(h);
+      // The offscreen document answers when playback starts (SPEAK_STARTED); the end follows as a
+      // one-way SPEAK_FINISHED, so no reply is held for the length of the audio (EXT-8).
       check(
-        'a /speak answered after 40 s still plays to completion',
-        reply?.type === 'SPEAK_COMPLETE' && settled - t0 >= 40000 && mock.speakRequests().length === before + 1,
+        'a /speak answered after 40 s still plays',
+        reply?.type === 'SPEAK_STARTED' && settled - t0 >= 40000 && mock.speakRequests().length === before + 1,
         `${reply?.type} after ${((settled - t0) / 1000).toFixed(1)} s, /speak POSTs ${mock.speakRequests().length - before}`
       );
       await h.cdp.send('Target.closeTarget', { targetId: page.targetId });

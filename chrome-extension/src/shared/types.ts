@@ -132,13 +132,32 @@ export interface StopInOffscreenMessage {
 }
 
 /**
- * Response from Offscreen Document to Background.
- * SPEAK_STOPPED settles a speak request that was cut short by a stop (or
- * superseded by a newer request); it is not a failure.
+ * Response from Offscreen Document to Background, sent as soon as the request
+ * reaches playback or ends before it: SPEAK_STARTED once audio is playing
+ * (the outcome follows later as SPEAK_FINISHED), SPEAK_ERROR if synthesis or
+ * the start of playback failed, SPEAK_STOPPED if a stop (or a newer request)
+ * cut it short first; a stop is not a failure. SPEAK_COMPLETE is the outcome
+ * of a request that finished without ever reporting SPEAK_STARTED.
+ *
+ * The reply never waits for playback to end: a sendMessage held open past
+ * ~5 minutes is dropped when Chrome stops the service worker, and a 5,000-
+ * character selection plays for ~5.5 minutes at 1.0x.
  */
 export interface OffscreenSpeakResponse {
-  type: 'SPEAK_COMPLETE' | 'SPEAK_STOPPED' | 'SPEAK_ERROR';
+  type: 'SPEAK_STARTED' | 'SPEAK_COMPLETE' | 'SPEAK_STOPPED' | 'SPEAK_ERROR';
   success: boolean;
+  error?: string;
+}
+
+/**
+ * Sent by the offscreen document, one way, when a request that already
+ * answered SPEAK_STARTED ends: played to the end or stopped (success), or
+ * failed mid-playback (error).
+ */
+export interface SpeakFinishedMessage {
+  type: 'SPEAK_FINISHED';
+  success: boolean;
+  stopped?: boolean;
   error?: string;
 }
 
@@ -167,4 +186,5 @@ export type OffscreenMessage =
   | SpeakInOffscreenMessage
   | StopInOffscreenMessage
   | OffscreenIdleMessage
+  | SpeakFinishedMessage
   | OffscreenSpeakResponse;
