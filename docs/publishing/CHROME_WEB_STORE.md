@@ -34,7 +34,8 @@ submit" with the steps that are missing (see [RELEASE.md](RELEASE.md)). Item 6 i
 ## 0. Account (once) — OPERATOR
 
 **Done 2026-09-25:** publisher `7de55e5e-fa80-43cf-8adb-ebea54b09c68`, login `ichris96@hotmail.com` (private), fee paid,
-non-trader. The item is draft `dieelglfodddgojbiclbbomclpgeodfk`, with 1.5.1 uploaded and every tab below filled.
+non-trader. Item `dieelglfodddgojbiclbbomclpgeodfk` was **submitted for review on 2026-09-25** with 1.5.1 and every tab
+below filled; auto-publish is unticked, so press Publish within 30 days of approval (§6).
 
 Dashboard: <https://chrome.google.com/webstore/devconsole>
 
