@@ -18,6 +18,7 @@ import {
   systemVoiceLang,
   systemVoiceOptions,
   systemVoiceRate,
+  systemVoiceVolume,
 } from '../src/shared/system-voice';
 import { HelperError, isHelperUnavailable } from '../src/shared/helper-errors';
 import {
@@ -120,7 +121,7 @@ describe('voice choice', () => {
   });
 
   test('options: rate, no queueing, and the accent\'s voice with its lang', () => {
-    expect(systemVoiceOptions('bf_emma', 1.5, MAC_VOICES)).toEqual({ rate: 1.5, enqueue: false, voiceName: 'Daniel', lang: 'en-GB' });
+    expect(systemVoiceOptions('bf_emma', 1.5, MAC_VOICES)).toEqual({ rate: 1.5, enqueue: false, voiceName: 'Daniel', lang: 'en-GB', volume: 1 });
   });
 
   test('no local voice of the accent: the default voice, taken as the first LOCAL voice (never a remote one)', () => {
@@ -129,7 +130,16 @@ describe('voice choice', () => {
       { voiceName: 'Zarvox', lang: 'en-US', remote: false },
       { voiceName: 'Thomas', lang: 'fr-FR', remote: false },
     ];
-    expect(systemVoiceOptions('bm_george', 1, voices)).toEqual({ rate: 1, enqueue: false, voiceName: 'Thomas' });
+    expect(systemVoiceOptions('bm_george', 1, voices)).toEqual({ rate: 1, enqueue: false, voiceName: 'Thomas', volume: 1 });
+  });
+
+  test('volume: Samantha 0.8 (4.8 dB down, to Kokoro\'s -21 LUFS), every other voice 1', () => {
+    expect(systemVoiceOptions('af_heart', 1, MAC_VOICES)).toEqual({ rate: 1, enqueue: false, voiceName: 'Samantha', lang: 'en-US', volume: 0.8 });
+    expect(systemVoiceVolume('Samantha')).toBe(0.8);
+    expect(systemVoiceVolume('Daniel')).toBe(1);
+    expect(systemVoiceVolume('Arthur')).toBe(1);
+    expect(systemVoiceVolume('samantha')).toBe(1);
+    expect(systemVoiceVolume('constructor')).toBe(1);
   });
 
   test('only remote voices: no options (the text must not leave this computer)', () => {
@@ -142,7 +152,7 @@ describe('voice choice', () => {
       { voiceName: 'CloudReader UK', lang: 'en-GB', extensionId: 'cloud-reader' },
       { voiceName: 'Samantha', lang: 'en-US', remote: false },
     ];
-    expect(systemVoiceOptions('bf_emma', 1, voices)).toEqual({ rate: 1, enqueue: false, voiceName: 'Samantha' });
+    expect(systemVoiceOptions('bf_emma', 1, voices)).toEqual({ rate: 1, enqueue: false, voiceName: 'Samantha', volume: 0.8 });
     expect(systemVoiceOptions('bf_emma', 1, voices.slice(0, 2))).toBeNull();
   });
 
@@ -227,7 +237,7 @@ describe('system-voice engine (chrome.tts)', () => {
     expect(speak).toHaveBeenCalledTimes(1);
     const [text, options] = speak.mock.calls[0]!;
     expect(text).toBe('Read this aloud');
-    expect({ ...options, onEvent: undefined }).toEqual({ rate: 1.5, enqueue: false, voiceName: 'Daniel', lang: 'en-GB', onEvent: undefined });
+    expect({ ...options, onEvent: undefined }).toEqual({ rate: 1.5, enqueue: false, voiceName: 'Daniel', lang: 'en-GB', volume: 1, onEvent: undefined });
     expect(isSystemVoiceSpeaking()).toBe(true);
     expect(activity()).toEqual([{ type: 'OFFSCREEN_ACTIVITY', speaking: true, engine: 'system' }]);
 

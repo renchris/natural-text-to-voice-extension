@@ -553,8 +553,8 @@ describe('system-voice fallback when the helper is unavailable (OD-2)', () => {
     const [text, options] = ttsSpeak.mock.calls[0]! as [string, Record<string, unknown>];
     expect(text).toBe('Read this');
     // af_nicole is American: the local en-US voice, speed 1.25 carried over as the rate.
-    expect({ rate: options.rate, lang: options.lang, voiceName: options.voiceName, enqueue: options.enqueue })
-      .toEqual({ rate: 1.25, lang: 'en-US', voiceName: 'Samantha', enqueue: false });
+    expect({ rate: options.rate, lang: options.lang, voiceName: options.voiceName, enqueue: options.enqueue, volume: options.volume })
+      .toEqual({ rate: 1.25, lang: 'en-US', voiceName: 'Samantha', enqueue: false, volume: 0.8 });
     // OD-2: tell the user to install the helper, outside the popup too.
     expect(badgeTexts()).toEqual(['i']);
     expect(setBadgeBackgroundColor.mock.calls.map(call => call[0].color)).toEqual(['#5F6368']);

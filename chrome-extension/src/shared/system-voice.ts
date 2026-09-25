@@ -134,7 +134,7 @@ export function systemVoiceOptions(
   kokoroVoice: string,
   speed: number,
   voices: readonly chrome.tts.TtsVoice[] | undefined | null
-): Pick<chrome.tts.TtsOptions, 'rate' | 'lang' | 'voiceName' | 'enqueue'> | null {
+): Pick<chrome.tts.TtsOptions, 'rate' | 'lang' | 'voiceName' | 'enqueue' | 'volume'> | null {
   const base = {
     rate: systemVoiceRate(speed),
     // A new request replaces whatever the system voice is saying.
@@ -142,8 +142,22 @@ export function systemVoiceOptions(
   };
   const lang = systemVoiceLang(kokoroVoice);
   const accentVoice = pickSystemVoice(voices, lang);
-  if (accentVoice) return { ...base, voiceName: accentVoice, lang };
+  if (accentVoice) return { ...base, voiceName: accentVoice, lang, volume: systemVoiceVolume(accentVoice) };
   const defaultVoice = (voices ?? []).find(isLocalSpeechVoice)?.voiceName;
-  if (defaultVoice) return { ...base, voiceName: defaultVoice };
+  if (defaultVoice) return { ...base, voiceName: defaultVoice, volume: systemVoiceVolume(defaultVoice) };
   return null;
+}
+
+/**
+ * chrome.tts volume per system voice, so the fallback plays near Kokoro's
+ * level (-21 LUFS). Samantha, the en-US default, speaks at about -16.4 LUFS at
+ * volume 1; macOS lowers the level by 24 dB per unit of volume (measured), so
+ * 0.8 takes it 4.8 dB down. Every other voice measured is already at or below
+ * Kokoro's level and stays at 1, since chrome.tts cannot go above it.
+ * docs/research/2026-09-upgrade/limiter-decision/README.md has the numbers.
+ */
+export const SYSTEM_VOICE_VOLUME: ReadonlyMap<string, number> = new Map([['Samantha', 0.8]]);
+
+export function systemVoiceVolume(voiceName: string): number {
+  return SYSTEM_VOICE_VOLUME.get(voiceName) ?? 1;
 }
