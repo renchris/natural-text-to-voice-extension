@@ -330,9 +330,23 @@ minute articles in 5 voices) plus A's 15.
 **Fallback volume.** 0.8 applies B's law, `Level(v) = Level(1) − 24·(1 − v)`, measured through
 `AVSpeechSynthesizer.write` with `AVSpeechUtterance.volume`, the property Chrome sets (`tts_mac.mm:329-331`).
 
-**Not measured: the live `chrome.tts` capture.** This Mac's CoreAudio output was stalled system-wide during the
-session (`afplay` of a system sound timed out; `coreaudiod` held 681 audio-out assertions at ~110% CPU). The driver
-that records Chrome's own audio at volume 1.0 / 0.8 / 0.6 / 1.0 is committed as `scripts/capture/tts-volume.sh`.
-Its Chrome, probe and meter halves were run, and the meter reads a synthetic 0 / −4.8 / −9.6 / 0 dB file back
-exactly. It exits 3 while audio is stalled. If it reads about −1.9 dB at 0.8 instead of −4.8 (linear amplitude), Samantha's value
-becomes about 0.58.
+**Measured live after the release (2026-09-24 23:36, once CoreAudio output worked again).**
+`scripts/capture/tts-volume.sh` recorded Chrome for Testing 153 speaking the same sentence with Samantha (en-US,
+rate 1) at `chrome.tts` volume 1.0, 0.8, 0.6, then 1.0 again. Loudness is ffmpeg ebur128, on the stereo capture:
+
+| volume | LUFS | vs 1.0 | −24·(1−v) law | 20·log10(v) |
+|---|---|---|---|---|
+| 1.00 | −13.3 | +0.0 | 0.0 | 0.0 |
+| 0.80 | −18.1 | **−4.8** | −4.8 | −1.9 |
+| 0.60 | −22.9 | −9.6 | −9.6 | −4.4 |
+| 1.00 (drift control) | −13.3 | +0.0 | 0.0 | 0.0 |
+
+The live path follows B's law exactly, so Samantha's 0.8 is right and the 0.58 fallback is not needed. At volume 1
+the capture reads −13.3 in stereo, about −16.3 as a mono file, which matches B's −16.4. Receipt:
+`limiter-decision/live-volume/`.
+
+Two findings about the tool. First, macOS renders `chrome.tts` speech in its own speech plug-ins, not in Chrome's
+process, so an app-scoped capture records silence; `sckrec --all-audio` records every sound the Mac plays instead.
+Second, even so, 3 of 4 runs that night recorded digital silence while the speech played (and `say` was recorded
+the same way). `measure.py` refuses a capture without the expected four utterances, so a bad run prints "not
+measured", never a wrong verdict; re-run it.

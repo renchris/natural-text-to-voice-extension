@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Measured
+- **1.5.1's fallback volume, through Chrome's live audio.** Samantha at `chrome.tts` volume 0.8 plays 4.8 dB below
+  volume 1.0, and 0.6 plays 9.6 dB below. That is the −24 dB-per-unit law 0.8 was chosen from, so the value stands.
+  1.5.1's notes listed this as not measured. `scripts/capture/tts-volume.sh` now records it (`sckrec --all-audio`:
+  macOS speaks `chrome.tts` from its own speech plug-ins, not from Chrome). Numbers:
+  `docs/research/2026-09-upgrade/W2-integration-measurements.md` §11.
+
 ## [1.5.1] - 2026-09-24
 
 A loudness release. Kokoro speech now plays at one steady level whatever the length of the selection, and the
