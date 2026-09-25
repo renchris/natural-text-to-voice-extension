@@ -277,3 +277,61 @@ proven exact with the old clips (`assets/media/PROVENANCE.md`).
 1. Whether to add a true-peak limiter so every response reaches −16 LUFS. This is the operator's call. It needs up to
    9 dB of peak reduction on am_michael's long text, and it changes the sound, not just its level.
 2. The AAC encode of the videos adds ~0.1 dB of true peak, so `hero.mp4` peaks at −1.4 dBTP against the WAV's −1.5.
+
+## 11. Loudness 1.5.1: −21 LUFS and a 3 dB limiter (measured 2026-09-24)
+
+**What changed.** This closes §10's open item 1. The operator approved the course in decision packet `2df6627d38cc`;
+the reasoning is in `limiter-decision/README.md`, option 4b.
+
+- **Target.** `tts_worker.py` moves from −16 to −21 LUFS. The −1.5 dBTP ceiling is unchanged.
+- **When the limiter runs.** Only when the true peak stops the single gain short of −21. It is a lookahead true-peak
+  limiter: a 4× envelope, a 5 ms lookahead equal to the attack, a 60 ms release, and at most `LIMITER_MAX_GR_DB`
+  = 3 dB of gain reduction.
+- **Fallback.** The extension plays Samantha at `chrome.tts` volume 0.8.
+
+**Gate (`verify_loudness.py`, ffmpeg ebur128, the same 15 cases and seeds as §10).**
+
+| | §10 (1.5.0, −16, one gain) | 1.5.1 |
+|---|---|---|
+| Output LUFS | −25.0 … −16.0 (9.0 LU) | −22.1 … −21.0 (1.1 LU) |
+| Cases at target ± 0.5 LU | 2 of 15 | 14 of 15 |
+| Deepest limiting | none | 3.0 dB (am_michael/long, held by the cap at −22.1) |
+| Samples more than 1 dB down | 0 | at most 0.27% |
+| True peak (ffmpeg) | ≤ −1.5 dBTP | ≤ −1.5 dBTP |
+
+At −21, 14 of the 15 cases reach the target with the single gain alone. The limiter runs only on am_michael/long:
+the single gain stops at +2.7 dB there, and the limiter lifts that to +5.6 dB. (The 0.02–0.03 dB of "limiting"
+that `verify_loudness.py` prints for the other 14 is 16-bit rounding in its per-sample ratio, as its docstring says.)
+
+**The wider corpus.** 85 raw files: decision note D's 70 (the 28-voice catalogue, seed repeats, and 90 s and 2.5–3
+minute articles in 5 voices) plus A's 15.
+
+- **Output level.** −23.1 … −21.0 LUFS. Every file that reached the target is within 0.07 LU of −21.
+- **Held below −21 by the cap (15 files), all long or peaky reads.**
+  - am_michael's long text: the catalogue take and 8 seeds at −22.2 … −22.5, and the gate's take at −22.1.
+  - Its articles: −23.1 at 90 s, −22.7 at 3 minutes.
+  - The catalogue's am_onyx, bm_fable and bm_lewis long takes: −21.4 … −21.5.
+- **Limiting.** At most 0.76% of samples are more than 1 dB down (am_onyx, catalogue text).
+- **True peak.** ≤ −1.5 dBTP after 16-bit encoding for every file.
+- **Meter unchanged.** The worker's own meter matches 1.5.0's to 7e-15.
+
+**Cost.** Measured as CPU time (best of 5), because this run's load average was ~300 and wall time was noise.
+
+- **What the limiter adds:** 1.45–1.71 ms per second of audio on the five 2.5–3 minute articles, 0.15–0.31 s each.
+- **Against synthesis:** synthesis costs 46 ms per second of audio (warm RTF 21.6, `bench/results.json`, X4985), so
+  the limiter adds **3.2–3.7%** of synthesis time. That meets the decision's bar of "a small fraction", target < 5%,
+  so the limiter ships on (`LIMITER_MAX_GR_DB = 3.0`).
+- **How it gets there.** The true-peak phases are computed once and shared by the meter and the limiter. Each re-aim
+  pass meters the K-weighted input times the gain curve; the curve moves over milliseconds, so that reads within
+  0.07 LU of the exact meter. The output is built and its true peak checked only once a pass has converged. The
+  32-tap interpolation filters now run as a direct convolution, 3× faster than the FFT blocks and equal to 2e-16.
+- **Memory.** The 5,000-character footprint check in `verify-all.sh` still applies.
+
+**Fallback volume.** 0.8 applies B's law, `Level(v) = Level(1) − 24·(1 − v)`, measured through
+`AVSpeechSynthesizer.write` with `AVSpeechUtterance.volume`, the property Chrome sets (`tts_mac.mm:329-331`).
+
+**Not measured: the live `chrome.tts` capture.** This Mac's CoreAudio output was stalled system-wide during the
+session (`afplay` of a system sound timed out; `coreaudiod` held 681 audio-out assertions at ~110% CPU). A driver
+that records Chrome's own audio at volume 1.0 / 0.8 / 0.6 / 1.0 is ready at `/tmp/ntts-151/run-live.sh`. It refuses
+while audio is stalled. If it reads about −1.9 dB at 0.8 instead of −4.8 (linear amplitude), Samantha's value
+becomes about 0.58.

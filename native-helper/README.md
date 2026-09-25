@@ -257,11 +257,13 @@ warmed at startup, so the first British request is as fast as later ones.
 **Response Body**: Binary WAV audio
 - Format: WAV, 16-bit PCM, mono
 - Sample rate: 24 kHz, so 48,000 bytes per second of audio plus a 44-byte header (a 9 s clip is 432,044 bytes)
-- Level: one gain per response toward −16 LUFS integrated (ITU-R BS.1770-4), never past a −1.5 dBTP true peak, with
-  no compressor or limiter. Kokoro's peaks usually stop it first, so responses land at about −16 to −21 LUFS (−25
-  at worst in the measured set).
-  The log gets one numbers-only line per request (`Loudness … LUFS (gated), true peak … dBTP; gain … dB`). Method
-  and measurements: [W2 §10](../docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)
+- Level: −21 LUFS integrated (ITU-R BS.1770-4), never past a −1.5 dBTP true peak. One gain per response first; when
+  the true peak stops that gain short of −21, a lookahead true-peak limiter (5 ms attack, 60 ms release) takes at
+  most 3 dB off the loudest peaks (`LIMITER_MAX_GR_DB` in `tts_worker.py`; 0 turns it off). A response that would
+  need more stays below −21: −22.1 for the peakiest measured case, −23.1 for a 90 s read in am_michael.
+  The log gets one numbers-only line per request (`Loudness … LUFS (gated), true peak … dBTP; gain … dB (limited by
+  …), limiter … dB`). Method and measurements:
+  [W2 §11](../docs/research/2026-09-upgrade/W2-integration-measurements.md#11-loudness-151-21-lufs-and-a-3-db-limiter-measured-2026-09-24)
 
 **Status Codes**:
 - `200 OK`: Audio generated successfully

@@ -21,8 +21,8 @@
 # (typographic punctuation) against regression; all 7 are green from IN-04 on, and check 8 from the 1.5.0
 # loudness normalization. Check 7 compares the synthesis BEFORE normalization (ref_compare.py sets
 # NTTS_LOUDNESS_NORMALIZE=0, which only verification tooling sets), so it still sees the decoder's own level;
-# check 8 proves the normalized output is that synthesis times one gain, lowered by at most 3 dB on its peaks. Thresholds for 7 are parameters
-# (defaults 0.5 dB / 0.13, calibrated against the R01 reference method: noise floor 0.049, mlx-audio 0.5.5 =
+# check 8 proves the normalized output is that synthesis times one gain, lowered by at most 3 dB on its peaks.
+# Thresholds for 7 are parameters (defaults 0.5 dB / 0.13, calibrated against the R01 reference method: noise floor 0.049, mlx-audio 0.5.5 =
 # 0.115, 0.2.6 = 0.428). Check 8 needs ffmpeg (its ebur128 filter is the independent meter).
 #
 # Usage (any cwd):  native-helper/Scripts/verify-python.sh

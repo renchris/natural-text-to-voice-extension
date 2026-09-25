@@ -44,10 +44,9 @@ https://github.com/user-attachments/assets/041d24b7-63a9-42f6-9137-38396ffc0300
 ## Install
 
 Install the helper, then the extension, and Chrome reads your selections in Kokoro voices; without the helper, it
-still reads them, with your Mac's own voices. Both parts are free and open source. Today both build from source, which
-gives you version 1.5.0, the one this page describes. Its release, which adds a Homebrew formula and a ready-made zip,
-is not out yet; each step gives that route second, for when it is. The last part of this section updates a helper
-from before 1.5.
+still reads them, with your Mac's own voices. Both parts are free and open source. This page describes version 1.5.1.
+Each step gives two routes: building from source, and the release (a Homebrew formula for the helper, a ready-made
+zip for the extension). The last part of this section updates a helper from before 1.5.
 
 You need an Apple silicon Mac, a Chromium browser, and the tools that build both parts:
 
@@ -84,9 +83,9 @@ later:
 tmux new-session -d -s natural-tts-helper native-helper/.build/release/natural-tts-helper
 ```
 
-**With Homebrew, once v1.5.0 is released.** `brew install renchris/tap/natural-tts` will build the helper and
-download the model once, and `brew services start natural-tts` will start it now and at every login, so a restart
-needs nothing. After the install the helper never goes online; `brew services stop natural-tts` stops it. Details:
+**With Homebrew.** `brew install renchris/tap/natural-tts` builds the helper and downloads the model once, and
+`brew services start natural-tts` starts it now and at every login, so a restart needs nothing. `brew upgrade
+natural-tts`, then `brew services restart natural-tts`, moves an installed one to the latest release. After the install the helper never goes online; `brew services stop natural-tts` stops it. Details:
 [packaging/homebrew/README.md](packaging/homebrew/README.md).
 
 ### 2. Add the extension
@@ -100,7 +99,7 @@ cd chrome-extension && bun install && bun run build
 Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and select
 `chrome-extension/dist`.
 
-**From the release zip, once v1.5.0 is released.** You will not need Bun: download `natural-tts-1.5.0.zip` from
+**From the release zip.** You will not need Bun: download `natural-tts-1.5.1.zip` from
 [Releases](https://github.com/renchris/natural-text-to-voice-extension/releases), double-click it, and load the
 unzipped folder the same way. A Chrome Web Store listing will follow.
 
@@ -170,7 +169,7 @@ git pull && native-helper/Scripts/quickstart.sh
 ```
 
 It rebuilds the helper, moves a pre-1.5 Python environment aside once, and restarts the helper in its tmux session.
-To move to Homebrew once v1.5.0 is released, stop the source helper with `native-helper/Scripts/teardown.sh` before
+To move to Homebrew instead, stop the source helper with `native-helper/Scripts/teardown.sh` before
 `brew services start natural-tts`: while the old helper still answers on port 8249, the extension keeps using it.
 
 ## Fixing what the popup, the icon or the helper reports
@@ -443,11 +442,13 @@ Scripts on your Mac can call the helper directly, and one fail-closed gate check
 
 The helper is a small HTTP API on this Mac (`127.0.0.1`): `GET /health`, `GET /voices`, and `POST /speak`, which takes
 JSON (`text`, and optionally `voice` and `speed`) and returns a WAV. A web page cannot make it speak or list voices
-(it answers 403); a script on your Mac can. Each WAV is turned up toward a loudness of −16 LUFS, but its loudest peak
-never passes −1.5 dBTP, just under the most a file can hold. For 13 of the 15 measured cases that peak cap stops the
-gain first, so speech lands at about −16 to −21 LUFS, −25 at worst (LUFS count down from a file's maximum, so −16 is
-the louder end); [W2 §10](docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)
-has the measurements. Full reference: [native-helper/README.md](native-helper/README.md).
+(it answers 403); a script on your Mac can. Each WAV is brought to a loudness of −21 LUFS (about −18 once played in
+stereo, a usual level for speech), and its loudest peak never passes −1.5 dBTP, just under the most a file can hold.
+Where the peaks would stop it short, a limiter takes at most 3 dB off them, on at most 1% of the audio. In the
+measured set 14 of 15 cases land at −21.0 and the peakiest, a long read in am_michael, at −22.1 (LUFS count down
+from a file's maximum, so −21 is the louder end).
+[W2 §11](docs/research/2026-09-upgrade/W2-integration-measurements.md#11-loudness-151-21-lufs-and-a-3-db-limiter-measured-2026-09-24)
+has the measurements, and [the limiter decision](docs/research/2026-09-upgrade/limiter-decision/README.md) the why. Full reference: [native-helper/README.md](native-helper/README.md).
 
 <p align="center">
   <img src="assets/media/helper.webp" width="700" alt="A terminal session. natural-tts-helper --port 8250 starts, loads Kokoro, warms up both English pipelines and prints Natural TTS Helper is ready, listening on 127.0.0.1:8250. Then curl -s localhost:8250/health prints apiVersion 2, model kokoro-82m, model_loaded true, status ok, version 1.5.0. A curl POST to /speak with the text Hello from a private Kokoro voice and voice af_heart writes hello.wav; the worker logs that it generated 2.52 s of audio in 0.20 s, 12.9 times faster than real time. afinfo hello.wav reports 1 channel, 24000 Hz, Int16, 2.525 seconds.">

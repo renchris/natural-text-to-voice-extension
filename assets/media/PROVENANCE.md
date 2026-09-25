@@ -21,6 +21,10 @@ Common to every clip:
 - **Runtime:** Natural TTS helper 1.5.0, built from git `f6f701e8c429785128ab98b8880a77b35d24f0e8` with
   `swift build -c release`, clean tree; Python worker with mlx 0.32.2 and mlx-audio 0.5.5, **loudness-normalized**
   (every `/speak` response: one gain toward −16 LUFS, never past a −1.5 dBTP true peak; see "Loudness" below)
+- **Level as of 1.5.1:** every clip, and the demo and hero videos built from them, were made by the 1.5.0 helper at
+  its −16 LUFS target and are left as made. The 1.5.1 helper speaks at −21 LUFS with a limiter of at most 3 dB
+  (`docs/research/2026-09-upgrade/W2-integration-measurements.md` §11), so it speaks short passages like these
+  up to 5 dB quieter than they sound here.
 - **Machine:** Apple M1 Max, macOS 15.7.9
 - **Date:** 2026-09-24 22:59 UTC (17:59 local). The first set (helper `9186b17`, 2026-09-24 04:54 UTC, no
   normalization) is superseded; its manifest is in git history
