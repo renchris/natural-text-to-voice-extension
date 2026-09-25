@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-24
+
+A loudness release. Kokoro speech now plays at one steady level whatever the length of the selection, and the
+system-voice fallback plays at that level too. The decision, its measurements and the options weighed are in
+`docs/research/2026-09-upgrade/limiter-decision/README.md`.
+
+### Changed
+- **The helper's speech is at −21 LUFS, with a true-peak limiter of at most 3 dB.** 1.5.0 aimed at −16 LUFS with a
+  single gain per response. The loudest syllable capped that gain, so a long read landed up to 8 LU quieter than a
+  short one in the same voice: af_heart went from −16.8 to −22.9 LUFS, am_michael from −17.6 to −25.6.
+  - **How it works now.** The worker aims at −21 LUFS, which plays at about −18 in stereo, AES TD1008's level for
+    speech. When the peak ceiling (−1.5 dBTP, unchanged) stops the single gain short of that, a lookahead limiter
+    takes at most 3 dB off the loudest peaks. It has a 5 ms attack and a 60 ms release.
+  - **Measured on the 15-case gate** (5 voices × 3 lengths): 14 of 15 cases land at −21.0 LUFS by ffmpeg's meter.
+    The peakiest, am_michael's 26 s read, stops at the 3 dB cap at −22.1. No sample passes −1.5 dBTP, and at most
+    0.27% of samples are more than 1 dB down.
+  - **On 85 files including 1.5–3 minute articles:** −23.1 … −21.0 LUFS, where 1.5.0 spread from −25.6 to −16.0.
+  - **Cost:** 3.2–3.7% of synthesis time.
+  - **Against 1.5.0:** short selections play up to 5 dB quieter. Long, peaky reads that 1.5.0 left near −25 play up
+    to 3 dB louder.
+  - **Rollback:** `LIMITER_MAX_GR_DB = 0.0` in `tts_worker.py` turns the limiter off, leaving the single gain
+    toward −21.
+- **The system-voice fallback plays Samantha at `chrome.tts` volume 0.8.**
+  - **Why:** Samantha, the American default, speaks at about −16.4 LUFS at full volume. 0.8 lowers her 4.8 dB, to
+    Kokoro's level.
+  - **Every other voice stays at 1.0.** The British fallbacks are already at or below Kokoro.
+  - **Measured across 5 voices × 4 lengths,** Kokoro against the fallback for the same text: the largest American
+    jump goes from 9.6 LU to 1.9, and the British one is −1.5 … 0.
+- Versions: extension, helper `/health` and the worker environment report 1.5.1; the Homebrew formula points at the
+  v1.5.1 tag.
+
+### Not measured
+- **The fallback volume through Chrome's live audio path.** CoreAudio output on the build Mac was stalled for the whole
+  session. Volume 0.8 rests on `AVSpeechSynthesizer` renders with the same `AVSpeechUtterance.volume` that Chrome
+  sets. If a live capture reads about −1.9 dB at 0.8 rather than −4.8, the value becomes about 0.58.
+- **A blind listening test of the 3 dB worst case.** If one ever hears the limiting, set `LIMITER_MAX_GR_DB = 0.0`.
+- The README's recordings were made by the 1.5.0 helper at −16 LUFS and are left as made (`assets/media/PROVENANCE.md`).
+
 ## [1.5.0] - 2026-09-23
 
 The 2026-09 upgrade program. It rebuilds the helper on a locked, current MLX stack. It narrows the extension's
@@ -458,7 +496,8 @@ Four paths forward documented in README:
 
 ---
 
-[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/renchris/natural-text-to-voice-extension/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.4.0
 [1.3.0]: https://github.com/renchris/natural-text-to-voice-extension/releases/tag/v1.3.0

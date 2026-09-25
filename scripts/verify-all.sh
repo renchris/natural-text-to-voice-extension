@@ -30,7 +30,8 @@ EXPECTED_WARNINGS='["Read and change your data on 127.0.0.1"]'
 EXPECTED_VOICES=28
 EXPECTED_DEFAULT_VOICE=af_heart                       # OD-5, both sides
 EXPECTED_NAME='Natural TTS: Private Kokoro Voices for Mac'   # OD-7
-EXPECTED_VERSION=1.5.0                                # the release: store zip and privacy policy
+EXPECTED_VERSION=1.5.1                                # the release: the store zip's manifest version
+POLICY_VERSION=1.5.0                                  # PRIVACY.md's own revision: 1.5.1 changed no data handling
 MEDIA_MAX_BYTES=$((8 * 1024 * 1024))                  # any committed image, video, audio or PDF
 LOOP_MAX_BYTES=$((3 * 1024 * 1024))                   # a README loop: any GIF or animated WebP
 BRITISH_WARM_MAX="${VERIFY_BRITISH_WARM_MAX:-0.8}"
@@ -630,11 +631,11 @@ section_docs() {
   # so the version string alone could not tell them apart; "## Limited Use" exists only in the rewrite
   # (docs/publishing/PRIVACY_TRACEABILITY.md traces every statement under it).
   if need "$EXT_DIR/PRIVACY.md" "PRIVACY.md is the 1.5.0 rewrite"; then
-    if ! grep -qF "Version $EXPECTED_VERSION" "$EXT_DIR/PRIVACY.md"; then
-      fail "PRIVACY.md is the 1.5.0 rewrite" "no 'Version $EXPECTED_VERSION' in chrome-extension/PRIVACY.md"
+    if ! grep -qF "Version $POLICY_VERSION" "$EXT_DIR/PRIVACY.md"; then
+      fail "PRIVACY.md is the 1.5.0 rewrite" "no 'Version $POLICY_VERSION' in chrome-extension/PRIVACY.md"
     elif ! grep -qx '## Limited Use' "$EXT_DIR/PRIVACY.md"; then
       fail "PRIVACY.md is the 1.5.0 rewrite" "no '## Limited Use' section: this is the pre-rewrite policy"
-    else pass "PRIVACY.md is the 1.5.0 rewrite" "Version $EXPECTED_VERSION, Limited Use section"; fi
+    else pass "PRIVACY.md is the 1.5.0 rewrite" "Version $POLICY_VERSION, Limited Use section"; fi
   fi
   # OD-7: the old product name survives only in history (research, CHANGELOG, the original implementation plan).
   # The pattern is split so this line does not match itself.

@@ -3,8 +3,8 @@
 #
 # Operator-run. Idempotent. Fail-closed: every check that cannot be proven stops the run.
 #
-#   packaging/homebrew/publish-tap.sh [--version 1.5.0] [--ref origin/main] \
-#       [--confirm v1.5.0] [--confirm renchris/homebrew-tap]
+#   packaging/homebrew/publish-tap.sh [--version 1.5.1] [--ref origin/main] \
+#       [--confirm v1.5.1] [--confirm renchris/homebrew-tap]
 #
 # What it does, in order:
 #   1. The release tag v<version> on origin: used as-is if it exists. Otherwise it is created
@@ -36,7 +36,7 @@ FORMULA_NAME="natural-tts"
 FORMULA_REL="packaging/homebrew/Formula/${FORMULA_NAME}.rb"
 MODELS_REL="native-helper/Sources/NaturalTTSHelper/Models.swift"
 
-VERSION="1.5.0"
+VERSION="1.5.1"
 REF="origin/main"
 CONFIRMS=()
 

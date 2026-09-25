@@ -1,4 +1,4 @@
-# Chrome Web Store listing: Natural TTS 1.5.0
+# Chrome Web Store listing: Natural TTS 1.5.1
 
 Every field of the Chrome Web Store Developer Dashboard, final and ready to paste, in the order the dashboard asks for
 them. Copy the text inside each `text` block exactly; the character counts below were measured on these blocks.
@@ -10,6 +10,11 @@ Sources: [R07](../research/2026-09-upgrade/R07-chrome-web-store-publishing.md) (
 verification), [UPGRADE_RESEARCH §11](../research/2026-09-upgrade/UPGRADE_RESEARCH.md#11-publishing-inputs) (its
 corrections), the operator rulings of 2026-09-23 (OD-1, OD-2, OD-5, OD-7, OD-8, OD-9), and the 1.5.0 code.
 
+**1.5.1 is the version to submit.** It changes only two things: the helper's loudness (−21 LUFS with a ≤ 3 dB
+limiter) and the system-voice fallback's volume (Samantha at 0.8). No permission, data flow, UI text or listing
+claim moves, so every "true of 1.5.0" below holds for 1.5.1. The one change is the file you upload,
+`natural-tts-1.5.1.zip` (§1).
+
 ## Before you open the dashboard
 
 Every claim in the listing is true only once these are. `scripts/release/release.sh` drives items 1-3, checks items 4, 5
@@ -18,8 +23,8 @@ submit" with the steps that are missing (see [RELEASE.md](RELEASE.md)). Item 6 i
 
 | # | Must be true | Why | Who |
 | --- | --- | --- | --- |
-| 1 | Tag `v1.5.0` and its GitHub Release (with the zip) exist | The description and test instructions point at the repository and the Homebrew formula builds from the tag | `release.sh` (gated) |
-| 2 | `brew install renchris/tap/natural-tts` works | The Requirements block and the reviewer's steps depend on it. **The tap is not published yet** | `release.sh` → `publish-tap.sh` (gated) |
+| 1 | Tag `v1.5.1` and its GitHub Release (with the zip) exist | The description and test instructions point at the repository and the Homebrew formula builds from the tag | `release.sh` (gated) |
+| 2 | `brew install renchris/tap/natural-tts` works | The Requirements block and the reviewer's steps depend on it. The tap has served 1.5.0 since 2026-09-25 (UTC); `release.sh` moves it to 1.5.1 | `release.sh` → `publish-tap.sh` (gated) |
 | 3 | GitHub private vulnerability reporting is on | `PRIVACY.md` links to it. Measured `{"enabled":false}` on 2026-09-23 | `release.sh` (gated) |
 | 4 | `chrome-extension/PRIVACY.md` on `main` is the 1.5.0 policy | The privacy policy URL serves `main`. On 2026-09-24 `origin/main` still served the **pre-rewrite** policy (the rewrite, `8de1e51`, was only on local `main`) | Land `main` on origin first (autosquash the fixups, then `/ship`). `release.sh` proves it: its preflight requires `HEAD == origin/main`, and step 5 compares the policy on GitHub with `HEAD` and requests the policy URL |
 | 5 | The store images exist under `assets/store/` at the sizes in [§2.2](#22-graphic-assets) | The dashboard rejects a listing without an icon or a screenshot | W3 capture lane |
@@ -48,8 +53,8 @@ Click **Add new item** and upload the zip.
 
 | Item | Value |
 | --- | --- |
-| File | `chrome-extension/release/natural-tts-1.5.0.zip`, built by `cd chrome-extension && bun run package` (or by `release.sh`, which also attaches it to the GitHub Release) |
-| Checks the packager enforces | manifest version = `package.json` version = 1.5.0, no `key`, name ≤ 75 and description ≤ 132 characters, every file the manifest names is present, no source maps, tests, dotfiles or logs, `manifest.json` at the zip root, every entry re-read and CRC-checked |
+| File | `chrome-extension/release/natural-tts-1.5.1.zip`, built by `cd chrome-extension && bun run package` (or by `release.sh`, which also attaches it to the GitHub Release) |
+| Checks the packager enforces | manifest version = `package.json` version = 1.5.1, no `key`, name ≤ 75 and description ≤ 132 characters, every file the manifest names is present, no source maps, tests, dotfiles or logs, `manifest.json` at the zip root, every entry re-read and CRC-checked |
 | Measured (2026-09-24, extension source as of `ceb80e2`) | 15 files, 112,606 bytes unpacked, **43,616-byte zip**, sha256 `ba01ccc527a73217a2a40a85460330a1cf0d7cfb964ff54be4fe8c9b64d7f134`. The zip is deterministic: the same `dist` gives the same hash, and any change to the extension changes it, so re-measure after every product commit |
 | Install warning | `["Read and change your data on 127.0.0.1"]`, measured on Chrome for Testing 153 from the unzipped package (`node chrome-extension/scripts/verify-permissions.cjs <dir>`) |
 

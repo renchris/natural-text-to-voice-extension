@@ -16,7 +16,7 @@ struct SpeakRequest: Codable {
 
 /// Identity reported by /health.
 enum HelperInfo {
-    static let version = "1.5.0"
+    static let version = "1.5.1"
     /// Bumped when the HTTP contract changes. 2 = the 28-voice catalogue with
     /// accent/gender/grade, 400 unknown_voice, and the Host-header check.
     /// A helper without the field is API 1.

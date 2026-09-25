@@ -1,6 +1,6 @@
 [project]
 name = "natural-tts-worker"
-version = "1.5.0"
+version = "1.5.1"
 description = "Kokoro-82M (MLX) worker process for the Natural TTS native helper"
 # misaki 0.9.4 declares <3.13; pip refuses it on 3.13 while uv would resolve it anyway,
 # so the interpreter is pinned and the lock and the install use the same tool (uv).

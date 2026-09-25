@@ -18,7 +18,7 @@ That first run checks everything, builds the store package, and prints each gate
 then run the command it prints at the end, which carries exactly the confirms still needed:
 
 ```bash
-scripts/release/release.sh --version 1.5.0 --confirm v1.5.0 --confirm release/v1.5.0 --confirm renchris/natural-text-to-voice-extension --confirm renchris/homebrew-tap --confirm private-vulnerability-reporting
+scripts/release/release.sh --version 1.5.1 --confirm v1.5.1 --confirm release/v1.5.1 --confirm renchris/natural-text-to-voice-extension --confirm renchris/homebrew-tap --confirm private-vulnerability-reporting
 ```
 
 Rerun it any time. Steps already done are verified and reported `CURRENT`, never repeated.

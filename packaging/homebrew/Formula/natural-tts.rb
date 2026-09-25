@@ -8,13 +8,12 @@
 class NaturalTts < Formula
   desc "Local Kokoro-82M text-to-speech helper for the Natural TTS Chrome extension"
   homepage "https://github.com/renchris/natural-text-to-voice-extension"
-  url "https://github.com/renchris/natural-text-to-voice-extension/archive/refs/tags/v1.5.0.tar.gz"
+  url "https://github.com/renchris/natural-text-to-voice-extension/archive/refs/tags/v1.5.1.tar.gz"
   # PLACEHOLDER, not the release checksum: sha256 of
   #   git archive --format=tar.gz --prefix=natural-text-to-voice-extension-1.5.0/ 1d19d62
-  # (the tree the local proof in packaging/homebrew/README.md installed). The v1.5.0 tag
-  # does not exist on GitHub yet, and GitHub's tarball is not byte-identical to a local
-  # git archive. publish-tap.sh drops this note and writes the sha256 of the downloaded
-  # GitHub tarball.
+  # (the tree the local proof in packaging/homebrew/README.md installed for 1.5.0). GitHub's
+  # tarball of a tag is not byte-identical to a local git archive, so publish-tap.sh drops
+  # this note and writes the sha256 of the downloaded GitHub tarball.
   sha256 "34ec6f52e0b95f69c378c1471e1942eca0d5b6a8f4ebe76e3380592e5a4972b5"
   license "MIT"
   head "https://github.com/renchris/natural-text-to-voice-extension.git", branch: "main"

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Natural TTS: Private Kokoro Voices for Mac",
   "short_name": "Natural TTS",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Natural Kokoro voices, generated on your Mac, not in the cloud, with the free Natural TTS helper. System voices otherwise.",
   "minimum_chrome_version": "148",
   "permissions": [
