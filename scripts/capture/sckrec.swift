@@ -1,7 +1,9 @@
 // sckrec — ScreenCaptureKit recorder scoped to ONE app's windows + that app's audio.
 // Usage: sckrec <pid> <seconds> <out.mov> [x y w h (points, display coords)] [--no-cursor] [--exclude-others]
+//              [--any-space]
 //   default        : inclusion filter on the app with <pid> (clean picture; Chrome audio records as SILENCE)
 //   --exclude-others: display filter excluding every app whose bundle id differs (keeps Chrome audio)
+//   --any-space    : also find an app whose windows are on another Space (audio-only captures)
 // Requires macOS 15 (SCRecordingOutput) and Screen Recording permission for the calling terminal.
 import AVFoundation
 import CoreMedia
@@ -23,11 +25,11 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputD
   static func main() async throws {
     let a = CommandLine.arguments
     guard a.count >= 4, let pid = Int32(a[1]), let secs = Double(a[2]) else {
-      fputs("usage: sckrec <pid> <seconds> <out.mov> [x y w h] [--no-cursor] [--exclude-others]\n", stderr); exit(64)
+      fputs("usage: sckrec <pid> <seconds> <out.mov> [x y w h] [--no-cursor] [--exclude-others] [--any-space]\n", stderr); exit(64)
     }
     let out = URL(fileURLWithPath: a[3])
     try? FileManager.default.removeItem(at: out)
-    let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+    let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: !a.contains("--any-space"))
     guard let app = content.applications.first(where: { $0.processID == pid }) else {
       fputs("no shareable app with pid \(pid)\n", stderr); exit(2)
     }

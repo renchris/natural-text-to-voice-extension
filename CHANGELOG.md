@@ -41,7 +41,8 @@ system-voice fallback plays at that level too. The decision, its measurements an
 ### Not measured
 - **The fallback volume through Chrome's live audio path.** CoreAudio output on the build Mac was stalled for the whole
   session. Volume 0.8 rests on `AVSpeechSynthesizer` renders with the same `AVSpeechUtterance.volume` that Chrome
-  sets. If a live capture reads about −1.9 dB at 0.8 rather than −4.8, the value becomes about 0.58.
+  sets. `scripts/capture/tts-volume.sh` measures it live. If it reads about −1.9 dB at 0.8 rather than −4.8, the
+  value becomes about 0.58.
 - **A blind listening test of the 3 dB worst case.** If one ever hears the limiting, set `LIMITER_MAX_GR_DB = 0.0`.
 - The README's recordings were made by the 1.5.0 helper at −16 LUFS and are left as made (`assets/media/PROVENANCE.md`).
 

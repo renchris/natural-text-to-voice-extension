@@ -1,0 +1,1 @@
+{"manifest_version": 3, "name": "Natural TTS chrome.tts volume probe", "version": "1.0", "permissions": ["tts"]}

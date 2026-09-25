@@ -331,7 +331,8 @@ minute articles in 5 voices) plus A's 15.
 `AVSpeechSynthesizer.write` with `AVSpeechUtterance.volume`, the property Chrome sets (`tts_mac.mm:329-331`).
 
 **Not measured: the live `chrome.tts` capture.** This Mac's CoreAudio output was stalled system-wide during the
-session (`afplay` of a system sound timed out; `coreaudiod` held 681 audio-out assertions at ~110% CPU). A driver
-that records Chrome's own audio at volume 1.0 / 0.8 / 0.6 / 1.0 is ready at `/tmp/ntts-151/run-live.sh`. It refuses
-while audio is stalled. If it reads about −1.9 dB at 0.8 instead of −4.8 (linear amplitude), Samantha's value
+session (`afplay` of a system sound timed out; `coreaudiod` held 681 audio-out assertions at ~110% CPU). The driver
+that records Chrome's own audio at volume 1.0 / 0.8 / 0.6 / 1.0 is committed as `scripts/capture/tts-volume.sh`.
+Its Chrome, probe and meter halves were run, and the meter reads a synthetic 0 / −4.8 / −9.6 / 0 dB file back
+exactly. It exits 3 while audio is stalled. If it reads about −1.9 dB at 0.8 instead of −4.8 (linear amplitude), Samantha's value
 becomes about 0.58.

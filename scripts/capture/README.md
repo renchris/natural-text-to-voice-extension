@@ -14,7 +14,7 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `build.sh` | Compiles the Swift tools below into `~/.cache/ntts-capture/bin` (or the directory you pass) |
 | `axcheck.swift` | Preflight: prints Screen Recording, Accessibility and synthetic-input grants for this terminal |
 | `winlist.swift` | Lists on-screen windows (`CGWindowListCopyWindowInfo`): id, pid, layer, bounds. Filter by owner |
-| `sckrec.swift` | ScreenCaptureKit recorder for one app's windows, with audio. macOS 15+ |
+| `sckrec.swift` | ScreenCaptureKit recorder for one app's windows, with audio. macOS 15+. `--any-space` also finds an app whose windows are on another Space |
 | `sckapps.swift` | Lists the Chrome-like apps ScreenCaptureKit can share (diagnoses audio filter problems) |
 | `hover.swift` | Moves the real cursor, runs a capture command, restores the cursor (highlights a menu item) |
 | `click.swift` | One real OS click at a screen point (left, or `--right`), then restores the cursor unless `--stay` (for takes that record the pointer); prints the mouse-down time (`down_at=`, epoch ms) |
@@ -38,6 +38,7 @@ icon or the default voice. Capture only after those have landed (`UPGRADE_RESEAR
 | `cws/capture-inputs.sh` | Headless: the real popup while Kokoro speaks (Emma 1.3x, Heart 1.0x) and the live voice groups, into `assets/store/src/` |
 | `cws/render.sh` | Renders the templates at the exact size, strips alpha, asserts dimensions, writes 640×400 proofs (`assets/store/README.md`) |
 | `versions.sh` | Prints the toolchain versions; save its output next to every capture set |
+| `tts-volume.sh`, `tts-volume/` | Measures what `chrome.tts` `volume` does to a system voice's level through Chrome's live audio: a probe extension speaks one sentence at 1.0, 0.8, 0.6 and 1.0, `sckrec` records Chrome, `tts-volume/measure.py` prints each take's ebur128 loudness and a VERDICT for 0.8 (the extension's Samantha volume). Exit 3 when macOS audio output is stalled |
 | `launch.sh` | Launches the capture browser (headed, or `HEADLESS=1`), seeds the helper port/voice/speed, arms `port-guard.mjs`, writes `env.txt`. `CDP_PORT`, `BLOCK` and `HOLD=1` let a second capture run sit beside another |
 | `port-guard.mjs` | CDP `Fetch` guard in every target: refuses every port 8249-8260 but the capture helper's (`launch.sh`), logs every 127.0.0.1 request, serves `https://essays.example/` from `assets/media/src`, optional `--hold-health` |
 | `shoot.mjs` | Headless-safe capture of the popup page (or any page) through CDP: `--fit` PNG at 2x, `--cast`/`--grab` frame sequences with timestamps |
