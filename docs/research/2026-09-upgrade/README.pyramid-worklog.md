@@ -189,6 +189,50 @@ G   Select text in Chrome and hear it in a natural Kokoro voice made on your own
      when the whole selection is ready.                                (children regrouped in Session 5)
 ```
 
+**Session 10 round 2 repair** (R10, R24, R38, R40, R41, R42 of the round-2 findings; numbering in the Session 10 —
+round 2 entry). Four defects, all in the round-1 pyramid above.
+
+- **R24, R38: the LIMIT node named the platform and the route, not what the route costs.** A Mac user read "one script
+  builds the helper" and stopped there, though today's path needs Terminal, Homebrew, Xcode's Command Line Tools and
+  Bun (CHANGELOG 1.5.0 "Breaking"; `chrome-extension/INSTALL.md`). The node now carries that cost, and it moves above
+  the Key Line, straight under G, so it no longer sits between KL1 and its exhibit (R14, Session 9).
+- **R10, R41: KL1 held two claims joined by "also".** Loudness is not a reason of the same kind as "sounds like a
+  person", and at the Key Line the reader does not yet know the product ever switches to a system voice. KL1 goes back
+  to the one judgment. Loudness stays under KL1, as the lead ruled, one level down, as a fact about how it sounds
+  (Session 5 repair).
+- **R42: KL3 asserted "fast" from the best case with no comparison.** The one comparison the committed data supports
+  is against listening time: speech is made about 20 times faster than it plays. No governing document measures the
+  wait against macOS voices or a cloud voice, so neither is claimed. That comparison is also the chart's own metric,
+  so it gives the chart a message (R17).
+- **R40: Next Steps held actions the reader cannot take today** (a copy-pasteable `brew install` block, a store path
+  with no action). Code blocks now carry only today's paths. The not-yet paths become one future-tense sentence each,
+  with inline commands, and the Install opening says once that 1.5.0 is here but its release is not out. This is not
+  one separate not-yet note: the lead ruled Homebrew second inside step 1 and the zip second inside step 2.
+
+Repaired pyramid, round 2 (to one level below the Key Line):
+
+```
+G   Select text in Chrome and hear it in a natural Kokoro voice, made on your Mac's GPU, not in the cloud.
+    LIMIT  an Apple silicon Mac on macOS 14.5+, Chrome 148+ or another browser on Chromium 148+; built from source today,
+           in Terminal, with Homebrew, Xcode's Command Line Tools and Bun, then loaded in Developer mode
+           [straight under G, before the Key Line]
+├─ KL1 NATURAL  It sounds like a person reading, not a machine, in any of 28 English voices.
+│    raises: can I hear it, which voices, how loud is it?
+│    ├─ the hero: Heart, the default, reading a paragraph as the helper made it      [PROVENANCE "Hero video"]
+│    ├─ 28 voices, 20 US / 8 UK, British pronunciation                               [voices.ts; CHANGELOG]
+│    └─ volume nearer the Mac's own voices: raw output 7-12 LU under the system voice, sent 0-5 LU under
+│         [W2 §10, second table]; the absolute level (−16 LUFS target, −1.5 dBTP cap) moves to the API paragraph
+├─ KL2 PRIVATE  Nothing you select leaves your Mac: it goes only to a helper on this Mac, which makes the speech
+│    without going online, or to your Mac's own on-device voices.       (children: Session 5 round 2 repair)
+└─ KL3 FAST  It makes speech about 20 times faster than it plays: a sentence is ready in under half a second, a
+     400-word page in 7 to 8 seconds.                                    (children: Session 6 round 2 repair)
+     ["about 20": warm RTF 21.6-23.3 busy (bench/results.json), 26.2-26.6 quiet (W2 §3), less the loudness step's
+      7-8% (bench/README.md; W2 §10 "Cost") → about 20.2-21.8 busy, about 24.5 quiet; 20 is the low end]
+NEXT STEPS  Install: requirements → 1 helper (source today | Homebrew once v1.5.0 is released) → 2 extension (clone
+            today | zip once released; store later) → 3 speak → updating. Code blocks only for today's paths
+REFERENCE   Fixing (its own H2, after Install) · Development · License
+```
+
 ## Session 4 — Introductions
 
 **Main introduction: the Direct order (A → S/C).** A README reader expects the answer first, so the promise line
@@ -256,6 +300,16 @@ inductive.
 
 Gates re-run for these groupings only: plural noun per grouping, no misfit, no news. All pass.
 
+**Session 10 round 2 repair** (R10 structural; R12, R15, R16, R19, R43, R49 editorial).
+
+| Grouping | Was (round 1) | Now |
+|---|---|---|
+| KL1 support | "facts about the voices": the hero, 28 voices, 0.5× to 2×, and a loudness paragraph told as news ("now plays…", "used to play…"). Loudness was a misfit under "a person reading", and speed supported neither half | **facts about how it sounds**: the voice (the hero), the voices (28, by accent), the volume (nearer the Mac's own). Speed leaves for step 3, where the reader sets it. The volume child is stated as a present-tense mechanism: raw output 7-12 LU under the system voice, sent 0-5 LU under. No before-and-after, no absolute range (that goes to the API paragraph, where a script receives the WAV) |
+| KL2 support | four places plus a fifth item (the privacy policy). The helper also carried two facts about who may use it and what it keeps (403 to web pages, no text in its log), which are not places the text can go. The extension's evidence was its code, though the opening promised an on-Mac check | **places the text can go**: the extension, the helper, its voice engine, your Mac's own voices, each bold-led by a place. The policy link moves into the opening as the section-wide evidence. The 403 fact stays only under Development (it answers who can use the helper). The no-log fact leaves the README; `PRIVACY.md` carries it. The opening now says which check each place has: the helper and engine on your Mac, the extension and the fallback in their code |
+| KL3 conditions | "The texts" bullet held a result (12.9× for a 2.5-second line) and "The loudness step" bullet held a wait cost | **conditions only**: the busy run, the quiet run, the texts, under a lead-in naming the one Mac. The 12.9× line leaves Fast; it stays in the `helper.webp` alt text under Development. The loudness cost is only in the table's lead-in and its column |
+
+Gates re-run for these groupings only: one plural noun each, no misfit, no news. All pass.
+
 ## Session 6 — Logical order
 
 | Grouping | Source analysis | Order | Completeness interrogated |
@@ -294,6 +348,35 @@ order.
   fixes (python → swift → extension → consistency → packaging → docs). The prose, the path table and the command
   block all run helper → extension → formula.
 
+**Session 10 round 2 repair** (R1, R26, R39 structural; R6, R7, R8, R9 editorial).
+
+- **R1: Fast's two groupings were interleaved on the page.** The round-1 regrouping named them, but the draft ran
+  waits → conditions (holding two results) → the start-up wait → re-measure. Order now: the multiple (the opening,
+  then the chart) → **waits** (the table by length, then start-up, the one wait that does not grow) → **conditions**
+  (one lead-in naming the Mac, then the busy run, the quiet run, the texts) → "no other Mac was measured; measure
+  yours". The last sentence answers the question the conditions raise, directly after them.
+- **R26: in the headings, fixing read as a step of installing.** `## Install` is a contract label and cannot widen,
+  so fixing leaves it and becomes its own H2, straight after Install. H2s: Install · Fixing · the evidence ·
+  Development · License, so the use group (Install, Fixing) still comes first, as the round-1 F3 grouping required.
+  Updating stays under Install: it installs a newer helper.
+- **R39: completeness, the restart.** Every restart dropped a from-source install back to a macOS voice, and the only
+  start the page gave was the full install script. The missing step is a start that does not rebuild:
+  `tmux new-session -d -s natural-tts-helper native-helper/.build/release/natural-tts-helper`. It is the line
+  `quickstart.sh:390-391` runs, from the repo root instead of `native-helper/`. That is safe because
+  `Config.swift:320-343` resolves the Python env and the worker from the binary's own ancestors before the cwd.
+  `native-helper/QUICKSTART.md:337` gives the same "next time" start. The Offline row's fix points to it.
+- **R7: the right-click diagram under "The extension" walked the helper and the fallback too.** Trimming its `.mmd` to
+  steps 1-3 would also change `chrome-extension/README.md:333-336`, which embeds the same diagram, and that file is
+  not this lane's. So the diagram moves instead, to step 3, "Speak a selection", where the reader asks what a
+  right-click does. The embed moved byte for byte, and `diagrams:check` still passes. The extension part is now its
+  reach, then its permissions table, straight after the sentence that introduces it (also R35's 43-line reach-back).
+- **R6:** the privacy-policy paragraph had no place in the four-part order. It moves into the opening (Session 5
+  repair).
+- **R8: requirements order.** Now by type, from what you have to what you add: the Mac (chip, macOS, disk, memory) →
+  the browser → the build tools (the helper's, then the extension's).
+- **R9: Development's commands ran build → test → gate → re-render**, which puts a check before the thing it checks.
+  Now build → test → re-render → gate.
+
 ## Session 7 — Summaries
 
 No intellectually blank assertions: no parent reads "three reasons" or "several states". Each parent, before and
@@ -330,6 +413,23 @@ above, so no session checked its summary, and the draft wrote specs under the la
 | Development | "one gate checks the whole tree" (covered half) | scripts on your Mac can call the helper directly, and one gate checks every change |
 
 Universal interrogation re-run for the changed parents only: each now names every child below it and no other.
+
+**Session 10 round 2 repair** (R25 structural; R2, R3, R11, R13, R16, R21, R22, R29 editorial). The round-1 claim just
+above ("each now names every child below it and no other") was false for KL1: the speed range stayed in the section
+after it left the summary (R13). Rows restated:
+
+| Node | Round 1 | Round 2 |
+|---|---|---|
+| KL3 | the Key Line's figures plus a caveat ("the sound starts once the whole selection is ready"), with no judgment | **It makes speech about 20 times faster than it plays**: a sentence in under half a second, a 400-word page in 7 to 8 seconds. The judgment is a comparison with listening time. The caveat goes one level down, as the mechanism behind "the wait grows with what you select" |
+| KL1 (Key Line) | "…and plays about as loud as your Mac's own voices" (R29: no reason at that level) | the one judgment, in 28 voices. Loudness goes one level down |
+| KL1 (section opening) | a pointer to the recording; the idea only in the heading (R13, R27) | sounds like a person reading, not a machine, in any of 28 voices, and the helper brings its volume nearer your Mac's own: one clause per child. "About as loud" is gone. Its boundary with "noticeably quieter" was 2 LU, and nothing on the page supported that line (R11); the numbers now carry the comparison |
+| Private (opening) | "check the extension, the helper and its engine on your Mac, and the fallback in its code" | the helper and its engine on your Mac; the extension and the fallback in their code; the policy traces each statement to that code |
+| Install | the effect of steps 1-3 only (R21) | the effect, free and open source, the one not-yet statement, and the update in place |
+| Fixing | "when Chrome doesn't read in a Kokoro voice … each has one fix". Three of five pill rows are not failures, and the red "!" named no fix (R2, R22) | the pill always shows one of five states and each says what to do, if anything; the icon marks what happened to speech started without the popup; a notice flags an old helper; two commands ask the helper itself. The red "!" row now names its fix: the tooltip gives the reason and what to do (`error-badge.ts:37-44`; `helper-errors.ts:117-125`, e.g. "Select less text") |
+| List lead-ins (R3) | "You need:", "The toolbar icon and the popup's update notice:", "The two commands:", "How the numbers were taken:" | "You need an Apple silicon Mac, a Chromium browser, and the tools that build both parts"; "The icon's two marks and the popup's notice each come with their fix"; "The helper answers two questions itself"; "Every figure comes from one M1 Max, in two runs a day apart" |
+
+Universal interrogation re-run for these parents only: each names every child below it and no other. Checked by
+listing each section's children against its opening sentence.
 
 ## Session 8 — Pre-writing gate
 
@@ -469,6 +569,34 @@ Sources: `bench/results.json` `warm[]` (busy), W2 §3 (quiet), W2 §10 and `benc
 0.09 → 1.2-1.3 s; page 6.47-7.75 + 0.5 → 7.0-8.3 s; long article 12.2-14.8 + 1 → 13-16 s. The "6.5 to 8 s" in
 Sessions 3 and 8 predates the step and is superseded by this line.
 
+**Session 10 round 2 repair** (R23 structural; R4, R14, R17, R18, R27, R28, R30-R37, R44-R48 editorial, dispositioned
+in the Session 10 — round 2 entry). The page map, replacing round 1's:
+
+| Pyramid node | On the page |
+|---|---|
+| G and its limit | the `<h1>`, the bold promise line, the badges, then the **Runs on** paragraph, whose two bold leads are the limit ("Runs on an Apple silicon Mac", "Today you build it from source") |
+| Key Line | three bullets whose bold leads are the three H3 headings word for word, each ending in a parallel imperative link: "Hear it", "Check it", "Measure it" (R34) |
+| KL1's exhibit | the hero, straight after the Key Line (R14: the Runs on paragraph no longer sits between the claim and its recording). Caption "Click to watch with sound", true for a linked preview; the sub-caption names Heart, the default voice, so it ties back to Natural. The `<!-- hero-video -->` block keeps its shape for `embed-hero-video.sh` |
+| Next Steps | `## Install`: opening, requirements, `### 1.` to `### 3.` (the right-click diagram in step 3), `### Updating a helper installed from source` |
+| Reference (use) | `## Fixing what the popup, the icon or the helper reports`, covering the three kinds its opening names (R36) |
+| Key Line support | `## You can check each claim yourself` (an idea; R4), then `### Natural: …`, `### Private: …`, `### Fast: …` |
+| Reference | `## Development` (`### Calling the helper from a script`, which now carries the absolute level; `### Changing the code`) · `## License` |
+
+**Headings précis.** Install (1. install the helper · 2. add the extension · 3. speak a selection · updating a helper
+installed from source) → fixing what the popup, the icon or the helper reports → you can check each claim yourself
+(natural: it sounds like a person reading, not a machine · private: nothing you select leaves your Mac · fast: it
+makes speech about 20 times faster than it plays) → development (calling the helper from a script · changing the
+code) → license. The three argument H3s are now parallel ("Label: full clause", R28), and each claims no more than
+its section (R18, R28).
+
+**30-second test on the artifact (R23).** Measured as the finding measured it: `wc -w` on README lines 5-26 (title,
+promise, badges, Runs on, Key Line), tags stripped, link text kept. **153 words**, about 38 s at 240 wpm, down from
+199 (about 50 s). The title, the promise and the bold leads alone: **62 words**, about 16 s. The bold leads now carry
+the ideas (the limit, then three reasons), not category labels. The full read is still about 8 s over. That residual
+is the limit that R24, R38 and the lead's first-screen ruling require (about 40 words). It is logged in the variance
+log. Trimmed to get here: the lead's own "14.5+ / 148+" notation, shorter parallel links ("Hear it", "Check it",
+"Measure it") and a tighter Private support clause.
+
 ## Session 10 — round 1
 
 **Input.** The critique panel's 48 findings over the frozen draft (`eb969da` plus the loudness lines of `142fd52`):
@@ -564,6 +692,142 @@ Session 0 records a bounded input (~21,900 tokens, tier A), and this is round 1 
 | render: `gh api markdown -f mode=markdown …`, github-markdown-css 5.8.1 at 1012 px, Chrome for Testing (chromium-1243), light and dark | looked at the whole page in both modes. In `mode=markdown` output the API wraps each `<picture>`'s `<img>` in an `<a>`, so the dark `<source>` is skipped in a local render. Unwrapped, the dark page picks all four dark SVGs; `mode=gfm` does not wrap. The `<picture>` markup is byte-identical to the committed draft's |
 | CI badge | still broken locally: `ci.yml` is not on `origin/main` yet (Session 9) |
 
+## Session 10 — round 2
+
+**Input.** The critique panel's round-2 findings over the round-1 README (`54f8d43`), 49 in all: 11 structural and 38
+editorial. They are numbered R1-R49 here in the order the panel returned them. This is round 2 of 2, the last. The
+structural findings were repaired once, in their owning sessions (look for "Session 10 round 2 repair" under Sessions
+3, 5, 6, 7 and 9). The README was then redrafted from the repaired pyramid, and the editorial findings were applied to
+that draft. A structural defect still standing after this round is logged in the variance log, not looped.
+
+**Lead rulings for this round, and how each was carried.**
+
+- Install leads with what works today, and the not-yet paths say so plainly, never in a future-as-present tense:
+  carried. "From source, today" comes first in steps 1 and 2. Homebrew and the zip are "once v1.5.0 is released",
+  worded in the future tense ("will build", "will start", "You will not need Bun"). The store is "will follow".
+- The eligibility gate on the first screen, with `127.0.0.1` glossed as "this Mac": carried. It is now straight under
+  the promise line and adds today's install cost (R24, R38). The gloss is in the Private bullet.
+- The hero, before the embed: carried. The silent preview is linked to `assets/media/hero.mp4`, captioned "Click to
+  watch with sound". The marker line, the linked `<p>` and the caption `<p>` keep round 1's shape for
+  `embed-hero-video.sh`, which does not exist yet in this tree.
+- Loudness where it belongs to Natural, in plain words, with the precision one level down: carried, **in part, for
+  the round-1 reason, still true.** It sits under Natural as a fact about how it sounds, in plain words ("the volume
+  changes much less" when Chrome switches to a system voice and back). The numbers move out of the Key Line. The
+  absolute level (−16 LUFS target, −1.5 dBTP cap, about −16 to −21 LUFS, −25 at worst) goes to the API paragraph
+  under Development, where a script receives the WAV. "Evens out level across voices" is not carried: W2 §10's first
+  table puts the spread across its five voices at 2.4 / 3.5 / 7.6 LU normalized, against 3.8 / 3.9 / 3.9 LU raw. For
+  long texts the spread grows. Only the comparison with the system voice is stated.
+- Every figure traceable to a committed source: see the table below.
+
+**Dispositions** (A applied · P partly applied · R rejected, with the reason):
+
+| # | Sev. | Session | Finding, in brief | Disposition |
+|---|---|---|---|---|
+| R1 | S | 6 | Fast: conditions and waits interleaved | A: waits (table, start-up), then conditions, then measure yours (Session 6 repair) |
+| R2 | E | 7 | Fixing opening sets a failure class; the table is a state machine | A: the opening now describes all five states ("each tells you what to do, if anything") |
+| R3 | E | 7 | Blank lead-ins: "You need", "Two commands", "The two commands", "The toolbar icon and…", "How the numbers were taken" | A: each is a point now (Session 7 repair table) |
+| R4 | E | 9 | "Why it's natural, private and fast" is a topic heading | A: `## You can check each claim yourself`, whose opening names what you hear, check and measure |
+| R5 | E | 9 | The Private bullet's fallback clause lacks "local only" | A: "your Mac's own on-device voices" |
+| R6 | E | 6 | The privacy-policy paragraph is a fifth item | A: moved into the Private opening |
+| R7 | E | 6 | The right-click diagram under "The extension" walks the whole path | A: moved to step 3. The `.mmd` is shared with `chrome-extension/README.md:333-336`, so it was moved, not trimmed |
+| R8 | E | 6 | Requirements in no order | A: the Mac → the browser → the build tools |
+| R9 | E | 6 | Re-render listed after the gate that checks it | A: build → test → re-render → gate |
+| R10 | S | 5 | Natural induction holds a misfit (loudness) | A: KL1 support is "facts about how it sounds"; speed leaves (Session 5 repair) |
+| R11 | E | 7 | "About as loud" vs "noticeably quieter": 2 LU apart | A: both verdicts gone; the numbers carry the comparison ("7 to 12 LU quieter", "0 to 5 LU quieter") |
+| R12 | E | 5 | The loudness paragraph is a mixed argument ending on an unrelated absolute range | A: one chain (raw gap → turned up as far as the peak allows → smaller gap → the switch changes volume much less); the absolute range moves to the API paragraph |
+| R13 | E | 7 | Natural never states its point; speed dangles | A: the first sentence states the point with one clause per child; speed moves to step 3 |
+| R14 | E | 9 | Runs on raises "how do I install?", the hero answers something else | A: Runs on moves above the Key Line, so the hero follows the claims it proves |
+| R15 | E | 5 | The extension's "on-Mac" check is its code | A: the opening puts the extension's check in its code, beside the fallback's |
+| R16 | E | 7 | 403 and the log are not ways the text leaves | A: 403 stays only under Development; the log fact leaves (it is in `PRIVACY.md`, now linked from the opening) |
+| R17 | E | 9 | The chart is orphaned; its metric is never introduced | A: the opening states the multiple; the chart's lead-in states its message (21.6 to 23.3 at every length, before the loudness step) |
+| R18 | E | 9 | The Fast heading claims only the best row | A: "Fast: it makes speech about 20 times faster than it plays", which holds at every length |
+| R19 | E | 5 | The conditions carry results | A: with R1; the 12.9× line and the 7% bullet left |
+| R20 | E | 9 | "How do I measure mine?" is deferred behind start-up | A: with R1; "No other Mac was measured. To measure yours…" follows the conditions directly |
+| R21 | E | 7 | The Install opening covers only steps 1-3 | A: Fixing left Install (R26); the opening now covers the update too |
+| R22 | E | 7 | The Fixing opening overclaims ("each has one fix"; the red "!" has none) | A: with R2; the red "!" row gives its fix: the tooltip names the reason and what to do |
+| R23 | S | 9 | The 30-second test fails: 199 words, label-only bold leads | P: bold leads now carry the ideas (62 words, about 16 s); the full read is 153 words, about 38 s. Residual in the variance log |
+| R24 | S | 3 | The first screen hides what installing takes | A: "Today you build it from source in Terminal, with Homebrew, Xcode's Command Line Tools and Bun, then load it in Chrome's Developer mode" |
+| R25 | S | 7 | KL3 is figures and a caveat, not a judgment | A: "it makes speech about 20 times faster than it plays" (Session 7 repair) |
+| R26 | S | 6 | In the headings, fixing reads as an install step | A: `## Fixing what the popup, the icon or the helper reports`, its own H2 after Install |
+| R27 | E | 9 | The Natural heading does the text's job | A: with R13 |
+| R28 | E | 9 | The argument H3s are not parallel; two overclaim | A: all three read "Label: full clause"; none claims more than its section |
+| R29 | E | 7 | KL1's loudness sentence gives no reason at the Key Line | A: removed from the Key Line (R10) |
+| R30 | E | 9 | The loudness paragraph fails the image test | A: rewritten around one picture (the switch changes volume much less); LU glossed once; LUFS only under Development, with a gloss ("count down from a file's maximum, so −16 is the louder end") |
+| R31 | E | 9 | Fast splits the waits and restates start-up | A: with R1; start-up is stated once, as the one wait that does not grow |
+| R32 | E | 9 | "A much shorter line runs at a lower multiple" contradicts its figure | A: the sentence left Fast |
+| R33 | E | 9 | The updating opening gives no picture; its precondition follows the command | A: "Homebrew starts at 1.5, so a helper older than that was built from source" (CHANGELOG 1.5.0 "Homebrew install (OD-1)"); the "stop it first" step now precedes the command |
+| R34 | E | 9 | The Key Line links are not parallel | A: "Hear it", "Check it", "Measure it" |
+| R35 | E | 9 | Bold-led lists break parallel form; a 43-line reach-back | A: conditions all "**The …:**"; the commands are two questions; the four Private places are bold-led by place; the permissions table follows its sentence directly |
+| R36 | E | 9 | The Fixing heading covers two of three kinds | A: "…the popup, the icon or the helper reports" |
+| R37 | E | 9 | "makes the voice offline" parses as "disables it" | A: "makes the speech without going online" |
+| R38 | S | 3 | The first screen shows install as one script | A: with R24 |
+| R39 | S | 6 | After every restart a from-source install falls back, and the only start is the full script | A: a no-rebuild start line in step 1; the Offline row points to it (Session 6 repair) |
+| R40 | S | 3 | Next Steps hold actions the reader cannot take today | P: no code block for a not-yet path; one future-tense sentence each; the one not-yet statement is in Install's opening. Not a single separate note: the lead ruled Homebrew second inside step 1 and the zip second inside step 2 |
+| R41 | S | 3 | KL1 joins an unrelated assertion (loudness) | A: with R10 |
+| R42 | S | 3 | "Fast" from the best case, with no comparison | A: the comparison is listening time, the only one the committed data supports; none is claimed against macOS or cloud voices, which no governing document measures |
+| R43 | E | 5 | The extension has no on-Mac procedure; Load unpacked shows no install warning | A: with R15; the warning row no longer implies the reader sees it at install ("the one permission Chrome warns about", `verify-all.sh:29`) |
+| R44 | E | 9 | Garden path, "makes the voice offline" | A: with R37 |
+| R45 | E | 9 | "148" reads as the browser's own version | A: "another browser on Chromium 148+"; the requirement adds "the engine's version, which can differ from the browser's own number" |
+| R46 | E | 9 | Does 1.5 exist? | A: Install's opening: building from source "gives you version 1.5.0, the one this page describes. Its release … is not out yet" |
+| R47 | E | 9 | 0.38 s in the chart, 0.39 s in the "(the chart)" column | A: the column now shows the chart's own figures, time to first audio: 0.38 / 1.2 / 7.7 / 14.8 s (`bench/results.json` `warm[].ttfb_s` medians 0.3844 / 1.2354 / 7.7411 / 14.8233) |
+| R48 | E | 9 | "Free" dropped between pyramid and page | A: "Both parts are free and open source" (Install); "free and MIT-licensed" (License) |
+| R49 | E | 3 | Loudness framed as a before-and-after change | A: with R12; stated as the present mechanism (raw output vs what the helper sends) |
+
+Tally: 47 applied, 2 partly applied (R23, R40), 0 rejected.
+
+**New or moved figures, each to its committed source.**
+
+| Claim | Source |
+|---|---|
+| about 20 times faster than it plays; 21.6 to 23.3 in the chart | `bench/results.json` `warm[].rtf` medians 21.55-23.29; W2 §3 26.2-26.6×; less 7-8% for the loudness step (`bench/README.md` "The committed result"; W2 §10 "Cost") |
+| a 400-word page is nearly 3 minutes of speech | `bench/results.json` L400 `audio_s` 168.8 s; W2 §3 171.5 s |
+| busy column 0.38 / 1.2 / 7.7 / 14.8 s | `bench/results.json` `warm[].ttfb_s` medians; `assets/diagrams/performance.mmd` x-sublabels |
+| the loudness step adds about 0.3% of the audio's length | `bench/README.md` "The committed result"; W2 §10 "Cost" |
+| raw 7 to 12 LU under the system voice, sent 0 to 5 LU under | W2 §10, second table and the sentence under it |
+| 13 of 15 cases stop at the peak cap; about −16 to −21 LUFS, −25 at worst | W2 §10, first table; `native-helper/README.md:260-262` |
+| the no-rebuild start line; ready 3 to 4 s later | `quickstart.sh:390-391`; `Config.swift:320-343`; `native-helper/QUICKSTART.md:105-109, 337` |
+| the red "!" tooltip gives the reason and what to do | `chrome-extension/src/shared/error-badge.ts:37-44`; `helper-errors.ts:117-125` |
+| Homebrew starts at 1.5 | CHANGELOG 1.5.0 "Homebrew install (OD-1)" and "The tap is not published yet" |
+| the one permission Chrome warns about | `scripts/verify-all.sh:29` `EXPECTED_WARNINGS` |
+| on-device voices only | `chrome-extension/src/shared/system-voice.ts:94-107` (`remote !== true`, no `extensionId`) |
+
+**Input read this round**, beyond Session 0's body: `quickstart.sh` steps 3-5, `Config.swift` `PathResolver`,
+`error-badge.ts`, `helper-errors.ts` messages, `system-voice.ts:90-110`, W2 §2, §3 and §10, `bench/README.md` to "What
+it measures". About 6,500 words, about 9,100 tokens. The run stays in tier A (Session 0's ~21,900 plus this is under
+30K).
+
+**Session 8 gates re-run, only the ones these repairs touch.**
+
+| Gate | Evidence |
+|---|---|
+| A · summaries | KL1, KL3, Install, Fixing, Private and the evidence H2 each state what is below them and no more (Session 7 round 2 table) |
+| E · logic | KL1 support is one inductive grouping ("how it sounds"); KL3's conditions hold only conditions; Private's places hold only places (Session 5 round 2) |
+| F · order | the top zone runs G → limit → reasons → exhibit → act; Fast runs multiple → waits → conditions → measure yours; H2s run Install → Fixing → evidence → Development → License; Development's commands run cause before check (Session 6 round 2) |
+| G · MECE | the right-click diagram no longer overlaps the helper and fallback parts; conditions and waits do not share an item; Fixing's opening names the pill, the icon, the notice and the helper, which are exactly its three lists |
+| I · 30 seconds | the bold-lead read gives G, the limit and three reasons in 62 words, about 16 s; the full top zone is 153 words, about 38 s (Session 9 round 2) |
+
+**Verification (this round).** Nothing was published, pushed, or started on a port.
+
+| Check | Result |
+|---|---|
+| `bun run diagrams:check` | exit 0, "all 8 SVGs and mermaid fences up to date"; no `.mmd` edited; the moved right-click embed is byte-identical |
+| links, images and `#anchors` (`/tmp/ntts-s10r2/check-links.py`, GitHub slug rules, anchors into other `.md` files included) | 58 checked, 0 broken |
+| heading ids from GitHub's own renderer (`gh api markdown`) | `user-content-` ids exist for all three Key Line targets, `install` and `updating-a-helper-installed-from-source` |
+| contract lines | `## Install` ×1, `### Updating a helper installed from source` ×1, `<!-- hero-video -->` ×1, alone on its line and directly above the hero `<p>`; no `WebGPU`, `Phase 0`, `IN PROGRESS` or old product name |
+| no inbound link broken by the renamed headings | `git grep` for `README.md#` and the repo URL with `#`: only `#install` and `#updating-a-helper-installed-from-source` are linked from code (popup, `helper-version.ts`, tests), and both are unchanged |
+| `bash scripts/verify-all.sh docs` | PASS, 8 of 8 |
+| render: `gh api markdown -f mode=markdown …`, github-markdown-css 5.8.1 at 1012 px, Chrome for Testing (chromium-1243) headless, light and dark, the `<picture>` images unwrapped from the API's `<a>` (round 1's finding) | looked at every slice of both modes, 12.5K px each. Every local image loads; the dark page picks all four dark SVGs; the first 900 px show the eligibility gate, today's install cost and all three reasons |
+| the no-rebuild start line | **not run.** Port 8249 is held by the v1.4 helper (pid 31790), and a default-port run writes `config.json`, which this environment forbids. Checked by reading: it is `quickstart.sh`'s own tmux line, and `Config.swift:320-343` resolves the env and worker from the binary's location, so the repo-root cwd works |
+| CI badge | still broken locally: `.github/workflows/ci.yml` is in `HEAD` but not on `origin/main` |
+
+Worklog lint (`scripts/pyramid-worklog-lint.sh`) is still not on this machine. Rules 1 and 4 checked by hand: Session
+0 records a bounded input (tier A, still under 30K tokens with this round's reads), and this is round 2 of 2.
+
+**Closure.** Passes 1-3 were re-run over the round-2 draft for every finding above, with the evidence in the tables.
+The deliverable is `README.md` at the repository root. **Verdict.** Yes, with two logged residuals. The first screen
+tells the reader what he doesn't know, in answer to his one question, and he can act on it. The bold-lead read takes
+about 16 s; the full top zone takes about 38 s, and the limit it now has to carry is why.
+
 ## Variance log
 
 - **Hero before or after the Key Line.** The R08 skeleton puts the hero first; the pyramid puts the three bullets
@@ -578,3 +842,20 @@ Session 0 records a bounded input (~21,900 tokens, tier A), and this is round 1 
   stays silent until the operator runs `embed-hero-video.sh`. The CI badge stays broken until `ci.yml` is on `main`.
   Loudness is claimed against the system voice only; across voices the measurements do not support it. The top zone
   grew to about 190 words to carry the eligibility limit.
+- **Session 10, round 2 of 2 (the last).** 49 findings. The 11 structural ones were repaired once, in their owning
+  sessions: 3 (the limit now carries the install cost; KL1 back to one judgment; KL3's comparison; not-yet paths
+  without code blocks), 5 (KL1 support "how it sounds"; Private's places only; Fast's conditions only), 6 (Fast's
+  order; Fixing as its own H2; the no-rebuild restart), 7 (KL3's judgment) and 9 (page map, 30-second timing).
+  Editorial: 47 applied in all, 2 partly (R23, R40), 0 rejected. No third round runs. Two structural findings stand
+  in part after the round, and both are logged here instead of looped:
+  - **R23, the 30-second test.** The full top zone is 153 words, about 38 s at 240 wpm, about 8 s over. The bold-lead
+    read carries G, the limit and all three reasons in 62 words, about 16 s. The overrun is the limit R24 and R38
+    required, and the lead ruled onto the first screen: eligibility plus today's install cost, about 40 words.
+    Cutting it would reopen those findings. Accepted.
+  - **R40, the not-yet paths.** They sit inside steps 1 and 2 as one future-tense sentence each, with no code block,
+    not in one separate note, because the lead ruled that order. Accepted. Once v1.5.0 is released, those sentences
+    and Install's opening need a pass to drop "once … is released". That is a doc edit for the release follow-up, not
+    a defect in this round.
+- **Residual risks, round 2.** The no-rebuild start line was checked by reading, not run: 8249 is held by the v1.4
+  helper, and a default-port run writes `config.json`. KL3's "about 20 times" rests on one M1 Max, with the loudness
+  step estimated from its measured cost, not re-benchmarked. The next clean `bench/run.mjs` run measures it in.

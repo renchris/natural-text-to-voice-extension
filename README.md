@@ -13,18 +13,16 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/renchris/natural-text-to-voice-extension"></a>
 </p>
 
-- **Natural.** It sounds like a person reading, not a machine, in any of 28 English voices from Kokoro-82M, an open
-  voice model. It also plays about as loud as your Mac's own voices.
-  [The voices](#natural-a-person-reading-as-loud-as-your-macs-voices)
-- **Private.** Nothing you select leaves your Mac. It goes only to a small helper app on this Mac (`127.0.0.1`) that
-  makes the voice offline; when the helper isn't running, your Mac's built-in voices read it instead.
-  [Check it yourself](#private-nothing-you-select-leaves-your-mac)
-- **Fast.** On an M1 Max a sentence is ready in about 0.4 seconds and a 400-word page in about 7 to 8 seconds; the
-  sound starts once the whole selection is ready. [How that was measured](#fast-a-sentence-in-under-half-a-second)
+**Runs on an Apple silicon Mac** with macOS 14.5+, in Chrome 148+ or another browser on Chromium 148+. **Today you
+build it from source** in Terminal, with Homebrew, Xcode's Command Line Tools and Bun, then load it in Chrome's
+Developer mode.
 
-**Runs on** a Mac with Apple silicon and macOS 14.5 or later, in Chrome or another Chromium browser, version 148 or
-later. Today you install it from source: one script builds the helper on your Mac, and Chrome loads the extension in
-Developer mode. Once [v1.5.0 is released](https://github.com/renchris/natural-text-to-voice-extension/releases), Homebrew and a release zip can do the same. [Install](#install)
+- **Natural: it sounds like a person reading, not a machine,** in any of 28 English voices.
+  [Hear it](#natural-it-sounds-like-a-person-reading-not-a-machine)
+- **Private: nothing you select leaves your Mac.** A helper app on this Mac (`127.0.0.1`) makes the speech without
+  going online; without it, your Mac's own on-device voices read instead. [Check it](#private-nothing-you-select-leaves-your-mac)
+- **Fast: it makes speech about 20 times faster than it plays,** so a sentence is ready in under half a second and a
+  400-word page in 7 to 8 seconds. [Measure it](#fast-it-makes-speech-about-20-times-faster-than-it-plays)
 
 <!-- hero-video -->
 <p align="center">
@@ -33,7 +31,7 @@ Developer mode. Once [v1.5.0 is released](https://github.com/renchris/natural-te
 
 <p align="center">
   <b>▶ Click to watch with sound.</b><br>
-  <sub>Recorded on an M1 Max with voice af_heart (Heart) at speed 1.0× through helper 1.5.0. The voice is the helper's real output for the paragraph on screen; the picture above is a silent preview that opens <a href="assets/media/hero.mp4">the MP4 with sound</a>.</sub>
+  <sub>Heart, the default voice, reading the paragraph on screen exactly as the helper made it: voice af_heart at 1.0×, helper 1.5.0, on an M1 Max. The picture above is a silent preview that opens <a href="assets/media/hero.mp4">the MP4 with sound</a>.</sub>
 </p>
 
 <details>
@@ -47,24 +45,27 @@ Developer mode. Once [v1.5.0 is released](https://github.com/renchris/natural-te
 
 ## Install
 
-Install the helper, then the extension, and Chrome reads your selections in Kokoro voices. If the helper isn't
-running, the extension still reads them, with your Mac's built-in voices.
+Install the helper, then the extension, and Chrome reads your selections in Kokoro voices; without the helper, it
+still reads them, with your Mac's own voices. Both parts are free and open source. Today both build from source, which
+gives you version 1.5.0, the one this page describes. Its release, which adds a Homebrew formula and a ready-made zip,
+is not out yet; each step gives that route second, for when it is. The last part of this section updates a helper
+from before 1.5.
 
-**You need:**
+You need an Apple silicon Mac, a Chromium browser, and the tools that build both parts:
 
-- a Mac with Apple silicon, on macOS 14.5 (Sonoma) or later;
-- Chrome, or another Chromium browser such as Edge, Brave, Opera, Vivaldi, Arc or Dia, version 148 or later;
-- [Homebrew](https://brew.sh) and the Xcode 16.2+ Command Line Tools (`xcode-select --install`), because the helper
-  is built on your Mac whichever way you install it;
-- [Bun](https://bun.sh) 1.3 or later, to build the extension from source;
-- about 1 GB of disk for the voice engine and its model, and room in memory for the engine to peak at about 3.7 GB
-  while it reads a long selection (it settles back to about 0.7 GB).
+- a Mac with Apple silicon on macOS 14.5 (Sonoma) or later, with about 1 GB of disk for the voice engine and its
+  model, and room in memory for the engine to peak at about 3.7 GB while it reads a long selection (it settles back
+  to about 0.7 GB);
+- Chrome 148 or later, or another Chromium browser such as Edge, Brave, Opera, Vivaldi, Arc or Dia on Chromium 148
+  or later (the engine's version, which can differ from the browser's own number);
+- [Homebrew](https://brew.sh) and the Xcode 16.2+ Command Line Tools (`xcode-select --install`) for the helper, which
+  is built on your Mac whichever way you install it, and [Bun](https://bun.sh) 1.3 or later for the extension.
 
 ### 1. Install the helper
 
 If you already run a helper from before 1.5, [update it](#updating-a-helper-installed-from-source) instead.
 
-**From source.** This works today.
+**From source, today.** In Terminal:
 
 ```bash
 git clone https://github.com/renchris/natural-text-to-voice-extension.git
@@ -73,26 +74,26 @@ native-helper/Scripts/quickstart.sh
 ```
 
 `quickstart.sh` installs what it needs with Homebrew (uv, espeak-ng, tmux, jq), builds the locked Python 3.12
-environment and the release binary, downloads the model once, tests the helper, and leaves it running in a tmux
-session named `natural-tts-helper`. It does not start again when you restart your Mac: until you run `quickstart.sh`
-again, Chrome reads with a macOS voice and the toolbar icon shows a grey "i". Stop it with
-`native-helper/Scripts/teardown.sh`. Step by step: [native-helper/QUICKSTART.md](native-helper/QUICKSTART.md).
+environment and the helper, downloads the model once, tests the helper, and leaves it running in a tmux session named
+`natural-tts-helper`. Stop it with `native-helper/Scripts/teardown.sh`. Step by step:
+[native-helper/QUICKSTART.md](native-helper/QUICKSTART.md).
 
-**With Homebrew, once v1.5.0 is released.** The formula is published with the [v1.5.0 release](https://github.com/renchris/natural-text-to-voice-extension/releases); until then,
-`brew install` does not find it.
+The helper does not start again when you restart your Mac; until you start it, Chrome reads with a macOS voice and
+the toolbar icon shows a grey "i". To start it without rebuilding, run this in the clone; it is ready 3 to 4 seconds
+later:
 
 ```bash
-brew install renchris/tap/natural-tts
-brew services start natural-tts
+tmux new-session -d -s natural-tts-helper native-helper/.build/release/natural-tts-helper
 ```
 
-Homebrew builds the helper and downloads the Kokoro model once, at install time; after that the helper never goes
-online. `brew services` starts it now and at every login; `brew services stop natural-tts` stops it. Details:
+**With Homebrew, once v1.5.0 is released.** `brew install renchris/tap/natural-tts` will build the helper and
+download the model once, and `brew services start natural-tts` will start it now and at every login, so a restart
+needs nothing. After the install the helper never goes online; `brew services stop natural-tts` stops it. Details:
 [packaging/homebrew/README.md](packaging/homebrew/README.md).
 
 ### 2. Add the extension
 
-**From your clone.** This works today. In the clone from step 1, build it with Bun:
+**From your clone, today.** In the clone from step 1, build it with Bun:
 
 ```bash
 cd chrome-extension && bun install && bun run build
@@ -101,42 +102,85 @@ cd chrome-extension && bun install && bun run build
 Then open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and select
 `chrome-extension/dist`.
 
-**From the release zip, once v1.5.0 is released.** Download `natural-tts-1.5.0.zip` from [Releases](https://github.com/renchris/natural-text-to-voice-extension/releases),
-double-click it to unzip, and load the unzipped folder the same way.
-
-**From the Chrome Web Store, once it is listed.** The listing is not live yet.
+**From the release zip, once v1.5.0 is released.** You will not need Bun: download `natural-tts-1.5.0.zip` from
+[Releases](https://github.com/renchris/natural-text-to-voice-extension/releases), double-click it, and load the
+unzipped folder the same way. A Chrome Web Store listing will follow.
 
 The extension finds the helper by itself, on this Mac (`127.0.0.1`), ports 8249 to 8260.
 
 ### 3. Speak a selection
 
 Select text on a page or in a PDF, right-click, and choose **Speak selected text**. Or click the toolbar button to
-open the popup, pick a voice and a speed, and press **Speak selected text**; the button turns into **Stop** while it
-plays. To use the keyboard, assign keys to **Speak the selected text** and **Stop speaking** at
+open the popup, pick a voice and a speed from 0.5× to 2×, and press **Speak selected text**; the button turns into
+**Stop** while it plays. To use the keyboard, assign keys to **Speak the selected text** and **Stop speaking** at
 `chrome://extensions/shortcuts`. None are set by default, so nothing takes over a shortcut you already use.
 
 One selection can hold up to 5,000 characters, about 750 words. A longer one is refused, with a message to select less.
 
+A right-click reads the selection in the frame you clicked, or, in a PDF, takes the text Chrome passes along, and
+plays the WAV the helper sends back; with no helper, a system voice reads it:
+
+<!-- Diagram source: assets/diagrams/right-click-flow.mmd. Edit it, run `bun run diagrams`, commit the SVGs. -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/diagrams/right-click-flow-dark.svg">
+  <img src="assets/diagrams/right-click-flow-light.svg" alt="The right-click flow, in five steps. 1: you right-click a selection and choose Speak selected text. 2: the service worker runs a script in the frame you clicked to read the selection, using the activeTab and scripting permissions; for a PDF or a cross-origin frame, where nothing is readable that way, it uses the text Chrome passed with the click instead. 3: the service worker sends the text, voice and speed to the offscreen document. 4: the offscreen document posts it to the helper at 127.0.0.1:8249. 5: the helper returns a WAV, 200 audio/wav, and the offscreen document plays it. If no helper answers, a system voice speaks the text through chrome.tts and the toolbar icon shows a grey i.">
+</picture>
+
+<details>
+<summary>Interactive Diagram</summary>
+
+<!-- mermaid-fence: assets/diagrams/right-click-flow.mmd (auto-synced by `bun run diagrams`) -->
+```mermaid
+flowchart TB
+    CLICK(["1 · Right-click → Speak selected text"])
+    READ["2 · Service worker runs executeScript<br/>in the clicked frame (activeTab + scripting)"]
+    FALL["2b · PDF or cross-origin frame:<br/>use info.selectionText"]
+    SEND["3 · Service worker → offscreen document<br/>text · voice · speed"]
+    POST["4 · Offscreen → POST /speak<br/>127.0.0.1:8249"]
+    PLAY(["5 · Helper returns a WAV · offscreen plays it"])
+    SYS(["5b · No helper → a system voice speaks<br/>via chrome.tts · the icon shows a grey “i”"])
+    CLICK --> READ
+    READ -->|"selection"| SEND
+    READ -.->|"nothing readable"| FALL
+    FALL --> SEND
+    SEND --> POST
+    POST -->|"200 audio/wav"| PLAY
+    POST -.->|"no helper"| SYS
+    classDef ext fill:#1b2060,stroke:#8f9cff,color:#e6edf3
+    classDef local fill:#12261a,stroke:#3fb950,color:#e6edf3
+    classDef fallback fill:#2b2410,stroke:#e3b341,color:#e6edf3
+    classDef start fill:#161b22,stroke:#6e7681,color:#e6edf3
+    class READ,SEND,POST ext
+    class PLAY local
+    class FALL,SYS fallback
+    class CLICK start
+```
+
+<sup><a href="assets/diagrams/right-click-flow-dark.svg?raw=true">full-screen dark</a> · <a href="assets/diagrams/right-click-flow-light.svg?raw=true">light</a> · <a href="assets/diagrams/right-click-flow.mmd">source</a></sup>
+
+</details>
+
 ### Updating a helper installed from source
 
-A helper older than 1.5 was installed from source, and the extension shows "Update the Natural TTS helper" when it
-finds one. In your checkout, run:
+Homebrew starts at 1.5, so a helper older than that was built from source, and the extension shows "Update the
+Natural TTS helper" when it finds one. If you started that helper some other way than `quickstart.sh`, stop it first,
+so the new one can take port 8249: `lsof -nP -iTCP:8249 -sTCP:LISTEN` shows its PID, and `kill <PID>` stops it (or
+press Ctrl-C in the terminal it runs in). Then, in your checkout:
 
 ```bash
 git pull && native-helper/Scripts/quickstart.sh
 ```
 
 It rebuilds the helper, moves a pre-1.5 Python environment aside once, and restarts the helper in its tmux session.
-If you started the old helper some other way, stop it first so the new one can take port 8249:
-`lsof -nP -iTCP:8249 -sTCP:LISTEN` shows its PID, and `kill <PID>` stops it (or press Ctrl-C in the terminal it runs
-in). To move to Homebrew once v1.5.0 is released, stop the source helper with `native-helper/Scripts/teardown.sh`
-before `brew services start natural-tts`: while the old helper still answers on port 8249, the extension keeps using
-it.
+To move to Homebrew once v1.5.0 is released, stop the source helper with `native-helper/Scripts/teardown.sh` before
+`brew services start natural-tts`: while the old helper still answers on port 8249, the extension keeps using it.
 
-### Fixing what the popup or the toolbar icon reports
+## Fixing what the popup, the icon or the helper reports
 
-When Chrome doesn't read in a Kokoro voice, the pill at the top of the popup, the toolbar icon or a notice in the
-popup says why, and each has one fix. Two commands check the helper itself.
+The pill at the top of the popup always shows one of five states, and each tells you what to do, if anything. Speech
+you start from the right-click menu or a shortcut has no popup to report in, so the toolbar icon marks what happened
+to it, and a notice in the popup flags an outdated helper. Two commands ask the helper itself whether it is up and
+what it last did.
 
 <!-- Diagram source: assets/diagrams/popup-status.mmd. Edit it, run `bun run diagrams`, commit the SVGs. -->
 <picture>
@@ -186,8 +230,8 @@ flowchart TB
 | **Checking** | The popup is looking for the helper on `127.0.0.1`, ports 8249 to 8260 | Nothing; it takes well under a second |
 | **Warming** | The helper answered and is still loading the model | Wait a few seconds; the popup checks again every 2 s |
 | **Connected** | Kokoro voices are ready | Speak |
-| **Offline**, "a system voice will read your selection" | No helper answered, so a macOS voice reads instead | Start the helper: `native-helper/Scripts/quickstart.sh`, or `brew services start natural-tts` with Homebrew |
-| **Offline**, with an error and **Retry connection** | The helper's voice engine stopped, the helper did not reply, or system voices are turned off in Options | Restart the helper (`quickstart.sh`, or `brew services restart natural-tts`), then press **Retry connection** |
+| **Offline**, "a system voice will read your selection" | No helper answered, so a macOS voice reads instead | Start the helper ([step 1](#1-install-the-helper)): from source, its `tmux` line; with Homebrew, `brew services start natural-tts` |
+| **Offline**, with an error and **Retry connection** | The helper's voice engine stopped, the helper did not reply, or system voices are turned off in Options | Start or restart the helper (from source, `quickstart.sh`; with Homebrew, `brew services restart natural-tts`), then press **Retry connection** |
 
 <table>
   <tr>
@@ -196,49 +240,52 @@ flowchart TB
   </tr>
 </table>
 
-The toolbar icon and the popup's update notice:
+The icon's two marks and the popup's notice each come with their fix:
 
-- **A red "!" on the icon:** a right-click or shortcut failed. Hover over the icon for the reason.
-- **A grey "i" on the icon:** the last selection was read in a system voice. Start or install the helper for Kokoro
-  voices; the next Kokoro speech clears it.
-- **"Update the Natural TTS helper":** your helper is older than 1.5. See
-  [Updating a helper installed from source](#updating-a-helper-installed-from-source).
+- **A red "!" on the icon:** a right-click or a shortcut failed. Hover over the icon: its tooltip gives the reason and
+  what to do, such as "Select less text".
+- **A grey "i" on the icon:** a system voice read your last selection. Start the helper
+  ([step 1](#1-install-the-helper)) for Kokoro voices; the next Kokoro speech clears it.
+- **"Update the Natural TTS helper" in the popup:** your helper is older than 1.5.
+  [Update it](#updating-a-helper-installed-from-source).
 
-The two commands:
+The helper answers two questions itself:
 
-- **Is the helper up?** `curl -s http://127.0.0.1:8249/health` answers with a `status` of `ok` and the helper's
-  `version`. If port 8249 was taken, the helper moved to the next free port up to 8260, and the extension finds it
-  there.
-- **Its log:** from source, `tmux attach -t natural-tts-helper` (detach with Ctrl-B, then D); with Homebrew,
-  `$(brew --prefix)/var/log/natural-tts.log`.
+- **Is it up?** `curl -s http://127.0.0.1:8249/health` answers with a `status` of `ok` and the helper's `version`. If
+  port 8249 was taken, the helper moved to the next free port up to 8260, and the extension finds it there.
+- **What did it last do?** Its log says: from source, `tmux attach -t natural-tts-helper` (detach with Ctrl-B, then
+  D); with Homebrew, `tail -f "$(brew --prefix)/var/log/natural-tts.log"`.
 
-## Why it's natural, private and fast
+## You can check each claim yourself
 
-Each of the three claims at the top rests on something you can hear, read or run yourself.
+Each claim at the top rests on something you can do: hear the recording and the voices, check where your text goes,
+and measure the speed on your own Mac.
 
-### Natural: a person reading, as loud as your Mac's voices
+### Natural: it sounds like a person reading, not a machine
 
-The recording at the top is Heart, the default voice, reading a paragraph as the helper made it. There are 28 voices
-in all, 20 American and 8 British, and the British ones use British pronunciation. Any of them reads at 0.5× to 2×
-speed.
+Kokoro-82M, an open voice model, sounds like a person reading, not a machine, in any of 28 voices, and the helper
+brings its volume nearer your Mac's own voices. The recording at the top is Heart, the default voice, reading a
+paragraph exactly as the helper made it. The 28 voices are 20 American and 8 British, and the British ones use British
+pronunciation; the popup lists them by accent:
 
 <p align="center">
   <img src="assets/media/voices.webp" width="360" alt="The Natural TTS popup, connected, on voice Heart. Its voice box opens as a list in four groups: American Female (Heart, Bella, Nicole, Aoede, Kore, Sarah, Alloy, Nova, Sky, Jessica, River), American Male (Fenrir, Michael, Puck, Echo, Eric, Liam, Onyx, Santa, Adam), British Female (Emma, Isabella, Alice, Lily) and British Male (Fable, George, Lewis, Daniel). The highlight moves down the list to Emma, Emma is picked, and the box reads Emma.">
 </p>
 
-Kokoro now plays about as loud as your Mac's own voices, so when the extension falls back to a system voice, or comes
-back to Kokoro, you don't reach for the volume. It used to play noticeably quieter: 7 to 12 LU below the system
-voice (a loudness unit, LU, is one decibel of loudness), where it is now 0 to 5 LU. The helper turns every response
-up toward a loudness of −16 LUFS, but never lets its loudest peak past −1.5 dBTP, just under the most a file can
-hold, so most speech lands between about −16 and −25 LUFS ([how that was measured](docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)).
+Kokoro's own output runs 7 to 12 LU quieter than your Mac's system voice reading the same text (an LU is a unit of
+loudness, about one decibel). The helper turns each response up toward the system voice's level, as far as its
+loudest peak allows, which leaves it 0 to 5 LU quieter, so when Chrome switches to a system voice and back, the volume
+changes much less
+([measured](docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)).
 
 ### Private: nothing you select leaves your Mac
 
 Nothing you select leaves your Mac, and you don't have to take that on trust. Your selection makes one hop, to the
 helper on this Mac (`127.0.0.1`): the extension hands it over, the helper's Python worker turns it into speech with
-Kokoro-82M on the Apple GPU, and Chrome plays the WAV that comes back. If no helper answers, Chrome reads it with a
-macOS voice instead, through `chrome.tts`. You can check the extension, the helper and its voice engine on your Mac,
-and the fallback in its code.
+Kokoro-82M on the Apple GPU, and Chrome plays the WAV that comes back. If no helper answers, one of your Mac's own
+on-device voices reads it instead, through `chrome.tts`. You can check the helper and its voice engine on your Mac,
+and the extension and the fallback in their code; the [privacy policy](chrome-extension/PRIVACY.md) traces each of its
+statements to that code, in [PRIVACY_TRACEABILITY.md](docs/publishing/PRIVACY_TRACEABILITY.md).
 
 <!-- Diagram source: assets/diagrams/architecture.mmd. Edit it, run `bun run diagrams`, commit the SVGs. -->
 <picture>
@@ -284,50 +331,8 @@ flowchart TB
 
 </details>
 
-**The extension** can reach one host, `127.0.0.1`. It has no content scripts; it reads a page's selection only after
-you ask it to speak. This is the path of a right-click:
-
-<!-- Diagram source: assets/diagrams/right-click-flow.mmd. Edit it, run `bun run diagrams`, commit the SVGs. -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/diagrams/right-click-flow-dark.svg">
-  <img src="assets/diagrams/right-click-flow-light.svg" alt="The right-click flow, in five steps. 1: you right-click a selection and choose Speak selected text. 2: the service worker runs a script in the frame you clicked to read the selection, using the activeTab and scripting permissions; for a PDF or a cross-origin frame, where nothing is readable that way, it uses the text Chrome passed with the click instead. 3: the service worker sends the text, voice and speed to the offscreen document. 4: the offscreen document posts it to the helper at 127.0.0.1:8249. 5: the helper returns a WAV, 200 audio/wav, and the offscreen document plays it. If no helper answers, a system voice speaks the text through chrome.tts and the toolbar icon shows a grey i.">
-</picture>
-
-<details>
-<summary>Interactive Diagram</summary>
-
-<!-- mermaid-fence: assets/diagrams/right-click-flow.mmd (auto-synced by `bun run diagrams`) -->
-```mermaid
-flowchart TB
-    CLICK(["1 · Right-click → Speak selected text"])
-    READ["2 · Service worker runs executeScript<br/>in the clicked frame (activeTab + scripting)"]
-    FALL["2b · PDF or cross-origin frame:<br/>use info.selectionText"]
-    SEND["3 · Service worker → offscreen document<br/>text · voice · speed"]
-    POST["4 · Offscreen → POST /speak<br/>127.0.0.1:8249"]
-    PLAY(["5 · Helper returns a WAV · offscreen plays it"])
-    SYS(["5b · No helper → a system voice speaks<br/>via chrome.tts · the icon shows a grey “i”"])
-    CLICK --> READ
-    READ -->|"selection"| SEND
-    READ -.->|"nothing readable"| FALL
-    FALL --> SEND
-    SEND --> POST
-    POST -->|"200 audio/wav"| PLAY
-    POST -.->|"no helper"| SYS
-    classDef ext fill:#1b2060,stroke:#8f9cff,color:#e6edf3
-    classDef local fill:#12261a,stroke:#3fb950,color:#e6edf3
-    classDef fallback fill:#2b2410,stroke:#e3b341,color:#e6edf3
-    classDef start fill:#161b22,stroke:#6e7681,color:#e6edf3
-    class READ,SEND,POST ext
-    class PLAY local
-    class FALL,SYS fallback
-    class CLICK start
-```
-
-<sup><a href="assets/diagrams/right-click-flow-dark.svg?raw=true">full-screen dark</a> · <a href="assets/diagrams/right-click-flow-light.svg?raw=true">light</a> · <a href="assets/diagrams/right-click-flow.mmd">source</a></sup>
-
-</details>
-
-These are its permissions, exactly as [`manifest.json`](chrome-extension/public/manifest.json) lists them:
+**The extension** can reach one host, `127.0.0.1`, and has no content scripts: it reads a page's selection only after
+you ask it to speak. Its permissions, exactly as [`manifest.json`](chrome-extension/public/manifest.json) lists them:
 
 | Permission | What it is used for |
 |---|---|
@@ -336,12 +341,13 @@ These are its permissions, exactly as [`manifest.json`](chrome-extension/public/
 | `activeTab` | Gives access to the current tab only after you choose Speak, press the popup's button or use your shortcut |
 | `scripting` | Together with `activeTab`, runs one function in that tab that returns the selected text |
 | `offscreen` | A hidden page that plays the helper's audio, because a Manifest V3 service worker cannot |
-| `tts` | Reads with a macOS voice when the helper isn't running. Local voices only, never a network voice |
-| host `http://127.0.0.1/*` | Sends the text to the helper and gets the audio back. Chrome's only install warning: "Read and change your data on 127.0.0.1" |
+| `tts` | Reads with a macOS voice when the helper isn't running. On-device voices only, never a network voice |
+| host `http://127.0.0.1/*` | Sends the text to the helper and gets the audio back. It is the one permission Chrome warns about, as "Read and change your data on 127.0.0.1" |
 
-**The helper** listens on `127.0.0.1` only, refuses a web page's request to speak or list voices (it answers 403), and
-never writes the text to its log. **Its voice engine**, the Python worker, runs offline: the model is downloaded once,
-at install time, and the worker forces Hugging Face's offline mode on every start. While the helper runs, check both:
+**The helper** listens on `127.0.0.1` only, so nothing outside your Mac can reach it.
+
+**Its voice engine**, the Python worker, runs offline: the model is downloaded once, at install time, and the worker
+forces Hugging Face's offline mode on every start. While the helper runs, check both:
 
 ```bash
 HELPER=$(lsof -t -a -c natural-tts -iTCP -sTCP:LISTEN) WORKER=$(pgrep -P "$HELPER")
@@ -353,19 +359,19 @@ lsof -nP -a -p "$WORKER" -i
 
 The last scene of the [27-second demo](assets/media/demo-30s.mp4) (with sound) runs the same check on camera.
 
-**Without the helper**, Chrome's `chrome.tts` reads the selection with a voice installed on your Mac. The extension
-uses only voices macOS marks as local, never a network voice or another extension's, and shows an error rather than
+**Your Mac's own voices** read the selection when the helper isn't running, through Chrome's `chrome.tts`. The
+extension uses only on-device voices, never a network voice or another extension's, and shows an error rather than
 use one. The rule is one function, `isLocalSpeechVoice` in [system-voice.ts](chrome-extension/src/shared/system-voice.ts).
 To turn the fallback off, open the extension's Options and set "When the helper isn't running" to "Show an error".
 
-The privacy policy, [chrome-extension/PRIVACY.md](chrome-extension/PRIVACY.md), traces every statement to the code
-in [docs/publishing/PRIVACY_TRACEABILITY.md](docs/publishing/PRIVACY_TRACEABILITY.md).
+### Fast: it makes speech about 20 times faster than it plays
 
-### Fast: a sentence in under half a second
+The helper makes speech about 20 times faster than it plays, at every length, so the wait grows with what you select:
+about 0.4 seconds for a sentence, and 7 to 8 seconds for a 400-word page you would listen to for nearly 3 minutes.
+The sound starts only when the whole selection is ready, because the helper sends the WAV in one piece.
 
-On an M1 Max a sentence is ready in about 0.4 seconds and a 400-word page in about 7 to 8 seconds. The sound starts
-only when the whole selection is ready, so the wait grows with what you select; the only other wait is the helper's
-3 to 4 seconds to start.
+On the committed run, on a busy machine and before the loudness step, that multiple held at 21.6 to 23.3 across all
+four lengths:
 
 <!-- Diagram source: assets/diagrams/performance.mmd, generated by `node bench/chart.mjs` from bench/results.json. Never edit it by hand. -->
 <picture>
@@ -394,35 +400,34 @@ xychart-beta
 
 </details>
 
-The runs came before the loudness step (the helper turning each response up, under Natural), so the last two columns
-add it in:
+The loudness step (the helper turning each response up, under Natural) came after this run and a quieter one the day
+before. It adds about 0.3% of the audio's length to each wait
+([W2 §10](docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)),
+so the last two columns add it in:
 
 | Text | Words | Busy machine (the chart) | Quiet machine | Loudness step adds | Today, about |
 |---|---:|---:|---:|---:|---:|
-| Sentence | 15 | 0.39 s | 0.34 s | 0.03 s | 0.4 s |
-| Paragraph | 60 | 1.24 s | 1.11 s | 0.09 s | 1.2 to 1.3 s |
-| Page | 407 | 7.75 s | 6.47 s | 0.5 s | 7 to 8 s |
+| Sentence | 15 | 0.38 s | 0.34 s | 0.03 s | 0.4 s |
+| Paragraph | 60 | 1.2 s | 1.11 s | 0.09 s | 1.2 to 1.3 s |
+| Page | 407 | 7.7 s | 6.47 s | 0.5 s | 7 to 8 s |
 | Long article | 751 | 14.8 s | 12.2 s | 1 s | 13 to 16 s |
 
-How the numbers were taken:
+The one wait that does not grow with the selection is start-up: the helper takes 3 to 4 seconds from launch to ready,
+because it loads the model and speaks a warm-up sentence before it answers, so even its first request is as fast as
+the rest.
 
-- **One Mac.** Every figure comes from one M1 Max (32-core GPU, 64 GB). No other Apple silicon Mac was measured; the
-  benchmark below measures yours.
-- **Busy machine:** the committed run, [bench/results.json](bench/results.json), 2026-09-24, voice Heart at 1.0×, warm
+Every figure comes from one M1 Max (32-core GPU, 64 GB), in two runs a day apart:
+
+- **The busy run:** the committed [bench/results.json](bench/results.json), 2026-09-24, voice Heart at 1.0×, warm
   median of 5 runs, while another app, the iOS Simulator, kept the GPU 43–57% busy. The file says `"clean": false`,
   and the chart's title says so too.
-- **Quiet machine:** the same M1 Max with the GPU otherwise idle, the day before, voice Bella, median of 3 runs, 6 for
-  the page ([W2 §3](docs/research/2026-09-upgrade/W2-integration-measurements.md)).
-- **The texts** run from 15 to 751 words; the longest, 4,985 characters, is about the most one selection can hold. A
-  much shorter line runs at a lower multiple of real time: the 2.5-second line in the helper recording under
-  Development took 0.20 s, 12.9 times faster than real time.
-- **The loudness step** adds about 7% to each wait at these speeds ([W2 §10](docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)).
+- **The quiet run:** the same Mac with the GPU otherwise idle, the day before, voice Bella, median of 3 runs (6 for
+  the page) ([W2 §3](docs/research/2026-09-upgrade/W2-integration-measurements.md#3-warm-latency-and-real-time-factor-af_bella-10)).
+- **The texts:** the same four in both runs, 15 to 751 words; the longest, 4,985 characters, is about the most one
+  selection can hold.
 
-The helper takes 3 to 4 seconds from launch to ready, because it loads the model and speaks a warm-up sentence before
-it answers, so even the first request is warm.
-
-To measure your own Mac, build the helper (step 1, from source), then run the benchmark. It starts its own helper on
-the port you give it, never touches yours, and waits for an idle machine:
+No other Apple silicon Mac was measured. To measure yours, build the helper (step 1, from source), then run the
+benchmark. It starts its own helper on the port you give it, never touches yours, and waits for an idle machine:
 
 ```bash
 node bench/run.mjs --port 18249 --wait 3600 --require-idle && node bench/chart.mjs
@@ -439,8 +444,12 @@ Scripts on your Mac can call the helper directly, and one fail-closed gate check
 ### Calling the helper from a script
 
 The helper is a small HTTP API on this Mac (`127.0.0.1`): `GET /health`, `GET /voices`, and `POST /speak`, which takes
-JSON (`text`, and optionally `voice` and `speed`) and returns a WAV. A web page cannot make it speak or list voices; a
-script on your Mac can. Full reference: [native-helper/README.md](native-helper/README.md).
+JSON (`text`, and optionally `voice` and `speed`) and returns a WAV. A web page cannot make it speak or list voices
+(it answers 403); a script on your Mac can. Each WAV is turned up toward a loudness of −16 LUFS, but its loudest peak
+never passes −1.5 dBTP, just under the most a file can hold. For 13 of the 15 measured cases that peak cap stops the
+gain first, so speech lands at about −16 to −21 LUFS, −25 at worst (LUFS count down from a file's maximum, so −16 is
+the louder end); [W2 §10](docs/research/2026-09-upgrade/W2-integration-measurements.md#10-loudness-normalization-w4-measured-2026-09-24)
+has the measurements. Full reference: [native-helper/README.md](native-helper/README.md).
 
 <p align="center">
   <img src="assets/media/helper.webp" width="700" alt="A terminal session. natural-tts-helper --port 8250 starts, loads Kokoro, warms up both English pipelines and prints Natural TTS Helper is ready, listening on 127.0.0.1:8250. Then curl -s localhost:8250/health prints apiVersion 2, model kokoro-82m, model_loaded true, status ok, version 1.5.0. A curl POST to /speak with the text Hello from a private Kokoro voice and voice af_heart writes hello.wav; the worker logs that it generated 2.52 s of audio in 0.20 s, 12.9 times faster than real time. afinfo hello.wav reports 1 channel, 24000 Hz, Int16, 2.525 seconds.">
@@ -468,10 +477,10 @@ From the repository root:
 (cd native-helper && swift build -c release) && native-helper/Scripts/setup-python-env.sh
 # The extension: type-check, unit tests, production build
 (cd chrome-extension && bun install && bun run type-check && bun test && bun run build)
+# After editing assets/diagrams/*.mmd: re-render the SVGs, which the gate then checks
+bun install && bun run diagrams
 # The gate: every check, fail-closed
 bash scripts/verify-all.sh
-# Re-render assets/diagrams/*.mmd after editing one
-bun install && bun run diagrams
 ```
 
 The gate's prerequisites and overrides are in the header of [scripts/verify-all.sh](scripts/verify-all.sh); the
@@ -486,7 +495,7 @@ headed end-to-end suite is `bun run test:e2e` in `chrome-extension/`.
 
 ## License
 
-Natural TTS is MIT-licensed ([LICENSE](LICENSE)). The Kokoro-82M model, by hexgrad, is Apache-2.0; the helper
+Natural TTS is free and MIT-licensed ([LICENSE](LICENSE)). The Kokoro-82M model, by hexgrad, is Apache-2.0; the helper
 downloads it from Hugging Face at install time. The helper's Python environment and espeak-ng are installed on your
 Mac by the setup script or Homebrew, never shipped from this repository; some of those components are GPL or LGPL.
 Every component and its licence: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
