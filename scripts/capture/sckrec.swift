@@ -1,9 +1,11 @@
 // sckrec — ScreenCaptureKit recorder scoped to ONE app's windows + that app's audio.
 // Usage: sckrec <pid> <seconds> <out.mov> [x y w h (points, display coords)] [--no-cursor] [--exclude-others]
-//              [--any-space]
+//              [--any-space] [--all-audio]
 //   default        : inclusion filter on the app with <pid> (clean picture; Chrome audio records as SILENCE)
 //   --exclude-others: display filter excluding every app whose bundle id differs (keeps Chrome audio)
 //   --any-space    : also find an app whose windows are on another Space (audio-only captures)
+//   --all-audio    : with --exclude-others, exclude NO app: records every sound this Mac plays. chrome.tts speech on
+//                    macOS is rendered by system speech plug-ins, not by Chrome, so only this mode records it
 // Requires macOS 15 (SCRecordingOutput) and Screen Recording permission for the calling terminal.
 import AVFoundation
 import CoreMedia
@@ -25,7 +27,7 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputD
   static func main() async throws {
     let a = CommandLine.arguments
     guard a.count >= 4, let pid = Int32(a[1]), let secs = Double(a[2]) else {
-      fputs("usage: sckrec <pid> <seconds> <out.mov> [x y w h] [--no-cursor] [--exclude-others] [--any-space]\n", stderr); exit(64)
+      fputs("usage: sckrec <pid> <seconds> <out.mov> [x y w h] [--no-cursor] [--exclude-others] [--any-space] [--all-audio]\n", stderr); exit(64)
     }
     let out = URL(fileURLWithPath: a[3])
     try? FileManager.default.removeItem(at: out)
@@ -35,7 +37,7 @@ final class Sink: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputD
     }
     let display = content.displays.first!
     let exclusionMode = a.contains("--exclude-others")
-    let others = content.applications.filter { $0.bundleIdentifier != app.bundleIdentifier }
+    let others = a.contains("--all-audio") ? [] : content.applications.filter { $0.bundleIdentifier != app.bundleIdentifier }
     // --exclude-others: display filter that EXCLUDES every other app. Audio produced by processes that are
     // not shareable apps (e.g. Chrome's audio-service helper) is then kept, which an inclusion filter drops.
     let filter = exclusionMode

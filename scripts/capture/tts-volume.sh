@@ -6,13 +6,16 @@
 # Chrome for Testing 153 (the rig's pinned build) with its own throwaway profile and only the probe extension in
 # scripts/capture/tts-volume/, on a free CDP port in 9300-9399. sckrec records Chrome's audio (a display filter that
 # excludes every other app, so Chrome's audio service is kept) while the probe speaks one sentence at volume 1.0,
-# 0.8, 0.6 and 1.0 again (the drift control). tts-volume/measure.py splits the takes on silence and prints each one's
+# 0.8, 0.6 and 1.0 again (the drift control). macOS renders chrome.tts speech in its own speech plug-ins, not in
+# Chrome, so sckrec records every sound the Mac plays (--all-audio): keep other apps quiet while it runs. tts-volume/measure.py splits the takes on silence and prints each one's
 # ebur128 loudness against the first and a VERDICT line for 0.8. The extension's SYSTEM_VOICE_VOLUME
 # (chrome-extension/src/shared/system-voice.ts) assumes macOS's -24 dB per unit of volume, measured offline in
 # docs/research/2026-09-upgrade/limiter-decision/B-fallback-volume.md: 0.8 should read about -4.8 dB.
 #
 # Needs: Screen Recording permission for this terminal, the Swift tools (scripts/capture/build.sh), ffmpeg, node.
 # Changes no system setting, and stops only the Chrome it started. Writes to a fresh $TMPDIR/ntts-tts-volume.* dir.
+# Some runs record digital silence while the speech plays (3 of 4 on 2026-09-24): measure.py then prints "not
+# measured" and exits 1 rather than guess, so re-run it.
 # Exit: 0 measured (read the VERDICT) · 1 failed · 3 macOS audio output is stalled, so nothing can be measured.
 set -euo pipefail
 
@@ -25,7 +28,15 @@ OUT="$(mktemp -d "${TMPDIR:-/tmp}/ntts-tts-volume.XXXXXX")"
 die() { echo "tts-volume: FAIL: $*" >&2; exit 1; }
 
 [ -x "$CFT" ] || die "Chrome for Testing 153 not found at $CFT"
-[ -x "$BIN/sckrec" ] || bash "$HERE/build.sh" "$BIN" >/dev/null || die "could not build the Swift tools into $BIN"
+# Rebuild when sckrec.swift is newer than the binary: an older build ignores --any-space and cannot find a
+# Chrome whose window is on another Space ("no shareable app with pid").
+if [ ! -x "$BIN/sckrec" ] || [ "$HERE/sckrec.swift" -nt "$BIN/sckrec" ]; then
+  bash "$HERE/build.sh" "$BIN" >/dev/null || die "could not build the Swift tools into $BIN"
+fi
+
+# ScreenCaptureKit needs a display that is awake: hold it on (and wake it) for the run.
+caffeinate -d -u -t 180 >/dev/null 2>&1 &
+CAFF_PID=$!
 
 # 1. A 0.3 s near-silent tone must finish playing within 4 s, or live speech stalls too (seen 2026-09-24:
 #    coreaudiod at ~110% CPU holding hundreds of audio-out assertions; a restart of coreaudiod or a reboot clears it).
@@ -52,7 +63,7 @@ stop_chrome() {
   for _ in 1 2 3 4 5 6; do kill -0 "$CHROME_PID" 2>/dev/null || return 0; sleep 0.5; done
   pkill -9 -f -- "--user-data-dir=$OUT/profile" 2>/dev/null || true
 }
-trap stop_chrome EXIT
+trap 'stop_chrome; kill "$CAFF_PID" 2>/dev/null || true' EXIT
 WS=""
 for _ in $(seq 1 40); do
   WS="$(curl -sf "127.0.0.1:$PORT/json/version" | sed -n 's/.*"webSocketDebuggerUrl": "\(.*\)".*/\1/p' || true)"
@@ -67,7 +78,7 @@ voices="$(node "$HERE/cdp.mjs" "$WS" probe.html 'voices()')"
 grep -q "\"$VOICE|en" <<< "$(tr ',' '\n' <<< "$voices")" || die "chrome.tts does not offer $VOICE (en-*) on this Mac"
 
 # 3. Record while speaking at 1.0, 0.8, 0.6, 1.0.
-"$BIN/sckrec" "$CHROME_PID" 60 "$OUT/capture.mov" 40 60 400 300 --exclude-others --no-cursor --any-space \
+"$BIN/sckrec" "$CHROME_PID" 60 "$OUT/capture.mov" 40 60 400 300 --exclude-others --no-cursor --any-space --all-audio \
   >"$OUT/sckrec.log" 2>&1 &
 REC_PID=$!
 sleep 2.5
