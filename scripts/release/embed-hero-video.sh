@@ -122,16 +122,19 @@ rewrite() {
         $c <= $#l or fail("nothing follows the hero media; expected its caption");
         my $cap = join "\n", @l[$c .. $d - 1];
         $cap !~ /^\s*(#|<details|<!--)/ or fail("the block after the hero media is not a caption (it starts: " . substr($l[$c], 0, 40) . ")");
-        $cap =~ /Recorded on/ or fail("the caption under the hero media has no provenance sentence (\"Recorded on ...\")");
+        # Provenance = what the recording is: a voice id (af_heart) and a helper version. The wording around it is
+        # owned by the README lane, so the check keys on those facts, never on a fixed phrase.
+        my $prov = qr/\b[a-z]{2}_[a-z]+\b.*\bhelper\s+\d+\.\d+|\bhelper\s+\d+\.\d+.*\b[a-z]{2}_[a-z]+\b/s;
+        $cap =~ $prov or fail("the caption under the hero media has no provenance sentence (a voice id such as af_heart and \"helper <version>\")");
         my $t = $cap =~ m{<sub>(.*?)</sub>}s ? $1 : $cap;
-        $t =~ s{<[^>]+>}{}g; $t =~ s/\s+/ /g; $t =~ s/^.*?(?=Recorded on)//s; $t =~ s/\s+$//;
+        $t =~ s{<[^>]+>}{}g; $t =~ s/\s+/ /g; $t =~ s/^\s+//; $t =~ s/\s+$//;
         my @keep;
         for my $sentence (split /(?<=\.)\s+(?=[A-Z])/, $t) {
-            my @clauses = grep { !/preview|press play|unmute|watch with sound/i } split /;\s*/, $sentence;
+            my @clauses = grep { !/preview|press play|unmute|watch with sound|click to watch/i } split /;\s*/, $sentence;
             next unless @clauses;
             my $x = join "; ", @clauses; $x =~ s/[.;,\s]+$//; push @keep, "$x.";
         }
-        @keep && $keep[0] =~ /^Recorded on/ or fail("could not isolate the provenance sentence from the caption");
+        @keep && join(" ", @keep) =~ $prov or fail("could not isolate the provenance sentence from the caption");
         my @new = (
             $url,
             "",
