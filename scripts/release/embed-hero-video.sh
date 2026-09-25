@@ -253,7 +253,10 @@ GH_VER="$(gh --version | sed -nE '1s/^gh version ([0-9]+)\.([0-9]+).*/\1 \2/p')"
 read -r GH_MAJOR GH_MINOR <<< "${GH_VER:-0 0}"
 { [ "$GH_MAJOR" -gt "$GH_MIN_MAJOR" ] || { [ "$GH_MAJOR" -eq "$GH_MIN_MAJOR" ] && [ "$GH_MINOR" -ge "$GH_MIN_MINOR" ]; }; } \
     || die "gh ${GH_MAJOR}.${GH_MINOR} is too old; ${GH_MIN_MAJOR}.${GH_MIN_MINOR}+ has 'gh issue create --attach' (brew upgrade gh)"
-gh issue create --help 2>/dev/null | grep -q -- '--attach' || die "this gh has no 'gh issue create --attach'"
+# Read the help into a variable first: under pipefail, `gh ... | grep -q` fails whenever grep exits on its
+# first match while gh is still writing (gh dies of SIGPIPE) — measured 2026-09-24 on gh 2.101.0.
+GH_CREATE_HELP="$(gh issue create --help 2>/dev/null || true)"
+grep -q -- '--attach' <<< "$GH_CREATE_HELP" || die "this gh has no 'gh issue create --attach'"
 gh auth status >/dev/null 2>&1 || die "gh is not signed in (gh auth login)"
 say "gh ${GH_MAJOR}.${GH_MINOR}, signed in"
 
@@ -327,7 +330,7 @@ restore() { git -C "$REPO" checkout -- README.md; }
 
 # ------------------------------------------------------------------------------ 6. verify by effect, commit, push
 UUID="${URL##*/}"
-has_video() { grep -oE '<video[^>]*>' | grep -qF "$UUID"; }
+has_video() { local tags; tags="$(grep -oE '<video[^>]*>' || true)"; grep -qF "$UUID" <<< "$tags"; }
 if ! gh api markdown -f mode=gfm -f context="$SOURCE_REPO" -F text=@"$README" > "$WORK/rendered.html" 2> "$WORK/render.err"; then
     restore; die "gh api markdown failed ($(cat "$WORK/render.err")); README.md restored"
 fi

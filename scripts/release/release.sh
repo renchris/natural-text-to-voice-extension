@@ -33,7 +33,9 @@
 #
 # Idempotent: a step already done is verified and reported CURRENT, never repeated. A tag that points
 # at another commit, or a release asset whose hash differs, is a FAIL, never overwritten. (The one move
-# tolerated: commits after the tag that change only README.md, which is what step 2b makes.)
+# tolerated: commits after the tag that change only README.md — what step 2b makes — or the release
+# tooling itself, scripts/release/* and packaging/homebrew/publish-tap.sh. None of those is in the zip,
+# the tag's tarball or the formula, so nothing the tag published can differ.)
 #
 # Exit: 0 released and the listing inputs are ready · 1 a check failed · 2 refused (a gated step
 #       needs --confirm; nothing was changed by it) · 3 released, but the listing is not ready (store
@@ -211,12 +213,15 @@ TAG_READY=false
 if git -C "$REPO" ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
     TAG_SHA="$(git -C "$REPO" rev-parse "refs/tags/${TAG}^{commit}")"
     if [ "$TAG_SHA" != "$HEAD_SHA" ]; then
-        # Step 2b commits README.md after the tag, so a rerun (for --youtube-url, say) finds main one README-only
-        # commit ahead. README.md is in neither the zip nor anything the tag publishes; any other move still fails.
+        # Step 2b commits README.md after the tag, so a rerun (for --youtube-url, say) finds main ahead of the tag.
+        # README.md and the release tooling are in neither the zip nor anything the tag publishes (the zip is
+        # rebuilt from HEAD and must still hash-match the release asset); any other move still fails.
+        POST_TAG="$(git -C "$REPO" diff --name-only "$TAG_SHA" "$HEAD_SHA")"
         git -C "$REPO" merge-base --is-ancestor "$TAG_SHA" "$HEAD_SHA" \
-            && [ "$(git -C "$REPO" diff --name-only "$TAG_SHA" "$HEAD_SHA")" = README.md ] \
+            && [ -n "$POST_TAG" ] \
+            && ! grep -qvE '^(README\.md|scripts/release/[^/]+|packaging/homebrew/publish-tap\.sh)$' <<< "$POST_TAG" \
             || die "${TAG} already exists on origin at ${TAG_SHA:0:7}, not at origin/main ${HEAD_SHA:0:7}. Tags are never moved; bump the version instead"
-        note "main is ${TAG} plus README.md-only commits (step 2b); the tag stays at ${TAG_SHA:0:12}"
+        note "main is ${TAG} plus README/release-tooling-only commits; the tag stays at ${TAG_SHA:0:12}"
     fi
     note "${TAG} is on origin at ${TAG_SHA:0:12}"
     TAG_READY=true

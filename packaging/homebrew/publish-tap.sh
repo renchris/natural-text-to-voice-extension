@@ -113,7 +113,8 @@ else
 fi
 
 TAP_DIR=""
-if brew tap | grep -qx "$TAP_NAME"; then
+TAPS="$(brew tap)"   # not piped into grep -q: under pipefail an early grep exit can SIGPIPE brew
+if grep -qx "$TAP_NAME" <<< "$TAPS"; then
     TAP_DIR="$(brew --repo "$TAP_NAME")"
     echo "local tap checkout: ${TAP_DIR}"
     [ -z "$(git -C "$TAP_DIR" status --porcelain)" ] \
