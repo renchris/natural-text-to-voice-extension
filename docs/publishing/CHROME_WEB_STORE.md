@@ -33,6 +33,9 @@ submit" with the steps that are missing (see [RELEASE.md](RELEASE.md)). Item 6 i
 
 ## 0. Account (once) — OPERATOR
 
+**Done 2026-09-25:** publisher `7de55e5e-fa80-43cf-8adb-ebea54b09c68`, login `ichris96@hotmail.com` (private), fee paid,
+non-trader. The item is draft `dieelglfodddgojbiclbbomclpgeodfk`, with 1.5.1 uploaded and every tab below filled.
+
 Dashboard: <https://chrome.google.com/webstore/devconsole>
 
 | Field | Value | Notes |
@@ -40,8 +43,8 @@ Dashboard: <https://chrome.google.com/webstore/devconsole>
 | Google account | A dedicated account you check often | **OPERATOR.** The developer email can never be changed later; changing it means a new account and an item transfer [R07 §2] |
 | 2-Step Verification | On | **OPERATOR.** Required to publish or update anything [R07 §2, S36] |
 | Registration fee | US$5, one time | **OPERATOR.** Paid on the registration screen. Primary source: the dashboard's What's New entry of 30 Apr 2026 [R07 verification item 3] |
-| Publisher name | `Chris Ren` (or a project name you prefer) | **OPERATOR.** Shown under the title on the listing |
-| Contact email | An address you check | **OPERATOR.** Must be verified from the Account page before the first submission. Shown to Google, not to users |
+| Publisher name | `Chris Ren` (done 2026-09-25) | Shown under the title on the listing. The dashboard defaults it to the login's handle (`ichris96`), which would expose the login email's name |
+| Contact email | `naturaltts@outlook.com` (done 2026-09-25) | **Public**: the dashboard says "This address will be publicly displayed in connection with your items". So it is a dedicated Outlook alias on the operator's Microsoft account (same inbox, sign-in disabled), never a personal address. Verified from the Account page |
 | Trader status (EU DSA) | **Non-trader** | Operator ruling OD-9. A free, MIT-licensed, non-commercial tool with no payments, ads or data use is the ordinary non-trader case. Switch to Trader (which publishes your address and phone number) before any monetisation [R07 §2] |
 | Physical address | Not needed | Only for items that sell something |
 
@@ -299,6 +302,13 @@ as the file stays at that path on `main`. It was chosen over GitHub Pages becaus
 Publishing is **deferred**: see [§6](#6-submit).
 
 ## 5. Test instructions tab
+
+**The dashboard caps "Additional instructions" at 500 characters** (measured 2026-09-25), so the long block below does
+not fit. Paste this 469-character version; the long one stays as the reference it summarises:
+
+```text
+No setup needed: select text on any page (e.g. en.wikipedia.org/wiki/Speech_synthesis), right-click, choose "Speak selected text": a local system voice reads it; the popup shows Offline and the install hint. Kokoro voices (macOS 14.5+, Apple silicon): brew install renchris/tap/natural-tts then brew services start natural-tts; the popup shows Connected. Every request goes only to 127.0.0.1:8249. Full steps: github.com/renchris/natural-text-to-voice-extension#install
+```
 
 The reviewer can always hear speech: path A works on Windows, macOS or Linux, path B shows the Kokoro voices. Paste
 exactly this (2,324 characters):
