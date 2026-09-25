@@ -55,7 +55,7 @@ Click **Add new item** and upload the zip.
 | --- | --- |
 | File | `chrome-extension/release/natural-tts-1.5.1.zip`, built by `cd chrome-extension && bun run package` (or by `release.sh`, which also attaches it to the GitHub Release) |
 | Checks the packager enforces | manifest version = `package.json` version = 1.5.1, no `key`, name ≤ 75 and description ≤ 132 characters, every file the manifest names is present, no source maps, tests, dotfiles or logs, `manifest.json` at the zip root, every entry re-read and CRC-checked |
-| Measured (2026-09-24, extension source as of `ceb80e2`) | 15 files, 112,606 bytes unpacked, **43,616-byte zip**, sha256 `ba01ccc527a73217a2a40a85460330a1cf0d7cfb964ff54be4fe8c9b64d7f134`. The zip is deterministic: the same `dist` gives the same hash, and any change to the extension changes it, so re-measure after every product commit |
+| Measured (2026-09-24, extension source as of `3cd621a`, v1.5.1) | 15 files, 112,701 bytes unpacked, **43,657-byte zip**, sha256 `ceace3922a809ae4be153f10f77570b835a87655f71a4fd88d19b9d6ad6c8a89` (1.5.0's was 43,616 bytes, `ba01ccc5…`). The zip is deterministic: the same `dist` gives the same hash, and any change to the extension changes it, so re-measure after every product commit |
 | Install warning | `["Read and change your data on 127.0.0.1"]`, measured on Chrome for Testing 153 from the unzipped package (`node chrome-extension/scripts/verify-permissions.cjs <dir>`) |
 
 The upload assigns the **item ID**. Record it: the post-launch helper origin pin (W2-6) needs it.
