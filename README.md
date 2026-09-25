@@ -25,13 +25,11 @@ Developer mode.
   400-word page in 7 to 8 seconds. [Measure it](#fast-it-makes-speech-about-20-times-faster-than-it-plays)
 
 <!-- hero-video -->
-<p align="center">
-  <a href="assets/media/hero.mp4"><img src="assets/media/hero-preview.webp" width="960" alt="Silent preview of the demo. In Chrome, the second paragraph of an article is drag-selected, a right-click opens the menu, and the pointer chooses Speak selected text. The pointer then clicks the Natural TTS button in the toolbar, and the popup shows Connected, Speaking your selection, voice Heart, speed 1.0×. The last frame reads: Watch with sound, 25 s."></a>
-</p>
+https://github.com/user-attachments/assets/041d24b7-63a9-42f6-9137-38396ffc0300
 
 <p align="center">
-  <b>▶ Click to watch with sound.</b><br>
-  <sub>Heart, the default voice, reading the paragraph on screen exactly as the helper made it: voice af_heart at 1.0×, helper 1.5.0, on an M1 Max. The picture above is a silent preview that opens <a href="assets/media/hero.mp4">the MP4 with sound</a>.</sub>
+  <b>▶ Press play, then unmute.</b><br>
+  <sub>Heart, the default voice, reading the paragraph on screen exactly as the helper made it: voice af_heart at 1.0×, helper 1.5.0, on an M1 Max. No player here? Open <a href="assets/media/hero.mp4">the MP4 with sound</a>.</sub>
 </p>
 
 <details>
