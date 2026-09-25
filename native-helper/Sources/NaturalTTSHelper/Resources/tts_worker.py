@@ -107,15 +107,20 @@ CANCEL_FILE = os.environ.get("NTTS_CANCEL_FILE")
 MLX_CACHE_LIMIT_MB = int(os.environ.get("NTTS_MLX_CACHE_LIMIT_MB", "256"))
 
 # Loudness normalization of every /speak response (ITU-R BS.1770-4 integrated loudness, gated). Kokoro speaks
-# at about -23 to -28 LUFS and the macOS system voice the extension falls back to at about -16 for the same
-# text (both measured as the mono files they are), so the engine switch was a jump of 7-12 LU. One gain per
-# response, never a compressor or limiter: the gain is the smallest of the one that reaches
+# at about -23 to -28 LUFS as generated. First one gain per response: the smallest of the one that reaches
 # LOUDNESS_TARGET_LUFS, the one that puts the 4x-oversampled true peak at TRUE_PEAK_CEILING_DBTP (so no sample
-# can clip) and MAX_GAIN_DB. Kokoro's speech runs 14-24 dB from true peak to loudness, more than the 14.5 dB
-# between the target and the ceiling, so most responses stop at the ceiling below the target
-# (W2-integration-measurements.md §10 has the numbers).
-LOUDNESS_TARGET_LUFS = -16.0
+# can clip) and MAX_GAIN_DB. Kokoro's speech runs 14-24 dB from true peak to loudness, and one loud syllable
+# caps that gain for the whole read, so a long read used to land up to 8 LU quieter than a short one. When the
+# peak is what stops the gain, a lookahead true-peak limiter takes at most LIMITER_MAX_GR_DB off the loudest
+# syllables so the rest can reach the target. -21 LUFS on this mono meter plays at about -18 in stereo (AES
+# TD1008's level for speech) and sits with the macOS fallback voices at the volumes the extension sets. The
+# decision and its measurements: docs/research/2026-09-upgrade/limiter-decision/README.md.
+LOUDNESS_TARGET_LUFS = -21.0
 TRUE_PEAK_CEILING_DBTP = -1.5
+# The most the limiter may reduce any peak, in dB. When the target needs more, the static gain stops short and
+# the response stays below the target. 0.0 turns the limiter off (one gain only, capped by the true peak): the
+# rollback if a listening check ever hears the limiting.
+LIMITER_MAX_GR_DB = 3.0
 # BS.1770-4's absolute gate. A response whose loudness is below it is silence (or nearly), and is returned
 # unchanged rather than amplified.
 LOUDNESS_FLOOR_LUFS = -70.0
@@ -430,6 +435,14 @@ _K_HIGHPASS = (38.13547087602444, 0.5003270373238773)  # f0 Hz, Q
 _K_IR_SAMPLES = 16384
 _TRUE_PEAK_OVERSAMPLE = 4
 _TRUE_PEAK_HALF_TAPS = 16  # input samples each side of an interpolated point
+# The limiter (limiter-decision/A-limiter-measurements.md, tools/lim.py): the gain reaches its lowest point
+# over a 5 ms lookahead ramp (attack = lookahead) and recovers with a 60 ms one-pole release, computed on
+# 1 ms blocks. The makeup gain is re-aimed until the limited response reads the target within the tolerance.
+_LIMITER_LOOKAHEAD_S = 0.005
+_LIMITER_RELEASE_S = 0.060
+_LIMITER_BLOCK_S = 0.001
+_LIMITER_TOLERANCE_LU = 0.1
+_LIMITER_MAX_PASSES = 6
 
 
 def k_weighting_coefficients(rate):
@@ -470,11 +483,16 @@ def _k_weighting_ir(rate):
     return _k_ir_cache[rate]
 
 
-def _fir(x, h, block=1 << 16):
-    """x convolved with h, full length len(x) + len(h) - 1, by overlap-add FFT in bounded memory."""
+def _fir(x, h):
+    """x convolved with h, full length len(x) + len(h) - 1. A short filter (the true-peak phases) is convolved
+    directly, about 3x faster than FFT blocks; a long one (K-weighting) by overlap-add FFT in bounded memory,
+    with 256 Ki-point transforms so the filter's tail adds little to each block."""
     import numpy as np
 
-    n_fft = 1 << (block + len(h) - 2).bit_length()
+    if len(h) <= 64:
+        return np.convolve(x, h)
+    n_fft = max(1 << 18, 1 << (2 * len(h) - 1).bit_length())
+    block = n_fft - len(h) + 1
     h_f = np.fft.rfft(h, n_fft)
     y = np.zeros(len(x) + len(h) - 1)
     for start in range(0, len(x), block):
@@ -484,27 +502,23 @@ def _fir(x, h, block=1 << 16):
     return y
 
 
-def integrated_loudness(audio, rate=SAMPLE_RATE):
-    """(LUFS, gated) of a mono signal per ITU-R BS.1770-4: K-weighting, 400 ms blocks with 75% overlap, the
+def _gated_loudness(power, rate):
+    """(LUFS, gated) from the K-weighted signal's per-sample power: 400 ms blocks with 75% overlap, the
     -70 LUFS absolute gate, then the relative gate 10 LU below the absolutely-gated mean. A signal shorter
-    than one block cannot be gated, so it gets the ungated K-weighted mean square (gated=False). The LUFS is
-    None when it is below LOUDNESS_FLOOR_LUFS: silence."""
+    than one block cannot be gated, so it gets the ungated mean square (gated=False). The LUFS is None when
+    it is below LOUDNESS_FLOOR_LUFS: silence."""
     import numpy as np
 
-    x = np.asarray(audio, dtype=np.float64).reshape(-1)
-    if x.size == 0:
-        return None, False
-    y = _fir(x, _k_weighting_ir(rate))[: x.size]
-    energy = np.concatenate(([0.0], np.cumsum(y * y)))
+    energy = np.concatenate(([0.0], np.cumsum(power)))
     block, step = int(round(0.4 * rate)), int(round(0.1 * rate))
 
     def lufs(mean_square):
         return -0.691 + 10.0 * math.log10(mean_square) if mean_square > 0 else -math.inf
 
-    if x.size < block:
-        level = lufs(energy[-1] / x.size)
+    if power.size < block:
+        level = lufs(energy[-1] / power.size)
         return (level if level >= LOUDNESS_FLOOR_LUFS else None), False
-    starts = np.arange(0, x.size - block + 1, step)
+    starts = np.arange(0, power.size - block + 1, step)
     z = np.maximum((energy[starts + block] - energy[starts]) / block, 0.0)
     with np.errstate(divide="ignore"):
         z = z[-0.691 + 10.0 * np.log10(z) > LOUDNESS_FLOOR_LUFS]
@@ -515,36 +529,159 @@ def integrated_loudness(audio, rate=SAMPLE_RATE):
     return lufs(float(np.mean(z))), True
 
 
-_true_peak_phases = []
-
-
-def true_peak_dbtp(audio):
-    """True peak in dBTP: the largest |sample| of the signal and of its 4x interpolation (windowed sinc, 32
-    taps per phase, Kaiser beta 8, each phase normalised to unity gain at DC)."""
+def integrated_loudness(audio, rate=SAMPLE_RATE):
+    """(LUFS, gated) of a mono signal per ITU-R BS.1770-4: K-weighting, then _gated_loudness. The LUFS is None
+    for silence."""
     import numpy as np
 
     x = np.asarray(audio, dtype=np.float64).reshape(-1)
     if x.size == 0:
-        return -math.inf
+        return None, False
+    y = _fir(x, _k_weighting_ir(rate))[: x.size]
+    return _gated_loudness(y * y, rate)
+
+
+_true_peak_phases = []
+
+
+def _true_peak_taps():
+    """The 4x interpolation's phases (windowed sinc, 32 taps per phase, Kaiser beta 8, each normalised to unity
+    gain at DC), reversed for _fir: output j + 16 of phase p is the point p/4 past input sample j."""
+    import numpy as np
+
     if not _true_peak_phases:
         m, half = _TRUE_PEAK_OVERSAMPLE, _TRUE_PEAK_HALF_TAPS
         k = np.arange(-half + 1, half + 1)
         for p in range(1, m):
             taps = np.sinc(k - p / m) * np.kaiser(2 * half, 8.0)  # the point p/m past each input sample
             _true_peak_phases.append((taps / taps.sum())[::-1])
-    peak = float(np.max(np.abs(x)))
-    for taps in _true_peak_phases:
-        peak = max(peak, float(np.max(np.abs(_fir(x, taps)))))
+    return _true_peak_phases
+
+
+def _true_peak_envelope(x):
+    """Per sample n, the largest |value| among x[n] and its 4x interpolation between n and n + 1. The
+    interpolation's ringing before the first sample and after the last is folded into the end samples, so
+    max(envelope) is the true peak."""
+    import numpy as np
+
+    env, h = np.abs(x), _TRUE_PEAK_HALF_TAPS
+    for taps in _true_peak_taps():
+        v = np.abs(_fir(x, taps))
+        np.maximum(env, v[h : h + x.size], out=env)
+        env[0] = max(env[0], float(v[:h].max()))
+        env[-1] = max(env[-1], float(v[h + x.size :].max()))
+    return env
+
+
+def true_peak_dbtp(audio):
+    """True peak in dBTP: the largest |sample| of the signal and of its 4x interpolation."""
+    import numpy as np
+
+    x = np.asarray(audio, dtype=np.float64).reshape(-1)
+    if x.size == 0:
+        return -math.inf
+    peak = float(_true_peak_envelope(x).max())
     return 20.0 * math.log10(peak) if peak > 0 else -math.inf
 
 
+def _window_max(x, start, width):
+    """out[n] = max(x[n + start : n + start + width]), the ends extended with the edge values. Two overlapping
+    power-of-two windows per sample: vectorised, O(n log width)."""
+    import numpy as np
+
+    lo, hi = max(0, -start), max(0, start + width - 1)
+    m = np.concatenate((np.full(lo, x[0]), x, np.full(hi, x[-1])))
+    span = 1
+    while span * 2 <= width:
+        m = np.maximum(m[:-span], m[span:])
+        span *= 2
+    at = start + lo
+    return np.maximum(m[at : at + x.size], m[at + width - span : at + width - span + x.size])
+
+
+def _limiter_gain(required, lookahead, rate):
+    """The smooth gain curve under `required` (per sample, <= 1, already the lookahead's minimum): instant
+    attack and a one-pole release on 1 ms blocks, each block holding its own minimum so the curve never rises
+    above what a sample needs, then a moving average one lookahead long as the attack ramp. At a peak every
+    value averaged is <= the peak's requirement, so the peak is covered."""
+    import numpy as np
+
+    n, block = required.size, max(1, int(round(_LIMITER_BLOCK_S * rate)))
+    blocks = -(-n // block)
+    held = np.concatenate((required, np.ones(blocks * block - n))).reshape(blocks, block).min(axis=1)
+    release = math.exp(-block / (_LIMITER_RELEASE_S * rate))
+    curve, level, done = np.empty(blocks), 1.0, 0
+    # Only the blocks that need a reduction step through Python; between them the release is closed-form.
+    for i in np.flatnonzero(held < 1.0).tolist():
+        curve[done:i] = 1.0 - (1.0 - level) * release ** np.arange(1, i - done + 1)
+        if i > done:
+            level = float(curve[i - 1])
+        need = float(held[i])
+        level = need if need < level else need + release * (level - need)
+        curve[i], done = level, i + 1
+    curve[done:] = 1.0 - (1.0 - level) * release ** np.arange(1, blocks - done + 1)
+    per_sample = np.repeat(curve, block)[:n]
+    ramp = np.concatenate(([0.0], np.cumsum(np.concatenate((np.full(lookahead, per_sample[0]), per_sample)))))
+    return (ramp[lookahead + 1 :] - ramp[: -lookahead - 1]) / (lookahead + 1)
+
+
+def _limit_to_target(x, weighted, envelope, lufs_in, peak_in, rate):
+    """(output, static gain dB, deepest gain reduction dB, reached target) or None. `weighted` is x
+    K-weighted, `envelope` its _true_peak_envelope. The static gain aims at LOUDNESS_TARGET_LUFS but never
+    above the ceiling + LIMITER_MAX_GR_DB - peak_in, so the limiter never takes more than LIMITER_MAX_GR_DB
+    off a peak; within that it is re-aimed until the limited output reads the target. Each pass meters
+    weighted * curve, which is the K-weighting of the limited output to within ~0.01 LU because the curve
+    moves over milliseconds; the output itself is built and its true peak checked only once a pass has
+    converged. None when no pass held the true-peak ceiling (the caller then keeps the single gain)."""
+    import numpy as np
+
+    lookahead = max(1, int(round(_LIMITER_LOOKAHEAD_S * rate)))
+    cover = np.maximum(_window_max(envelope, -1, lookahead + 3), 1e-12)  # one sample back to lookahead + 1 ahead
+    ceiling = TRUE_PEAK_CEILING_DBTP - 0.05
+    gain_cap = min(MAX_GAIN_DB, ceiling + LIMITER_MAX_GR_DB - peak_in)
+    floor = 10.0 ** (-LIMITER_MAX_GR_DB / 20.0)
+    gain_db = min(LOUDNESS_TARGET_LUFS - lufs_in, gain_cap)
+    for _ in range(_LIMITER_MAX_PASSES):
+        gain = 10.0 ** (gain_db / 20.0)
+        curve = _limiter_gain(np.clip(10.0 ** (ceiling / 20.0) / (gain * cover), floor, 1.0), lookahead, rate)
+        lufs, _ = _gated_loudness(np.square(weighted * (gain * curve)), rate)
+        if lufs is None:
+            return None
+        capped = gain_db >= gain_cap - 1e-9 and lufs < LOUDNESS_TARGET_LUFS
+        if abs(lufs - LOUDNESS_TARGET_LUFS) > _LIMITER_TOLERANCE_LU and not capped:
+            gain_db = min(gain_db + LOUDNESS_TARGET_LUFS - lufs, gain_cap)
+            continue
+        out = x * (gain * curve)
+        over = true_peak_dbtp(out) - TRUE_PEAK_CEILING_DBTP
+        if over <= 0.0:
+            return out, gain_db, -20.0 * math.log10(float(curve.min())), not capped
+        # An interpolated peak the ramp did not quite cover: tighten the ceiling, and the cap with it.
+        ceiling -= over + 0.02
+        gain_cap -= over + 0.02
+        gain_db = min(gain_db, gain_cap)
+    return None
+
+
 def normalize_loudness(audio, rate=SAMPLE_RATE):
-    """(audio * gain, report). The gain is the smallest of the loudness gain to LOUDNESS_TARGET_LUFS, the
-    gain that puts the true peak at TRUE_PEAK_CEILING_DBTP and MAX_GAIN_DB; silence is returned unchanged.
-    The report holds numbers only, never text: lufs_in, gated, true_peak_in, gain_db, limited_by."""
-    lufs_in, gated = integrated_loudness(audio, rate)
-    peak_in = true_peak_dbtp(audio)
-    report = {"lufs_in": lufs_in, "gated": gated, "true_peak_in": peak_in, "gain_db": 0.0, "limited_by": "silence"}
+    """(normalized audio, report); silence is returned unchanged. First the single gain: the smallest of the
+    loudness gain to LOUDNESS_TARGET_LUFS, the gain that puts the true peak at TRUE_PEAK_CEILING_DBTP and
+    MAX_GAIN_DB. Only when the true peak stops it short of the target (and LIMITER_MAX_GR_DB > 0) does the
+    limiter run (_limit_to_target). The report holds numbers only, never text: lufs_in, gated, true_peak_in,
+    gain_db (the static gain), limited_by (target, true_peak, max_gain, silence, or limiter_cap when the
+    limiter's cap stopped it below the target) and limiter_gr_db (the deepest gain reduction)."""
+    import numpy as np
+
+    x = np.asarray(audio, dtype=np.float64).reshape(-1)
+    report = {"lufs_in": None, "gated": False, "true_peak_in": -math.inf, "gain_db": 0.0, "limited_by": "silence",
+              "limiter_gr_db": 0.0}
+    if x.size == 0:
+        return audio, report
+    weighted = _fir(x, _k_weighting_ir(rate))[: x.size]
+    envelope = _true_peak_envelope(x)
+    lufs_in, gated = _gated_loudness(weighted * weighted, rate)
+    peak = float(envelope.max())
+    peak_in = 20.0 * math.log10(peak) if peak > 0 else -math.inf
+    report.update(lufs_in=lufs_in, gated=gated, true_peak_in=peak_in)
     if lufs_in is None or not math.isfinite(peak_in):
         return audio, report
     report["gain_db"], report["limited_by"] = min(
@@ -552,6 +689,12 @@ def normalize_loudness(audio, rate=SAMPLE_RATE):
         (TRUE_PEAK_CEILING_DBTP - peak_in, "true_peak"),
         (MAX_GAIN_DB, "max_gain"),
     )
+    if report["limited_by"] == "true_peak" and LIMITER_MAX_GR_DB > 0.0:
+        limited = _limit_to_target(x, weighted, envelope, lufs_in, peak_in, rate)
+        if limited is not None:
+            out, report["gain_db"], report["limiter_gr_db"], reached = limited
+            report["limited_by"] = "target" if reached else "limiter_cap"
+            return out, report
     return audio * (10.0 ** (report["gain_db"] / 20.0)), report
 
 
@@ -655,7 +798,7 @@ def generate_audio_mlx(text, voice, speed, request_id=None):
             logger.info(
                 f"Loudness {level} ({'gated' if loud['gated'] else 'ungated: under 400 ms'}), true peak "
                 f"{loud['true_peak_in']:.2f} dBTP; gain {loud['gain_db']:+.2f} dB (limited by "
-                f"{loud['limited_by']}) in {time.time() - t_loud_start:.3f}s"
+                f"{loud['limited_by']}), limiter {loud['limiter_gr_db']:.2f} dB in {time.time() - t_loud_start:.3f}s"
             )
         # With normalization the true-peak ceiling (-1.5 dBTP, 0.84) already keeps every sample below this
         # limit; the guard stays for NTTS_LOUDNESS_NORMALIZE=0 and as the last line before the 16-bit encode.

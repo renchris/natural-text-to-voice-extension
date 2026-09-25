@@ -9,19 +9,24 @@ Two phases, every check an assertion; exits 1 if any failed, and prints one row 
          - a fs/4 sine sampled 45 degrees off its crest: sample peak -3.01 dBFS, true peak 0.0 dBTP (+-0.2)
          - silence and a -80 LUFS signal come back unchanged (gain 0); a 300 ms tone (too short to gate)
            reaches the target through the ungated fallback
+         - the limiter, on a quiet tone with sparse loud clicks: the output reads -21 +- 0.1 LUFS with the
+           true peak <= -1.5 dBTP and at most LIMITER_MAX_GR_DB of gain reduction; with LIMITER_MAX_GR_DB = 0
+           (the rollback) the same signal gets one gain, stopped by the true peak
   model  5 voices x 3 text lengths through generate_audio_mlx(), each twice under the same MLX seed: once
          with NTTS_LOUDNESS_NORMALIZE off (the pre-normalization synthesis) and once on. For each case:
-         - the normalized output is the raw one times ONE gain (residual <= 1e-3 of its RMS: 16-bit
-           quantization only) and has exactly the same number of samples and the same "duration"
+         - the same number of samples and the same "duration"
+         - the normalized output is the raw one times the static gain, lowered by at most LIMITER_MAX_GR_DB
+           (3 dB) and never raised above it, and lowered by more than 1 dB on at most 1% of the samples.
+           Read per sample as output / raw where |raw| > 0.01 (16-bit quantization moves that by < 0.03 dB);
+           the static gain is the median of that ratio, since most samples are not limited at all
          - true peak <= -1.5 dBTP, by the worker's 4x meter and by ffmpeg's ebur128 (192 kHz; its value
            is printed to 0.1 dB, so <= -1.45 rounds to the ceiling)
          - integrated loudness by ffmpeg's ebur128 (an independent implementation): within +-0.5 LU of
-           -16 LUFS, OR below it with the true peak AT the ceiling (>= -1.6 dBTP), i.e. no larger gain
-           was possible without clipping. Never louder than -15.5 LUFS.
-           Why the second arm: the brief's box (-16 LUFS, -1.5 dBTP, one gain, no limiter) holds only
-           speech whose true peak sits <= 14.5 dB above its loudness, and Kokoro's sits 14-24 dB above
-           (W2-integration-measurements.md §10); a limiter is what would close the rest, and the brief
-           rules it out. The printed "reached" count keeps that visible.
+           -21 LUFS, OR below it with the limiter's cap used up (gain reduction >= LIMITER_MAX_GR_DB - 0.1 dB)
+           and the true peak AT the ceiling (>= -1.6 dBTP), i.e. no larger gain was possible without more
+           limiting than the cap allows. Never louder than -20.5 LUFS. The second arm is am_michael/long:
+           its true peak sits 26 dB above its loudness (limiter-decision/README.md). With LIMITER_MAX_GR_DB
+           = 0 the rule reduces to the single-gain one, so the rollback passes the same gate.
 
 Usage (from native-helper/):  $E Scripts/verify_loudness.py [WORKER]    (E = the helper's python-env)
 Env: NTTS_FFMPEG (default: ffmpeg on PATH).
@@ -57,7 +62,7 @@ TEXTS = {
         "an entire article. If the helper is not running, the extension falls back to the voices built into macOS."
     ),
 }
-TARGET, CEILING, TOLERANCE_LU = -16.0, -1.5, 0.5
+TARGET, CEILING, TOLERANCE_LU = -21.0, -1.5, 0.5
 # BS.1770-4 Table 1 and Table 2 (48 kHz): (b0, b1, b2), (a1, a2)
 TABLE_48K = (
     ((1.53512485958697, -2.69169618940638, 1.19839281085285), (-1.69065929318241, 0.73248077421585)),
@@ -106,6 +111,28 @@ def meter_phase(w):
     print(f"METER 300 ms tone: {rep} -> {after:.2f} LUFS")
     check(not rep["gated"] and rep["limited_by"] == "target", f"300 ms tone did not take the ungated path: {rep}")
     check(abs(after - TARGET) <= 0.01, f"300 ms tone normalized to {after} LUFS, want {TARGET}")
+    # Speech-like crest: a -29 dBFS tone with a 3 ms click every second, its true peak 21 dB above the
+    # loudness, so the target needs about 1.5 dB of limiting.
+    t = np.arange(24000 * 6) / 24000
+    clicky = 0.05 * np.sin(2 * np.pi * 220 * t)
+    for start in range(12000, clicky.size - 72, 24000):
+        clicky[start : start + 72] += 0.33 * np.hanning(72)
+    cap = w.LIMITER_MAX_GR_DB
+    out, rep = w.normalize_loudness(clicky)
+    after, tp = w.integrated_loudness(out)[0], w.true_peak_dbtp(out)
+    print(f"METER limiter on a clicky tone: {rep} -> {after:.2f} LUFS, {tp:.2f} dBTP")
+    check(abs(after - TARGET) <= 0.1 and rep["limited_by"] == "target", f"limiter: {after} LUFS {rep}, want {TARGET}")
+    check(tp <= CEILING + 1e-9, f"limiter: true peak {tp:.3f} dBTP above {CEILING}")
+    check(0.0 < rep["limiter_gr_db"] <= cap + 1e-9, f"limiter: gain reduction {rep['limiter_gr_db']} dB, cap {cap}")
+    w.LIMITER_MAX_GR_DB = 0.0
+    try:
+        out, rep = w.normalize_loudness(clicky)
+    finally:
+        w.LIMITER_MAX_GR_DB = cap
+    single = float(np.dot(out, clicky) / np.dot(clicky, clicky))
+    print(f"METER LIMITER_MAX_GR_DB = 0: {rep}")
+    check(rep["limited_by"] == "true_peak" and rep["limiter_gr_db"] == 0.0 and np.allclose(out, single * clicky),
+          f"LIMITER_MAX_GR_DB = 0 did not give one gain stopped by the true peak: {rep}")
 
 
 def ffmpeg_ebur128(ffmpeg, path):
@@ -147,9 +174,15 @@ def model_phase(w, ffmpeg, tmp):
         check(len(raw) == len(norm), f"{label}: {len(norm)} samples normalized vs {len(raw)} raw")
         check(out[True]["duration"] == out[False]["duration"], f"{label}: duration changed")
         n = min(len(raw), len(norm))
-        gain = float(np.dot(norm[:n], raw[:n]) / np.dot(raw[:n], raw[:n]))
-        residual = float(np.sqrt(np.mean((norm[:n] - gain * raw[:n]) ** 2)) / np.sqrt(np.mean(norm[:n] ** 2)))
-        check(residual <= 1e-3, f"{label}: normalized output is not the raw one times one gain (residual {residual:.2e})")
+        loud = np.abs(raw[:n]) > 0.01
+        ratio = norm[:n][loud] / raw[:n][loud]
+        gain = float(np.median(ratio))
+        reduction = -20 * np.log10(ratio / gain)
+        gr, raised = float(reduction.max()), float(-reduction.min())
+        over_1db = 100 * float((reduction > 1.0).sum()) / n
+        check(gr <= w.LIMITER_MAX_GR_DB + 0.05, f"{label}: {gr:.2f} dB of gain reduction, cap {w.LIMITER_MAX_GR_DB}")
+        check(raised <= 0.05, f"{label}: some samples raised {raised:.2f} dB above the static gain")
+        check(over_1db <= 1.0, f"{label}: {over_1db:.2f}% of samples more than 1 dB down, want <= 1%")
         path = os.path.join(tmp, f"{voice}-{length}.wav")
         sf.write(path, norm, 24000, subtype="PCM_16")
         raw_path = os.path.join(tmp, f"{voice}-{length}-raw.wav")
@@ -158,19 +191,22 @@ def model_phase(w, ffmpeg, tmp):
         raw_lufs_ff, raw_tp_ff = ffmpeg_ebur128(ffmpeg, raw_path)
         tp_own = w.true_peak_dbtp(norm)
         at_target = abs(lufs_ff - TARGET) <= TOLERANCE_LU
-        peak_bound = lufs_ff < TARGET - TOLERANCE_LU and tp_own >= CEILING - 0.1
+        peak_bound = lufs_ff < TARGET - TOLERANCE_LU and tp_own >= CEILING - 0.1 and gr >= w.LIMITER_MAX_GR_DB - 0.1
         reached += at_target
         row = dict(case=label, seconds=round(len(norm) / 24000, 2), raw_lufs=raw_lufs_ff, raw_tp=raw_tp_ff,
-                   gain_db=round(20 * math.log10(gain), 2), lufs=lufs_ff, tp_ffmpeg=tp_ff, tp_own=round(tp_own, 2),
-                   residual=float(f"{residual:.1e}"), bound="target" if at_target else "true_peak" if peak_bound else "NEITHER")
+                   gain_db=round(20 * math.log10(gain), 2), gr_db=round(gr, 2), pct_over_1db=round(over_1db, 2),
+                   lufs=lufs_ff, tp_ffmpeg=tp_ff, tp_own=round(tp_own, 2),
+                   bound="target" if at_target else "limiter_cap" if peak_bound else "NEITHER")
         rows.append(row)
         print("CASE " + json.dumps(row))
         check(tp_own <= CEILING + 0.01, f"{label}: true peak {tp_own:.2f} dBTP (worker meter) above {CEILING}")
         check(tp_ff <= CEILING + 0.05, f"{label}: true peak {tp_ff} dBTP (ffmpeg) above {CEILING}")
         check(lufs_ff <= TARGET + TOLERANCE_LU, f"{label}: {lufs_ff} LUFS is louder than the target")
-        check(at_target or peak_bound, f"{label}: {lufs_ff} LUFS, true peak {tp_own:.2f}: neither at target nor peak-bound")
-    print(f"MODEL {len(rows)} cases: {reached} at {TARGET}+-{TOLERANCE_LU} LUFS, {len(rows) - reached} held at the "
-          f"{CEILING} dBTP ceiling; output {min(r['lufs'] for r in rows)}..{max(r['lufs'] for r in rows)} LUFS, "
+        check(at_target or peak_bound, f"{label}: {lufs_ff} LUFS, true peak {tp_own:.2f}, {gr:.2f} dB limited: "
+              f"neither at target nor at the limiter's cap")
+    print(f"MODEL {len(rows)} cases: {reached} at {TARGET}+-{TOLERANCE_LU} LUFS, {len(rows) - reached} held by the "
+          f"{w.LIMITER_MAX_GR_DB} dB limiter cap at the {CEILING} dBTP ceiling; deepest limiting "
+          f"{max(r['gr_db'] for r in rows)} dB, at most {max(r['pct_over_1db'] for r in rows)}% of samples > 1 dB down; output {min(r['lufs'] for r in rows)}..{max(r['lufs'] for r in rows)} LUFS, "
           f"raw {min(r['raw_lufs'] for r in rows)}..{max(r['raw_lufs'] for r in rows)} LUFS")
     check(len(rows) == len(VOICES) * len(TEXTS), f"{len(rows)} of {len(VOICES) * len(TEXTS)} cases measured")
 

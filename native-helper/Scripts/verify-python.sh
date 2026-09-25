@@ -11,15 +11,17 @@
 #   5 probe     Scripts/kokoro_probe.py       (ok == 30, any_nan false, max_peak <= 0.98)
 #   6 g2p       Scripts/verify_g2p.py         (normalize_text + misaki rows)
 #   7 fidelity  Scripts/ref_compare.py        (|level| <= NTTS_MAX_LEVEL_DB, log-mel L1 <= NTTS_MAX_L1)
-#   8 loudness  Scripts/verify_loudness.py    (BS.1770-4 meter vs known answers; 5 voices x 3 lengths: -16 LUFS
-#                                              +-0.5 or held at the ceiling, true peak <= -1.5 dBTP, one gain,
-#                                              duration unchanged; ffmpeg ebur128 is the independent meter)
+#   8 loudness  Scripts/verify_loudness.py    (BS.1770-4 meter vs known answers, the limiter on a synthetic;
+#                                              5 voices x 3 lengths: -21 LUFS +-0.5 or held by the limiter's
+#                                              3 dB cap, true peak <= -1.5 dBTP, <= 3 dB of limiting on
+#                                              <= 1% of samples, duration unchanged; ffmpeg ebur128 is the
+#                                              independent meter)
 #
 # Checks 4, 6, 7 and 8 run the shipped tts_worker.py, so they guard IN-03 (worker hardening) and IN-04
 # (typographic punctuation) against regression; all 7 are green from IN-04 on, and check 8 from the 1.5.0
 # loudness normalization. Check 7 compares the synthesis BEFORE normalization (ref_compare.py sets
 # NTTS_LOUDNESS_NORMALIZE=0, which only verification tooling sets), so it still sees the decoder's own level;
-# check 8 proves the normalized output is that synthesis times one gain. Thresholds for 7 are parameters
+# check 8 proves the normalized output is that synthesis times one gain, lowered by at most 3 dB on its peaks. Thresholds for 7 are parameters
 # (defaults 0.5 dB / 0.13, calibrated against the R01 reference method: noise floor 0.049, mlx-audio 0.5.5 =
 # 0.115, 0.2.6 = 0.428). Check 8 needs ffmpeg (its ebur128 filter is the independent meter).
 #
