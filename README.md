@@ -41,6 +41,14 @@ https://github.com/user-attachments/assets/041d24b7-63a9-42f6-9137-38396ffc0300
 
 </details>
 
+<!-- launch-film -->
+https://github.com/user-attachments/assets/3a6ddc59-db2b-4667-a5b7-81b2634e576f
+
+<p align="center">
+  <b>The 22-second launch film.</b> Press play, then unmute.<br>
+  <sub>Both lines are spoken exactly as the helper made them: Heart (af_heart, 1.0×) reads "Reading aloud never really left us." and Emma (bf_emma, 1.2×) reads "A story spoken is a story shared, and the listener fills in the rest." Helper 1.5.1, on an M1 Max; the music stops while they speak. No player here? Open <a href="https://github.com/user-attachments/assets/3a6ddc59-db2b-4667-a5b7-81b2634e576f">the MP4 with sound</a>.</sub>
+</p>
+
 ## Install
 
 Install the helper, then the extension, and Chrome reads your selections in Kokoro voices; without the helper, it
