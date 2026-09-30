@@ -51,8 +51,6 @@ The formula builds the helper, installs its locked Python 3.12 environment and f
 `brew services` starts the helper now and at every login. Details:
 [packaging/homebrew/README.md](../packaging/homebrew/README.md).
 
-> The `renchris/tap` tap is published together with the store listing. Until then, use Option B.
-
 ### Option B: From source
 
 ```bash

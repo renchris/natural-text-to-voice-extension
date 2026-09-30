@@ -47,9 +47,7 @@ brew install renchris/tap/natural-tts
 brew services start natural-tts
 ```
 
-The `renchris/tap` tap is published together with the store listing; until then, install from source.
-
-From a source checkout, `quickstart.sh` installs uv, espeak-ng, tmux and jq with Homebrew if they are
+Or install from a source checkout. `quickstart.sh` installs uv, espeak-ng, tmux and jq with Homebrew if they are
 missing; the build needs Xcode 16.2+ or its Command Line Tools:
 
 ```bash

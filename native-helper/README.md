@@ -101,8 +101,7 @@ Steps 1-4 use the network once: Homebrew, the clone, the Python environment (~0.
 (the worker sets `HF_HUB_OFFLINE=1`).
 
 `Scripts/quickstart.sh` does steps 1-5 for you and runs the helper in a background tmux session; with Homebrew,
-`brew install renchris/tap/natural-tts && brew services start natural-tts` does the same as a login service
-(the tap is published together with the store listing).
+`brew install renchris/tap/natural-tts && brew services start natural-tts` does the same as a login service.
 
 ---
 

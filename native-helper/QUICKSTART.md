@@ -2,8 +2,7 @@
 
 Get the Natural TTS Helper running by hand, step by step. `Scripts/quickstart.sh` does all of this in one command
 (and runs the helper in a background tmux session); Homebrew users run
-`brew install renchris/tap/natural-tts && brew services start natural-tts` instead (the tap is published together
-with the store listing).
+`brew install renchris/tap/natural-tts && brew services start natural-tts` instead.
 
 ---
 
